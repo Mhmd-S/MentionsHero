@@ -1,0 +1,28 @@
+{
+  "name": "transcripts_generator",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxt/eslint": "1.13.0",
+    "@nuxt/hints": "1.0.0-alpha.5",
+    "@nuxt/ui": "4.4.0",
+    "@supabase/supabase-js": "^2.91.1",
+    "eslint": "^9.39.2",
+    "nuxt": "^4.3.0",
+    "replicate": "^1.4.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vue": "^3.5.27",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10"
+  }
+}
