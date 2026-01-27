@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs'
 import Replicate from 'replicate'
 import { createClient } from '@supabase/supabase-js'
+import { updateJobProgress } from '../utils/job-progress'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -10,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey)
 
   const body = await readBody(event)
-  const { url } = body
+  const { url, jobId } = body
 
   if (!url) {
     throw createError({
@@ -32,41 +33,60 @@ export default defineEventHandler(async (event) => {
     mkdirSync(downloadsDir, { recursive: true })
   }
 
-  // Download audio as MP3
-  const audioPath = await downloadAudio(url, downloadsDir)
+  try {
+    // Download audio as MP3
+    if (jobId) await updateJobProgress(jobId, 'downloading')
+    const audioPath = await downloadAudio(url, downloadsDir)
 
-  // Split audio into chunks and transcribe
-  const rawTranscript = await transcribeAudio(replicate, audioPath, downloadsDir)
+    // Split audio into chunks and transcribe
+    if (jobId) await updateJobProgress(jobId, 'transcribing')
+    const rawTranscript = await transcribeAudio(replicate, audioPath, downloadsDir, jobId)
 
-  // Clean up the audio file
-  if (existsSync(audioPath)) {
-    unlinkSync(audioPath)
-  }
+    // Clean up the audio file
+    if (existsSync(audioPath)) {
+      unlinkSync(audioPath)
+    }
 
-  // Clean up punctuation with Llama
-  const transcript = await cleanupTranscript(replicate, rawTranscript)
+    // Clean up punctuation with Llama
+    if (jobId) await updateJobProgress(jobId, 'cleaning')
+    const transcript = await cleanupTranscript(replicate, rawTranscript)
 
-  // Save to Supabase
-  const { data, error } = await supabase
-    .from('transcripts')
-    .insert({
-      youtube_url: url,
-      transcript
-    })
-    .select()
-    .single()
+    // Save to Supabase
+    if (jobId) await updateJobProgress(jobId, 'saving')
+    const { data, error } = await supabase
+      .from('transcripts')
+      .insert({
+        youtube_url: url,
+        transcript
+      })
+      .select()
+      .single()
 
-  if (error) {
-    throw createError({
-      statusCode: 500,
-      message: `Failed to save transcript: ${error.message}`
-    })
-  }
+    if (error) {
+      throw createError({
+        statusCode: 500,
+        message: `Failed to save transcript: ${error.message}`
+      })
+    }
 
-  return {
-    success: true,
-    transcript,
-    id: data.id
+    // Mark job as completed
+    if (jobId) {
+      await updateJobProgress(jobId, 'completed', undefined, { transcript_id: data.id })
+    }
+
+    return {
+      success: true,
+      transcript,
+      id: data.id
+    }
+  } catch (err: any) {
+    // Mark job as failed
+    if (jobId) {
+      await updateJobProgress(jobId, 'failed', undefined, {
+        error_message: err.data?.message || err.message || 'Processing failed'
+      })
+    }
+    throw err
   }
 })
 
@@ -192,7 +212,7 @@ async function transcribeChunk(replicate: Replicate, audioPath: string): Promise
   return String(output)
 }
 
-async function transcribeAudio(replicate: Replicate, audioPath: string, downloadsDir: string): Promise<string> {
+async function transcribeAudio(replicate: Replicate, audioPath: string, downloadsDir: string, jobId?: string): Promise<string> {
   const CHUNK_DURATION = 600 // 10 minutes per chunk to stay within limits
 
   let totalDuration: number
@@ -200,11 +220,13 @@ async function transcribeAudio(replicate: Replicate, audioPath: string, download
     totalDuration = await getAudioDuration(audioPath)
   } catch {
     // If ffprobe fails, transcribe the whole file
+    if (jobId) await updateJobProgress(jobId, 'transcribing', { current_chunk: 1, total_chunks: 1 })
     return await transcribeChunk(replicate, audioPath)
   }
 
   // If audio is short enough, transcribe directly
   if (totalDuration <= CHUNK_DURATION) {
+    if (jobId) await updateJobProgress(jobId, 'transcribing', { current_chunk: 1, total_chunks: 1 })
     return await transcribeChunk(replicate, audioPath)
   }
 
@@ -215,6 +237,9 @@ async function transcribeAudio(replicate: Replicate, audioPath: string, download
   for (let i = 0; i < numChunks; i++) {
     const startTime = i * CHUNK_DURATION
     const chunkPath = join(downloadsDir, `chunk_${i}.mp3`)
+
+    // Update progress with current chunk
+    if (jobId) await updateJobProgress(jobId, 'transcribing', { current_chunk: i + 1, total_chunks: numChunks })
 
     await splitAudio(audioPath, startTime, CHUNK_DURATION, chunkPath)
 
@@ -231,21 +256,74 @@ async function transcribeAudio(replicate: Replicate, audioPath: string, download
 }
 
 async function cleanupTranscript(replicate: Replicate, transcript: string): Promise<string> {
+  const MAX_CHUNK_CHARS = 1500 // ~500 tokens to stay well under 8096 limit with prompt
+
+  // If short enough, process directly
+  if (transcript.length <= MAX_CHUNK_CHARS) {
+    return await cleanupChunk(replicate, transcript)
+  }
+
+  // Split into chunks at word boundaries
+  const chunks: string[] = []
+  const words = transcript.split(/\s+/)
+  let currentChunk = ''
+
+  for (const word of words) {
+    if ((currentChunk + ' ' + word).length > MAX_CHUNK_CHARS && currentChunk) {
+      chunks.push(currentChunk.trim())
+      currentChunk = word
+    } else {
+      currentChunk += (currentChunk ? ' ' : '') + word
+    }
+  }
+  if (currentChunk) {
+    chunks.push(currentChunk.trim())
+  }
+
+  // Clean each chunk sequentially to avoid rate limits
+  const cleanedChunks: string[] = []
+  for (const chunk of chunks) {
+    const cleaned = await cleanupChunk(replicate, chunk)
+    cleanedChunks.push(cleaned)
+  }
+
+  return cleanedChunks.join(' ')
+}
+
+async function cleanupChunk(replicate: Replicate, text: string): Promise<string> {
   const output = await replicate.run('meta/meta-llama-3-8b-instruct', {
     input: {
-      prompt: `Clean up the punctuation in this transcript. Fix commas, apostrophes, periods, and other punctuation marks. Do NOT change any words, spelling, or grammar - only fix punctuation. Return only the cleaned transcript with no other text.
+      prompt: `Fix punctuation only. Output ONLY the corrected text, nothing else. No introduction, no explanation, no "Here is" - just the text with fixed punctuation.
 
-Transcript:
-${transcript}`,
+${text}`,
       max_tokens: 4096
     }
   })
 
+  let result: string
   if (typeof output === 'string') {
-    return output
+    result = output
+  } else if (Array.isArray(output)) {
+    result = output.join('')
+  } else {
+    return text
   }
-  if (Array.isArray(output)) {
-    return output.join('')
+
+  // Strip common LLM preambles
+  const preambles = [
+    /^here is the cleaned[^:]*:\s*/i,
+    /^here is the corrected[^:]*:\s*/i,
+    /^here is the fixed[^:]*:\s*/i,
+    /^here is the transcript[^:]*:\s*/i,
+    /^the corrected[^:]*:\s*/i,
+    /^corrected[^:]*:\s*/i,
+    /^transcript[^:]*:\s*/i,
+    /^cleaned[^:]*:\s*/i,
+  ]
+
+  for (const preamble of preambles) {
+    result = result.replace(preamble, '')
   }
-  return transcript
+
+  return result.trim()
 }
