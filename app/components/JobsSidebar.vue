@@ -74,7 +74,8 @@ function statusIcon(status: JobStatus): string {
     cleaning: 'i-heroicons-sparkles',
     saving: 'i-heroicons-cloud-arrow-up',
     completed: 'i-heroicons-check-circle',
-    failed: 'i-heroicons-x-circle'
+    failed: 'i-heroicons-x-circle',
+    cancelled: 'i-heroicons-x-mark'
   }
   return icons[status] || 'i-heroicons-question-mark-circle'
 }
@@ -82,6 +83,7 @@ function statusIcon(status: JobStatus): string {
 function statusIconClass(status: JobStatus): string {
   if (status === 'failed') return 'text-red-500'
   if (status === 'completed') return 'text-green-500'
+  if (status === 'cancelled') return 'text-yellow-500'
   return 'text-primary animate-pulse'
 }
 </script>

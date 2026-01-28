@@ -44,8 +44,8 @@ export default defineEventHandler(async (event) => {
             controller.enqueue(sendEvent(job))
           }
 
-          // Stop polling if job is completed or failed
-          if (job.status === 'completed' || job.status === 'failed') {
+          // Stop polling if job is completed, failed, or cancelled
+          if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
             controller.close()
             return false
           }
