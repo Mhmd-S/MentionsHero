@@ -16,21 +16,45 @@
         />
       </UFormField>
 
-      <UButton
-        v-if="!isProcessing && !isCompleted"
-        @click="startJob"
-        :loading="isStarting"
-        :disabled="!youtubeUrl || isStarting"
-        size="lg"
-      >
-        Transcribe
-      </UButton>
+      <UFormField>
+        <UCheckbox
+          v-model="skipCleanup"
+          label="Skip punctuation cleanup (faster, but less polished)"
+          :disabled="isProcessing"
+        />
+      </UFormField>
+
+      <div class="flex gap-3">
+        <UButton
+          v-if="!isProcessing && !isCompleted && !isCancelled"
+          @click="startJob"
+          :loading="isStarting"
+          :disabled="!youtubeUrl || isStarting"
+          size="lg"
+        >
+          Transcribe
+        </UButton>
+
+        <UButton
+          v-if="isProcessing && !isStarting"
+          @click="cancelJob"
+          :loading="isCancelling"
+          :disabled="isCancelling"
+          color="error"
+          variant="outline"
+          size="lg"
+        >
+          Cancel
+        </UButton>
+      </div>
 
       <JobProgress
         v-if="progress"
         :progress="progress"
         :status-label="statusLabel"
         :chunk-info="chunkInfo"
+        :substep-label="substepLabel"
+        :substep-detail="substepDetail"
       />
 
       <UAlert
@@ -67,6 +91,16 @@
           Try Again
         </UButton>
       </div>
+
+      <div v-if="isCancelled" class="space-y-4">
+        <UAlert color="warning" title="Job was cancelled" />
+        <UButton
+          variant="outline"
+          @click="resetForm"
+        >
+          Start New
+        </UButton>
+      </div>
     </div>
   </div>
 </template>
@@ -76,14 +110,17 @@ const route = useRoute()
 const router = useRouter()
 
 const youtubeUrl = ref('')
+const skipCleanup = ref(false)
 const isStarting = ref(false)
 const currentJobId = ref<string | null>(route.query.jobId as string || null)
 
-const { progress, error, statusLabel, chunkInfo, isActive } = useJobProgress(currentJobId)
+const { progress, error, statusLabel, chunkInfo, substepLabel, substepDetail, isActive } = useJobProgress(currentJobId)
 
+const isCancelling = ref(false)
 const isProcessing = computed(() => isActive.value || isStarting.value)
 const isCompleted = computed(() => progress.value?.status === 'completed')
 const isFailed = computed(() => progress.value?.status === 'failed')
+const isCancelled = computed(() => progress.value?.status === 'cancelled')
 
 async function startJob() {
   if (!youtubeUrl.value) return
@@ -93,7 +130,7 @@ async function startJob() {
   try {
     const response = await $fetch<{ jobId: string }>('/api/jobs', {
       method: 'POST',
-      body: { url: youtubeUrl.value }
+      body: { url: youtubeUrl.value, skipCleanup: skipCleanup.value }
     })
 
     currentJobId.value = response.jobId
@@ -110,8 +147,26 @@ async function startJob() {
 
 function resetForm() {
   youtubeUrl.value = ''
+  skipCleanup.value = false
   currentJobId.value = null
+  isCancelling.value = false
   router.replace({ query: {} })
+}
+
+async function cancelJob() {
+  if (!currentJobId.value) return
+
+  isCancelling.value = true
+
+  try {
+    await $fetch(`/api/jobs/${currentJobId.value}/cancel`, {
+      method: 'POST'
+    })
+  } catch (err: any) {
+    console.error('Failed to cancel job:', err)
+  } finally {
+    isCancelling.value = false
+  }
 }
 
 // Restore YouTube URL from job if returning to an active job

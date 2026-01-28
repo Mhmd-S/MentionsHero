@@ -3,9 +3,11 @@ import { ref, watch, computed, onUnmounted, type Ref } from 'vue'
 export interface StageProgress {
   current_chunk?: number
   total_chunks?: number
+  substep?: string
+  substep_detail?: string
 }
 
-export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'cleaning' | 'saving' | 'completed' | 'failed'
+export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'cleaning' | 'saving' | 'completed' | 'failed' | 'cancelled'
 
 export interface JobProgress {
   id: string
@@ -26,6 +28,9 @@ export function useJobProgress(jobId: Ref<string | null>) {
   const connect = () => {
     if (!jobId.value) return
 
+    // EventSource is browser-only
+    if (import.meta.server) return
+
     // Close existing connection
     if (eventSource.value) {
       eventSource.value.close()
@@ -45,7 +50,7 @@ export function useJobProgress(jobId: Ref<string | null>) {
           error.value = null
 
           // Close connection when job is done
-          if (data.status === 'completed' || data.status === 'failed') {
+          if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
             es.close()
           }
         }
@@ -83,7 +88,7 @@ export function useJobProgress(jobId: Ref<string | null>) {
   })
 
   const isActive = computed(() => {
-    return progress.value && !['completed', 'failed'].includes(progress.value.status)
+    return progress.value && !['completed', 'failed', 'cancelled'].includes(progress.value.status)
   })
 
   const statusLabel = computed(() => {
@@ -96,10 +101,19 @@ export function useJobProgress(jobId: Ref<string | null>) {
       cleaning: 'Cleaning up transcript...',
       saving: 'Saving transcript...',
       completed: 'Completed',
-      failed: 'Failed'
+      failed: 'Failed',
+      cancelled: 'Cancelled'
     }
 
     return labels[progress.value.status] || progress.value.status
+  })
+
+  const substepLabel = computed(() => {
+    return progress.value?.stage_progress?.substep || null
+  })
+
+  const substepDetail = computed(() => {
+    return progress.value?.stage_progress?.substep_detail || null
   })
 
   const chunkInfo = computed(() => {
@@ -117,6 +131,8 @@ export function useJobProgress(jobId: Ref<string | null>) {
     isActive,
     statusLabel,
     chunkInfo,
+    substepLabel,
+    substepDetail,
     connect,
     disconnect
   }

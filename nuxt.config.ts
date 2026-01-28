@@ -9,6 +9,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui'],
   runtimeConfig: {
     replicateApiKey: process.env.REPLICATE_API_KEY,
+    geminiApiKey: process.env.GEMINI_API_KEY,
     supabaseUrl: process.env.SUPABASE_URL,
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
     public: {

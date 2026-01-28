@@ -11,6 +11,14 @@
       size="md"
     />
 
+    <div v-if="isJobActive && substepLabel" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+      <UIcon name="i-heroicons-cog-6-tooth" class="size-4 animate-spin" />
+      <span>{{ substepLabel }}</span>
+    </div>
+    <p v-if="isJobActive && substepDetail" class="text-xs text-gray-500 dark:text-gray-500 ml-6">
+      {{ substepDetail }}
+    </p>
+
     <p v-if="progress.status === 'failed' && progress.error_message" class="text-sm text-red-600 dark:text-red-400">
       {{ progress.error_message }}
     </p>
@@ -24,15 +32,22 @@ const props = defineProps<{
   progress: JobProgress | null
   statusLabel: string
   chunkInfo: string | null
+  substepLabel: string | null
+  substepDetail: string | null
 }>()
 
-const stages: JobStatus[] = ['pending', 'downloading', 'transcribing', 'cleaning', 'saving', 'completed']
+const isJobActive = computed(() => {
+  return props.progress && !['completed', 'failed', 'cancelled'].includes(props.progress.status)
+})
+
+const stages: JobStatus[] = ['pending', 'downloading', 'transcribing', 'cleaning', 'saving', 'completed', 'cancelled']
 
 const progressPercent = computed(() => {
   if (!props.progress) return 0
 
   if (props.progress.status === 'failed') return 100
   if (props.progress.status === 'completed') return 100
+  if (props.progress.status === 'cancelled') return 100
 
   const stageIndex = stages.indexOf(props.progress.status)
   if (stageIndex === -1) return 0
@@ -56,6 +71,7 @@ const progressColor = computed(() => {
   if (!props.progress) return 'primary'
   if (props.progress.status === 'failed') return 'error'
   if (props.progress.status === 'completed') return 'success'
+  if (props.progress.status === 'cancelled') return 'warning'
   return 'primary'
 })
 </script>

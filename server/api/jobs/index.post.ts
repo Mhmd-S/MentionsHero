@@ -2,7 +2,7 @@ import { createJob, updateJobProgress } from '../../utils/job-progress'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { url } = body
+  const { url, skipCleanup } = body
 
   if (!url) {
     throw createError({
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   // The download endpoint will handle the actual processing
   $fetch('/api/download', {
     method: 'POST',
-    body: { url, jobId: job.id }
+    body: { url, jobId: job.id, skipCleanup }
   }).catch(async (err) => {
     // Update job status to failed if processing fails
     await updateJobProgress(job.id, 'failed', undefined, {

@@ -3,9 +3,11 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 export interface StageProgress {
   current_chunk?: number
   total_chunks?: number
+  substep?: string
+  substep_detail?: string
 }
 
-export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'cleaning' | 'saving' | 'completed' | 'failed'
+export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'cleaning' | 'saving' | 'completed' | 'failed' | 'cancelled'
 
 export interface Job {
   id: string
@@ -14,6 +16,7 @@ export interface Job {
   stage_progress: StageProgress
   error_message: string | null
   transcript_id: string | null
+  cancel_requested: boolean
   created_at: string
   updated_at: string
 }
@@ -108,7 +111,7 @@ export async function getActiveJobs(): Promise<Job[]> {
   const { data, error } = await supabase
     .from('jobs')
     .select()
-    .not('status', 'in', '("completed","failed")')
+    .not('status', 'in', '("completed","failed","cancelled")')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -117,4 +120,37 @@ export async function getActiveJobs(): Promise<Job[]> {
   }
 
   return data as Job[]
+}
+
+export async function checkCancellation(jobId: string): Promise<boolean> {
+  const supabase = getSupabase()
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('cancel_requested')
+    .eq('id', jobId)
+    .single()
+
+  if (error) {
+    console.error(`Failed to check cancellation for job ${jobId}:`, error.message)
+    return false
+  }
+
+  return data?.cancel_requested === true
+}
+
+export async function markJobCancelled(jobId: string): Promise<void> {
+  const supabase = getSupabase()
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      status: 'cancelled',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', jobId)
+
+  if (error) {
+    console.error(`Failed to mark job ${jobId} as cancelled:`, error.message)
+  }
 }
