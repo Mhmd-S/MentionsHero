@@ -9,18 +9,19 @@ interface TranscriptSegment {
  */
 export function parseTranscript(transcript: string): TranscriptSegment[] {
     const segments: TranscriptSegment[] = []
-    // Match speaker labels like "SPEAKER_00:", "SPEAKER_01:", "Character1:", etc.
-    const speakerPattern = /^([A-Z_0-9]+|Character\d+):\s*(.*)$/gm
+    // Match speaker labels like "SPEAKER_00:", "Gabe:", "Caroline:", "John Smith:", etc.
     const lines = transcript.split('\n')
-    
+
     let currentSpeaker: string | null = null
     let currentContent: string[] = []
-    
+
     for (const line of lines) {
         const trimmed = line.trim()
         if (!trimmed) continue
-        
-        const match = trimmed.match(/^([A-Z_0-9]+|Character\d+):\s*(.*)$/)
+
+        // Match: Name at start of line followed by colon
+        // Supports: "Gabe:", "Caroline:", "SPEAKER_00:", "John Smith:", "Mary-Jane:"
+        const match = trimmed.match(/^([A-Z][a-zA-Z'-]*(?:\s+[A-Z][a-zA-Z'-]*)?|[A-Z_0-9]+|Character\d+):\s*(.*)$/)
         if (match) {
             // Save previous segment if exists
             if (currentSpeaker !== null && currentContent.length > 0) {
@@ -168,10 +169,52 @@ export function highlightTranscript(
 export function extractSpeakers(transcript: string): string[] {
     const segments = parseTranscript(transcript)
     const speakers = new Set<string>()
-    
+
     for (const segment of segments) {
         speakers.add(segment.speaker)
     }
-    
+
     return Array.from(speakers).sort()
+}
+
+export interface SpeakerFrequency {
+    speaker: string
+    count: number
+}
+
+/**
+ * Calculate search term frequency per speaker
+ */
+export function calculateSpeakerFrequencies(
+    transcript: string,
+    searchString: string
+): SpeakerFrequency[] {
+    if (!searchString || !searchString.trim()) {
+        return []
+    }
+
+    const segments = parseTranscript(transcript)
+    const frequencyMap = new Map<string, number>()
+    const searchLower = searchString.toLowerCase()
+
+    for (const segment of segments) {
+        const contentLower = segment.content.toLowerCase()
+        let count = 0
+        let index = contentLower.indexOf(searchLower)
+
+        while (index !== -1) {
+            count++
+            index = contentLower.indexOf(searchLower, index + 1)
+        }
+
+        if (count > 0) {
+            const current = frequencyMap.get(segment.speaker) || 0
+            frequencyMap.set(segment.speaker, current + count)
+        }
+    }
+
+    // Convert to array and sort by count descending
+    return Array.from(frequencyMap.entries())
+        .map(([speaker, count]) => ({ speaker, count }))
+        .sort((a, b) => b.count - a.count)
 }

@@ -5,19 +5,31 @@
     </h3>
 
     <div class="space-y-2">
-      <NuxtLink
+      <div
         v-for="job in jobs"
         :key="job.id"
-        :to="`/?jobId=${job.id}`"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+        class="group flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
       >
-        <UIcon
-          :name="statusIcon(job.status)"
-          class="size-4 flex-shrink-0"
-          :class="statusIconClass(job.status)"
-        />
-        <span class="truncate flex-1">{{ formatUrl(job.youtube_url) }}</span>
-      </NuxtLink>
+        <NuxtLink
+          :to="`/?jobId=${job.id}`"
+          class="flex items-center gap-3 flex-1 min-w-0"
+        >
+          <UIcon
+            :name="statusIcon(job.status)"
+            class="size-4 flex-shrink-0"
+            :class="statusIconClass(job.status)"
+          />
+          <span class="truncate">{{ formatUrl(job.youtube_url) }}</span>
+        </NuxtLink>
+
+        <button
+          class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition-all"
+          title="Force cancel this job"
+          @click.stop="forceCancel(job.id)"
+        >
+          <UIcon name="i-heroicons-x-mark" class="size-4 text-red-500" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -39,6 +51,16 @@ const fetchJobs = async () => {
     jobs.value = response.jobs
   } catch (e) {
     console.error('Failed to fetch jobs:', e)
+  }
+}
+
+async function forceCancel(jobId: string) {
+  try {
+    await $fetch(`/api/jobs/${jobId}/force-cancel`, { method: 'POST' })
+    // Remove from local list immediately
+    jobs.value = jobs.value.filter(j => j.id !== jobId)
+  } catch (e) {
+    console.error('Failed to force cancel job:', e)
   }
 }
 
