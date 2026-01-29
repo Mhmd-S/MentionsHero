@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { highlightTranscript, extractSpeakers } from '../../utils/transcript-filter'
+import { highlightTranscript, extractSpeakers, calculateSpeakerFrequencies } from '../../utils/transcript-filter'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -42,10 +42,17 @@ export default defineEventHandler(async (event) => {
       searchString,
       speakers
     )
+    // Calculate speaker frequencies for search term
+    const speakerFrequencies = searchString
+      ? calculateSpeakerFrequencies(data.transcript, searchString)
+      : []
+
     return {
       ...data,
       transcript: highlightedTranscript,
       matchCount,
+      speakerFrequencies,
+      availableSpeakers,
       hasHighlights: true
     }
   }
