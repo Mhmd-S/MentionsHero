@@ -12,7 +12,8 @@
       "WebFetch(domain:replicate.com)",
       "mcp__ide__getDiagnostics",
       "Bash(find:*)",
-      "Bash(npm install @google/genai)"
+      "Bash(npm install @google/genai)",
+      "Bash(yt-dlp:*)"
     ]
   }
 }
