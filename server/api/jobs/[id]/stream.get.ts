@@ -25,14 +25,24 @@ export default defineEventHandler(async (event) => {
     async start(controller) {
       let lastStatus = ''
       let lastProgress = ''
+      let isClosed = false
+
+      const closeController = () => {
+        if (!isClosed) {
+          isClosed = true
+          controller.close()
+        }
+      }
 
       const poll = async () => {
+        if (isClosed) return false
+
         try {
           const job = await getJob(jobId)
 
           if (!job) {
             controller.enqueue(sendEvent({ error: 'Job not found' }))
-            controller.close()
+            closeController()
             return false
           }
 
@@ -46,7 +56,7 @@ export default defineEventHandler(async (event) => {
 
           // Stop polling if job is completed, failed, or cancelled
           if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
-            controller.close()
+            closeController()
             return false
           }
 
@@ -54,7 +64,7 @@ export default defineEventHandler(async (event) => {
         } catch (err) {
           console.error('SSE poll error:', err)
           controller.enqueue(sendEvent({ error: 'Failed to fetch job status' }))
-          controller.close()
+          closeController()
           return false
         }
       }
@@ -74,7 +84,7 @@ export default defineEventHandler(async (event) => {
       // Cleanup on connection close
       event.node.req.on('close', () => {
         clearInterval(interval)
-        controller.close()
+        closeController()
       })
     }
   })

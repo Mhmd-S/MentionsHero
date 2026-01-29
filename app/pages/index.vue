@@ -169,6 +169,20 @@ async function cancelJob() {
   }
 }
 
+// Watch for route query changes (e.g., clicking "New Transcript" while viewing a job)
+watch(() => route.query.jobId, (newJobId) => {
+  const id = newJobId as string || null
+  if (id !== currentJobId.value) {
+    currentJobId.value = id
+    // Clear form when navigating away from a job
+    if (!id) {
+      youtubeUrl.value = ''
+      skipCleanup.value = false
+      isCancelling.value = false
+    }
+  }
+})
+
 // Restore YouTube URL from job if returning to an active job
 watch(progress, (newProgress) => {
   if (newProgress && !youtubeUrl.value) {
