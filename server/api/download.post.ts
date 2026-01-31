@@ -2,7 +2,6 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { join } from 'node:path'
 import { readFile, stat } from 'node:fs/promises'
 import { existsSync, mkdirSync, unlinkSync } from 'node:fs'
-import Replicate from 'replicate'
 import { GoogleGenAI, createUserContent, createPartFromUri, Type } from '@google/genai'
 import { createClient } from '@supabase/supabase-js'
 import { updateJobProgress, checkCancellation, markJobCancelled } from '../utils/job-progress'
@@ -48,11 +47,10 @@ async function withRetry<T>(
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const replicate = new Replicate({ auth: config.replicateApiKey })
   const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey)
 
   const body = await readBody(event)
-  const { url, jobId, skipCleanup } = body
+  const { url, jobId, folderId, videoTitle } = body
 
   if (!url) {
     throw createError({
@@ -111,21 +109,6 @@ export default defineEventHandler(async (event) => {
       audioPath = null
     }
 
-    // Check cancellation before cleaning
-    await checkForCancellation()
-
-    // Clean up punctuation with Llama (unless disabled)
-    let transcript: string
-    if (skipCleanup) {
-      transcript = rawTranscript
-    } else {
-      if (jobId) await updateJobProgress(jobId, 'cleaning', {
-        substep: 'Improving punctuation',
-        substep_detail: 'Llama 3 formatting'
-      })
-      transcript = await cleanupTranscript(replicate, rawTranscript, jobId, abortController.signal)
-    }
-
     // Check cancellation before saving
     await checkForCancellation()
 
@@ -138,7 +121,8 @@ export default defineEventHandler(async (event) => {
       .from('transcripts')
       .insert({
         youtube_url: url,
-        transcript
+        transcript: rawTranscript,
+        folder_id: folderId || null
       })
       .select()
       .single()
@@ -157,7 +141,7 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
-      transcript,
+      transcript: rawTranscript,
       id: data.id
     }
   } catch (err: any) {
@@ -454,97 +438,4 @@ async function transcribeAudio(geminiApiKey: string, audioPath: string, jobId?: 
   }
 
   return await transcribeWithGemini(ai, audioPath, abortSignal)
-}
-
-async function cleanupTranscript(replicate: Replicate, transcript: string, jobId?: string, abortSignal?: AbortSignal): Promise<string> {
-  const MAX_CHUNK_CHARS = 1500 // ~500 tokens to stay well under 8096 limit with prompt
-
-  // Check for abort before starting
-  if (abortSignal?.aborted) {
-    throw new CancellationError()
-  }
-
-  // If short enough, process directly
-  if (transcript.length <= MAX_CHUNK_CHARS) {
-    return await cleanupChunk(replicate, transcript)
-  }
-
-  // Split into chunks at word boundaries
-  const chunks: string[] = []
-  const words = transcript.split(/\s+/)
-  let currentChunk = ''
-
-  for (const word of words) {
-    if ((currentChunk + ' ' + word).length > MAX_CHUNK_CHARS && currentChunk) {
-      chunks.push(currentChunk.trim())
-      currentChunk = word
-    } else {
-      currentChunk += (currentChunk ? ' ' : '') + word
-    }
-  }
-  if (currentChunk) {
-    chunks.push(currentChunk.trim())
-  }
-
-  // Clean each chunk sequentially to avoid rate limits
-  const cleanedChunks: string[] = []
-  for (let i = 0; i < chunks.length; i++) {
-    // Check for abort before each chunk
-    if (abortSignal?.aborted) {
-      throw new CancellationError()
-    }
-
-    // Update progress with chunk info
-    if (jobId) {
-      await updateJobProgress(jobId, 'cleaning', {
-        current_chunk: i + 1,
-        total_chunks: chunks.length,
-        substep: 'Improving punctuation',
-        substep_detail: `Llama 3 formatting (chunk ${i + 1} of ${chunks.length})`
-      })
-    }
-
-    const cleaned = await cleanupChunk(replicate, chunks[i]!)
-    cleanedChunks.push(cleaned)
-  }
-
-  return cleanedChunks.join(' ')
-}
-
-async function cleanupChunk(replicate: Replicate, text: string): Promise<string> {
-  const output = await replicate.run('meta/meta-llama-3-8b-instruct', {
-    input: {
-      prompt: `Fix punctuation only. This is a transcript with speaker labels (like SPEAKER_00:, SPEAKER_01:). Keep ALL speaker labels exactly as they are. Output ONLY the corrected text, nothing else. No introduction, no explanation, no "Here is" - just the text with fixed punctuation and preserved speaker labels.
-
-${text}`,
-      max_tokens: 4096
-    }
-  })
-
-  let result: string
-  if (typeof output === 'string') {
-    result = output
-  } else if (Array.isArray(output)) {
-    result = output.join('')
-  } else {
-    return text
-  }
-
-  // Strip common LLM preambles
-  const preambles = [
-    /^here is the cleaned[^:]*:\s*/i,
-    /^here is the corrected[^:]*:\s*/i,
-    /^here is the fixed[^:]*:\s*/i,
-    /^here is the transcript[^:]*:\s*/i,
-    /^the corrected[^:]*:\s*/i,
-    /^corrected[^:]*:\s*/i,
-    /^transcript[^:]*:\s*/i,
-    /^cleaned[^:]*:\s*/i,
-  ]
-
-  for (const preamble of preambles) {
-    result = result.replace(preamble, '')
-  }
-
-  return result.trim()
 }

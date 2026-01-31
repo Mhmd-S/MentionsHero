@@ -16,5 +16,5 @@ export default defineEventHandler(async () => {
     })
   }
 
-  return data
+  return Array.isArray(data) ? data : []
 })

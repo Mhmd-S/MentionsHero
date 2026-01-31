@@ -7,7 +7,7 @@ export interface StageProgress {
   substep_detail?: string
 }
 
-export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'cleaning' | 'saving' | 'completed' | 'failed' | 'cancelled'
+export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'saving' | 'completed' | 'failed' | 'cancelled'
 
 export interface Job {
   id: string
@@ -17,6 +17,10 @@ export interface Job {
   error_message: string | null
   transcript_id: string | null
   cancel_requested: boolean
+  playlist_id: string | null
+  playlist_name: string | null
+  playlist_index: number | null
+  video_title: string | null
   created_at: string
   updated_at: string
 }
@@ -31,7 +35,14 @@ function getSupabase(): SupabaseClient {
   return supabaseClient
 }
 
-export async function createJob(youtubeUrl: string): Promise<Job> {
+export interface CreateJobOptions {
+  videoTitle?: string | null
+  playlistId?: string | null
+  playlistName?: string | null
+  playlistIndex?: number | null
+}
+
+export async function createJob(youtubeUrl: string, options?: CreateJobOptions): Promise<Job> {
   const supabase = getSupabase()
 
   const { data, error } = await supabase
@@ -39,7 +50,11 @@ export async function createJob(youtubeUrl: string): Promise<Job> {
     .insert({
       youtube_url: youtubeUrl,
       status: 'pending',
-      stage_progress: {}
+      stage_progress: {},
+      video_title: options?.videoTitle || null,
+      playlist_id: options?.playlistId || null,
+      playlist_name: options?.playlistName || null,
+      playlist_index: options?.playlistIndex ?? null
     })
     .select()
     .single()

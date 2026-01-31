@@ -90,7 +90,7 @@
                 <UFormField label="Highlight speakers">
                   <USelectMenu
                     v-model="selectedSpeakers"
-                    :options="availableSpeakers"
+                    :items="availableSpeakers"
                     :placeholder="selectedSpeakers.length === 0 ? 'Select speakers to highlight...' : `${selectedSpeakers.length} selected`"
                     multiple
                   />

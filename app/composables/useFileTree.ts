@@ -21,8 +21,13 @@ export function useFileTree() {
   const dropTargetId = useState<string | null>('file-tree-drop-target', () => null)
 
   async function fetchFolders() {
-    const data = await $fetch<Folder[]>('/api/folders')
-    folders.value = data
+    try {
+      const data = await $fetch<Folder[]>('/api/folders')
+      folders.value = data
+    } catch (err) {
+      console.error('Failed to fetch folders:', err)
+      folders.value = []
+    }
   }
 
   async function fetchTranscripts() {

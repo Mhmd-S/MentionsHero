@@ -6,33 +6,57 @@
     </div>
 
     <div class="max-w-xl space-y-6">
-      <UFormField label="YouTube URL">
-        <UInput
-          v-model="youtubeUrl"
-          placeholder="https://www.youtube.com/watch?v=..."
-          size="lg"
-          class="w-full"
-          :disabled="isProcessing"
-        />
-      </UFormField>
+      <!-- URL Input Mode -->
+      <div v-if="inputMode === 'single' || inputMode === 'detecting'">
+        <UFormField label="YouTube URL">
+          <UTextarea
+            v-model="youtubeUrl"
+            placeholder="https://www.youtube.com/watch?v=...&#10;&#10;Paste a video URL, playlist URL, or multiple URLs (one per line)"
+            :rows="3"
+            class="w-full"
+            :disabled="isProcessing"
+          />
+        </UFormField>
+      </div>
 
-      <UFormField>
-        <UCheckbox
-          v-model="skipCleanup"
-          label="Skip punctuation cleanup (faster, but less polished)"
-          :disabled="isProcessing"
-        />
-      </UFormField>
+      <!-- Video Preview for single video -->
+      <VideoPreview
+        v-if="inputMode === 'single' && (videoInfo || videoLoading || videoError)"
+        :video="videoInfo"
+        :loading="videoLoading"
+        :error="videoError"
+      />
+
+      <!-- Playlist Selector -->
+      <PlaylistSelector
+        v-if="inputMode === 'playlist'"
+        :playlist="playlistInfo"
+        :loading="playlistLoading"
+        :error="playlistError"
+        v-model:selected="selectedVideos"
+        @back="clearInput"
+      />
+
+      <!-- Batch URL Input -->
+      <BatchUrlInput
+        v-if="inputMode === 'batch'"
+        :urls="parsedUrls"
+        v-model:selected="selectedVideos"
+        @update:urls="parsedUrls = $event"
+        @back="clearInput"
+      />
+
+      <FolderPicker v-model="selectedFolderId" :disabled="isProcessing" />
 
       <div class="flex gap-3">
         <UButton
           v-if="!isProcessing && !isCompleted && !isCancelled"
           @click="startJob"
           :loading="isStarting"
-          :disabled="!youtubeUrl || isStarting"
+          :disabled="!canTranscribe || isStarting"
           size="lg"
         >
-          Transcribe
+          {{ transcribeButtonLabel }}
         </UButton>
 
         <UButton
@@ -106,13 +130,51 @@
 </template>
 
 <script setup lang="ts">
+interface VideoInfo {
+  id: string
+  title: string
+  duration: number
+  durationFormatted: string
+  thumbnail: string
+  channel: string
+  viewCount?: number
+  uploadDate?: string
+  url: string
+}
+
+interface PlaylistInfo {
+  id: string
+  title: string
+  channel: string
+  videoCount: number
+  videos: VideoInfo[]
+}
+
+type InputMode = 'detecting' | 'single' | 'playlist' | 'batch'
+
 const route = useRoute()
 const router = useRouter()
 
 const youtubeUrl = ref('')
-const skipCleanup = ref(false)
+const selectedFolderId = ref<string | null>(null)
 const isStarting = ref(false)
 const currentJobId = ref<string | null>(route.query.jobId as string || null)
+
+// Video preview state
+const videoInfo = ref<VideoInfo | null>(null)
+const videoLoading = ref(false)
+const videoError = ref<string | null>(null)
+
+// Playlist state
+const playlistInfo = ref<PlaylistInfo | null>(null)
+const playlistLoading = ref(false)
+const playlistError = ref<string | null>(null)
+
+// Batch/selection state
+const parsedUrls = ref<VideoInfo[]>([])
+const selectedVideos = ref<VideoInfo[]>([])
+
+const inputMode = ref<InputMode>('detecting')
 
 const { progress, error, statusLabel, chunkInfo, substepLabel, substepDetail, isActive } = useJobProgress(currentJobId)
 
@@ -122,23 +184,199 @@ const isCompleted = computed(() => progress.value?.status === 'completed')
 const isFailed = computed(() => progress.value?.status === 'failed')
 const isCancelled = computed(() => progress.value?.status === 'cancelled')
 
-async function startJob() {
-  if (!youtubeUrl.value) return
+const canTranscribe = computed(() => {
+  if (inputMode.value === 'single') {
+    return !!videoInfo.value && !videoLoading.value
+  }
+  if (inputMode.value === 'playlist' || inputMode.value === 'batch') {
+    return selectedVideos.value.length > 0
+  }
+  return false
+})
 
+const transcribeButtonLabel = computed(() => {
+  if (inputMode.value === 'playlist' || inputMode.value === 'batch') {
+    const count = selectedVideos.value.length
+    return count > 1 ? `Transcribe ${count} Videos` : 'Transcribe'
+  }
+  return 'Transcribe'
+})
+
+// URL type detection helpers
+function isPlaylistUrl(url: string): boolean {
+  return url.includes('list=') && (url.includes('youtube.com') || url.includes('youtu.be'))
+}
+
+function isSingleVideoUrl(url: string): boolean {
+  const regex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]+/
+  return regex.test(url.trim())
+}
+
+function parseMultipleUrls(input: string): string[] {
+  const lines = input.split(/[\n,]/).map(l => l.trim()).filter(Boolean)
+  return lines.filter(line => isSingleVideoUrl(line) || isPlaylistUrl(line))
+}
+
+// Debounced URL watcher
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(youtubeUrl, (newUrl) => {
+  // Clear previous state
+  videoInfo.value = null
+  videoError.value = null
+  playlistInfo.value = null
+  playlistError.value = null
+  parsedUrls.value = []
+  selectedVideos.value = []
+
+  if (!newUrl.trim()) {
+    inputMode.value = 'detecting'
+    return
+  }
+
+  // Debounce the detection
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => detectAndFetch(newUrl), 500)
+})
+
+async function detectAndFetch(input: string) {
+  const urls = parseMultipleUrls(input)
+
+  if (urls.length === 0) {
+    inputMode.value = 'detecting'
+    return
+  }
+
+  // Check for multiple URLs (batch mode)
+  if (urls.length > 1) {
+    inputMode.value = 'batch'
+    await fetchBatchVideoInfo(urls)
+    return
+  }
+
+  const url = urls[0]!
+
+  // Check for playlist
+  if (isPlaylistUrl(url)) {
+    inputMode.value = 'playlist'
+    await fetchPlaylistInfo(url)
+    return
+  }
+
+  // Single video
+  if (isSingleVideoUrl(url)) {
+    inputMode.value = 'single'
+    await fetchVideoInfo(url)
+    return
+  }
+
+  inputMode.value = 'detecting'
+}
+
+async function fetchVideoInfo(url: string) {
+  videoLoading.value = true
+  videoError.value = null
+
+  try {
+    const info = await $fetch<VideoInfo>('/api/video/info', {
+      method: 'POST',
+      body: { url }
+    })
+    videoInfo.value = { ...info, url }
+  } catch (err: any) {
+    videoError.value = err.data?.message || 'Failed to fetch video info'
+  } finally {
+    videoLoading.value = false
+  }
+}
+
+async function fetchPlaylistInfo(url: string) {
+  playlistLoading.value = true
+  playlistError.value = null
+
+  try {
+    const info = await $fetch<PlaylistInfo>('/api/playlist/info', {
+      method: 'POST',
+      body: { url }
+    })
+    playlistInfo.value = info
+    // Select all videos by default
+    selectedVideos.value = [...info.videos]
+  } catch (err: any) {
+    playlistError.value = err.data?.message || 'Failed to fetch playlist info'
+  } finally {
+    playlistLoading.value = false
+  }
+}
+
+async function fetchBatchVideoInfo(urls: string[]) {
+  const results: VideoInfo[] = []
+
+  for (const url of urls) {
+    try {
+      const info = await $fetch<VideoInfo>('/api/video/info', {
+        method: 'POST',
+        body: { url }
+      })
+      results.push({ ...info, url })
+    } catch (err) {
+      // Skip failed URLs
+      console.error(`Failed to fetch info for ${url}:`, err)
+    }
+  }
+
+  parsedUrls.value = results
+  selectedVideos.value = [...results]
+}
+
+function clearInput() {
+  youtubeUrl.value = ''
+  inputMode.value = 'detecting'
+}
+
+async function startJob() {
   isStarting.value = true
 
   try {
-    const response = await $fetch<{ jobId: string }>('/api/jobs', {
-      method: 'POST',
-      body: { url: youtubeUrl.value, skipCleanup: skipCleanup.value }
-    })
+    // Single video mode
+    if (inputMode.value === 'single' && videoInfo.value) {
+      const response = await $fetch<{ jobId: string }>('/api/jobs', {
+        method: 'POST',
+        body: {
+          url: videoInfo.value.url || youtubeUrl.value.trim(),
+          folderId: selectedFolderId.value,
+          videoTitle: videoInfo.value.title
+        }
+      })
 
-    currentJobId.value = response.jobId
+      currentJobId.value = response.jobId
+      router.replace({ query: { jobId: response.jobId } })
+      return
+    }
 
-    // Update URL with jobId for refresh recovery
-    router.replace({ query: { jobId: response.jobId } })
+    // Batch mode (playlist or multiple URLs)
+    if ((inputMode.value === 'playlist' || inputMode.value === 'batch') && selectedVideos.value.length > 0) {
+      const response = await $fetch<{ jobIds: string[] }>('/api/jobs/batch', {
+        method: 'POST',
+        body: {
+          videos: selectedVideos.value.map(v => ({
+            url: v.url,
+            title: v.title
+          })),
+          folderId: selectedFolderId.value,
+          playlistId: playlistInfo.value?.id,
+          playlistName: playlistInfo.value?.title
+        }
+      })
+
+      // Navigate to first job
+      if (response.jobIds.length > 0) {
+        currentJobId.value = response.jobIds[0]!
+        router.replace({ query: { jobId: response.jobIds[0] } })
+      }
+      return
+    }
   } catch (err: any) {
-    // Error will be shown through the progress composable or caught here
     console.error('Failed to start job:', err)
   } finally {
     isStarting.value = false
@@ -147,9 +385,16 @@ async function startJob() {
 
 function resetForm() {
   youtubeUrl.value = ''
-  skipCleanup.value = false
+  selectedFolderId.value = null
   currentJobId.value = null
   isCancelling.value = false
+  videoInfo.value = null
+  videoError.value = null
+  playlistInfo.value = null
+  playlistError.value = null
+  parsedUrls.value = []
+  selectedVideos.value = []
+  inputMode.value = 'detecting'
   router.replace({ query: {} })
 }
 
@@ -169,16 +414,13 @@ async function cancelJob() {
   }
 }
 
-// Watch for route query changes (e.g., clicking "New Transcript" while viewing a job)
+// Watch for route query changes
 watch(() => route.query.jobId, (newJobId) => {
   const id = newJobId as string || null
   if (id !== currentJobId.value) {
     currentJobId.value = id
-    // Clear form when navigating away from a job
     if (!id) {
-      youtubeUrl.value = ''
-      skipCleanup.value = false
-      isCancelling.value = false
+      resetForm()
     }
   }
 })

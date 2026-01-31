@@ -1,7 +1,15 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { fileURLToPath } from 'node:url'
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  ignore: ['analysis/**'],
+  nitro: {
+    alias: {
+      '~': fileURLToPath(new URL('.', import.meta.url))
+    }
+  },
   ui: {
     colorMode: false
   },
