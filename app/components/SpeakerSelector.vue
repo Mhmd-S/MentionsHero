@@ -7,7 +7,7 @@ export interface SpeakerInfo {
 
 const props = withDefaults(
   defineProps<{
-    modelValue?: string | null
+    modelValue?: string[] | string | null
     folderId?: string | null
     placeholder?: string
   }>(),
@@ -19,26 +19,32 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | null]
+  'update:modelValue': [value: string[] | string | null]
 }>()
 
 const speakers = ref<SpeakerInfo[]>([])
 const loading = ref(false)
 
-const SPEAKER_ALL = '__all__' as const
-
 const options = computed(() => [
-  { label: props.placeholder, value: SPEAKER_ALL },
   ...speakers.value.map((s: SpeakerInfo) => ({
     label: `${s.name} (${s.briefings} briefings)`,
     value: s.name
   }))
 ])
 
-const selected = computed({
-  get: () => props.modelValue ?? SPEAKER_ALL,
-  set: (v: string) => emit('update:modelValue', v === SPEAKER_ALL ? null : v)
+const selected = computed<string[]>({
+  get: () => (Array.isArray(props.modelValue) ? props.modelValue : props.modelValue ? [props.modelValue] : []),
+  set: (value: string[] | string) => {
+    const normalized = Array.isArray(value) ? value.filter(Boolean) : value ? [value] : []
+    emit('update:modelValue', normalized.length > 0 ? normalized : null)
+  }
 })
+
+const selectionPlaceholder = computed(() =>
+  selected.value.length === 0
+    ? props.placeholder
+    : `${selected.value.length} selected`
+)
 
 async function loadSpeakers() {
   loading.value = true
@@ -55,6 +61,11 @@ async function loadSpeakers() {
   }
 }
 
+function removeSpeaker(name: string) {
+  const next = selected.value.filter((s) => s !== name)
+  emit('update:modelValue', next.length > 0 ? next : null)
+}
+
 watch(
   () => props.folderId,
   (id) => {
@@ -69,15 +80,35 @@ watch(
 </script>
 
 <template>
-  <div class="flex items-center gap-2">
-    <label class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Speaker:</label>
-    <USelect
-      v-model="selected"
-      :items="options"
-      :loading="loading"
-      :disabled="!props.folderId"
-      class="min-w-[200px]"
-      value-key="value"
-    />
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center gap-2">
+      <label class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Speaker:</label>
+      <USelectMenu
+        v-model="selected"
+        :items="options"
+        :loading="loading"
+        :disabled="!props.folderId"
+        :placeholder="selectionPlaceholder"
+        class="min-w-[240px]"
+        multiple
+        searchable
+        clearable
+        value-key="value"
+        label-key="label"
+      />
+    </div>
+    <div v-if="selected.length > 0" class="flex flex-wrap gap-2">
+      <UBadge
+        v-for="name in selected"
+        :key="name"
+        color="neutral"
+        size="md"
+        class="cursor-pointer"
+        @click="removeSpeaker(name)"
+      >
+        {{ name }}
+        <UIcon name="i-heroicons-x-mark" class="w-3 h-3 ml-1" />
+      </UBadge>
+    </div>
   </div>
 </template>

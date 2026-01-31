@@ -38,15 +38,6 @@ export interface NgramData {
   percentage: number;
 }
 
-export interface EntityData {
-  entity: string;
-  type: string;
-  count: number;
-  briefings_with_entity: number;
-  total_briefings: number;
-  percentage: number;
-}
-
 export interface SearchMatch {
   transcript_id: string;
   transcript_name: string;
@@ -100,7 +91,7 @@ export function useAnalysis() {
   // Using useState for SSR-safe shared state that persists across components
   const selectedFolderId = useState<string | null>('analysis-selected-folder', () => null);
   const folders = useState<AnalysisFolder[]>('analysis-folders', () => []);
-  const selectedSpeakers = useState<string | null>('analysis-selected-speakers', () => null);
+  const selectedSpeakers = useState<string[] | null>('analysis-selected-speakers', () => null);
   const speakersList = useState<SpeakerInfo[]>('analysis-speakers-list', () => []);
   const loading = useState<boolean>('analysis-loading', () => false);
   const error = useState<string | null>('analysis-error', () => null);
@@ -269,45 +260,6 @@ export function useAnalysis() {
     }
   }
 
-  /**
-   * Get named entities
-   */
-  async function getEntities(
-    types?: string[],
-    folderId?: string | null,
-    speakers?: string | string[] | null
-  ): Promise<EntityData[]> {
-    const folder = folderId ?? selectedFolderId.value;
-    if (!folder) return [];
-
-    loading.value = true;
-    error.value = null;
-    const speakerParam = speakers ?? selectedSpeakers.value;
-    const speakersQuery = speakerParam
-      ? Array.isArray(speakerParam)
-        ? speakerParam.join(",")
-        : speakerParam
-      : undefined;
-
-    try {
-      const result = await $fetch<{ entities: EntityData[] }>(
-        "/api/analysis/entities",
-        {
-          query: {
-            ...(types && { types: types.join(",") }),
-            ...(folder && { folder_id: folder }),
-            ...(speakersQuery && { speakers: speakersQuery }),
-          },
-        }
-      );
-      return result.entities;
-    } catch (e: any) {
-      error.value = e.message || "Failed to fetch entities";
-      return [];
-    } finally {
-      loading.value = false;
-    }
-  }
 
   /**
    * Search for a term in context
@@ -349,93 +301,6 @@ export function useAnalysis() {
     }
   }
 
-  /**
-   * Get high-confidence phrases (90%+ mention rate)
-   */
-  async function getHighConfidencePhrases(
-    minPercentage = 90,
-    folderId?: string | null,
-    speakers?: string | string[] | null
-  ): Promise<NgramData[]> {
-    const folder = folderId ?? selectedFolderId.value;
-    if (!folder) return [];
-
-    loading.value = true;
-    error.value = null;
-    const speakerParam = speakers ?? selectedSpeakers.value;
-    const speakersQuery = speakerParam
-      ? Array.isArray(speakerParam)
-        ? speakerParam.join(",")
-        : speakerParam
-      : undefined;
-
-    try {
-      const result = await $fetch<{ phrases: NgramData[] }>(
-        "/api/analysis/high-confidence",
-        {
-          query: {
-            min_percentage: minPercentage,
-            ...(folder && { folder_id: folder }),
-            ...(speakersQuery && { speakers: speakersQuery }),
-          },
-        }
-      );
-      return result.phrases;
-    } catch (e: any) {
-      error.value = e.message || "Failed to fetch high-confidence phrases";
-      return [];
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  /**
-   * Get temporal trends for terms
-   */
-  async function getTemporalTrends(
-    terms: string[],
-    folderId?: string | null,
-    speakers?: string | string[] | null
-  ): Promise<
-    Record<
-      string,
-      Array<{ date: string | null; count: number; transcript_name: string }>
-    >
-  > {
-    const folder = folderId ?? selectedFolderId.value;
-    if (!folder) return {};
-
-    loading.value = true;
-    error.value = null;
-    const speakerParam = speakers ?? selectedSpeakers.value;
-    const speakersBody = speakerParam
-      ? Array.isArray(speakerParam)
-        ? speakerParam
-        : [speakerParam]
-      : undefined;
-
-    try {
-      const result = await $fetch<{
-        trends: Record<
-          string,
-          Array<{ date: string | null; count: number; transcript_name: string }>
-        >;
-      }>("/api/analysis/trends", {
-        method: "POST",
-        body: {
-          terms,
-          folder_id: folder,
-          ...(speakersBody?.length && { speakers: speakersBody }),
-        },
-      });
-      return result.trends;
-    } catch (e: any) {
-      error.value = e.message || "Failed to fetch trends";
-      return {};
-    } finally {
-      loading.value = false;
-    }
-  }
 
   /**
    * Get Polymarket markets
@@ -498,10 +363,7 @@ export function useAnalysis() {
     getTermFrequency,
     getAllTerms,
     getNgrams,
-    getEntities,
     searchTerm,
-    getHighConfidencePhrases,
-    getTemporalTrends,
     getPolymarkets,
     analyzeMarket,
   };

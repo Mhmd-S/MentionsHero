@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getFolderIdsInTree } from '../../../utils/folder-descendants'
 
 interface TermFrequencyResult {
   term: string
@@ -55,7 +56,8 @@ export default defineEventHandler(async (event): Promise<TermFrequencyResult> =>
     .select('id, transcript, name, created_at, folder_id')
 
   if (folderId) {
-    dbQuery = dbQuery.eq('folder_id', folderId)
+    const folderIds = await getFolderIdsInTree(supabase, folderId)
+    dbQuery = dbQuery.in('folder_id', folderIds)
   }
 
   const { data: transcripts, error } = await dbQuery
@@ -83,20 +85,78 @@ export default defineEventHandler(async (event): Promise<TermFrequencyResult> =>
       .replace(/^\s*SPEAKER_\d+:\s*\n?/gm, '') // Remove diarization labels
   }
 
+  function filterTranscriptBySpeakers(transcript: string, speakerList: string[]): string {
+    if (!speakerList.length) return transcript
+
+    const speakerLower = speakerList.map(s => s.toLowerCase())
+    const lines = transcript.split('\n')
+    const speakerPattern = /^([A-Z][a-zA-Z'-]*(?:\s+[A-Z][a-zA-Z'-]*)?|SPEAKER_\d+):\s*(.*)$/
+
+    let currentSpeaker: string | null = null
+    let currentContent: string[] = []
+    const segments: Array<{ speaker: string; content: string }> = []
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      const match = speakerPattern.exec(trimmed)
+      if (match) {
+        if (currentSpeaker && currentContent.length > 0) {
+          segments.push({ speaker: currentSpeaker, content: currentContent.join(' ').trim() })
+        }
+        currentSpeaker = match[1]
+        currentContent = match[2] ? [match[2]] : []
+        continue
+      }
+
+      if (currentSpeaker) {
+        currentContent.push(trimmed)
+      }
+    }
+
+    if (currentSpeaker && currentContent.length > 0) {
+      segments.push({ speaker: currentSpeaker, content: currentContent.join(' ').trim() })
+    }
+
+    const matchesSpeaker = (segmentSpeaker: string) => {
+      const segLower = segmentSpeaker.toLowerCase()
+      return speakerLower.some(sl => segLower === sl || segLower.startsWith(sl) || segLower.includes(sl))
+    }
+
+    return segments
+      .filter(segment => matchesSpeaker(segment.speaker))
+      .map(segment => segment.content)
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+  }
+
+  function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
   // Simple term frequency calculation
   let totalMentions = 0
   let briefingsWithTerm = 0
   const mentionsByDate: Array<{ date: string | null; name: string; count: number }> = []
 
   const searchTerm = caseSensitive ? decodedTerm : decodedTerm.toLowerCase()
-  const regex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi')
+  const regex = new RegExp(escapeRegExp(searchTerm), 'g')
 
   for (const t of transcripts) {
     if (!t.transcript) continue
 
+    const text = speakers?.length
+      ? filterTranscriptBySpeakers(t.transcript, speakers)
+      : t.transcript
+
+    if (!text) continue
+
     // Clean the transcript to remove speaker labels before counting
-    const cleanedText = cleanTranscript(t.transcript)
-    const matches = cleanedText.match(regex)
+    const cleanedText = cleanTranscript(text)
+    const normalizedText = caseSensitive ? cleanedText : cleanedText.toLowerCase()
+    const matches = normalizedText.match(regex)
     const count = matches ? matches.length : 0
 
     if (count > 0) {

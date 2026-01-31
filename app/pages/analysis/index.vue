@@ -35,8 +35,9 @@ function onFolderChange(value: unknown) {
   }
 }
 
-function onSpeakerChange(value: string | null) {
-  selectedSpeakers.value = value || null
+function onSpeakerChange(value: string[] | string | null) {
+  const normalized = Array.isArray(value) ? value : value ? [value] : []
+  selectedSpeakers.value = normalized.length > 0 ? normalized : null
   if (selectedFolderId.value) {
     loadTopTerms()
   }
@@ -48,10 +49,7 @@ onMounted(async () => {
 
 const tabs = [
   { label: 'Term Search', value: 'search', icon: 'i-heroicons-magnifying-glass' },
-  { label: 'High Confidence', value: 'confidence', icon: 'i-heroicons-check-badge' },
-  { label: 'Markets', value: 'markets', icon: 'i-heroicons-chart-bar' },
-  { label: 'Trends', value: 'trends', icon: 'i-heroicons-arrow-trending-up' },
-  { label: 'Entities', value: 'entities', icon: 'i-heroicons-user-group' }
+  { label: 'Markets', value: 'markets', icon: 'i-heroicons-chart-bar' }
 ]
 </script>
 
@@ -87,42 +85,6 @@ const tabs = [
       </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      <UCard class="text-center">
-        <div class="text-3xl font-bold text-primary">
-          {{ topTerms.length > 0 ? topTerms.reduce((sum, t) => sum + t.count, 0).toLocaleString() : '-' }}
-        </div>
-        <div class="text-sm text-gray-500">Total Words Analyzed</div>
-      </UCard>
-      <UCard class="text-center">
-        <div class="text-3xl font-bold text-blue-600">Live</div>
-        <div class="text-sm text-gray-500">Market Data</div>
-      </UCard>
-    </div>
-
-    <!-- Top Terms Quick View -->
-    <UCard v-if="topTerms.length > 0" class="mb-8">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <h3 class="font-semibold">Most Frequent Terms</h3>
-          <UButton variant="ghost" size="xs" :loading="loading" @click="loadTopTerms">
-            Refresh
-          </UButton>
-        </div>
-      </template>
-      <div class="flex flex-wrap gap-2">
-        <UBadge
-          v-for="term in topTerms"
-          :key="term.term"
-          size="lg"
-          color="neutral"
-        >
-          {{ term.term }} ({{ term.percentage.toFixed(0) }}%)
-        </UBadge>
-      </div>
-    </UCard>
-
     <!-- Tab Navigation -->
     <div class="mb-6">
       <div class="flex gap-2 overflow-x-auto pb-2">
@@ -142,41 +104,7 @@ const tabs = [
     <!-- Tab Content -->
     <div class="min-h-[400px]">
       <TermSearch v-if="activeTab === 'search'" />
-      <HighConfidenceTerms v-else-if="activeTab === 'confidence'" />
       <MarketAnalysis v-else-if="activeTab === 'markets'" />
-      <FrequencyChart v-else-if="activeTab === 'trends'" />
-      <EntityList v-else-if="activeTab === 'entities'" />
     </div>
-
-    <!-- Help Section -->
-    <UCard class="mt-8">
-      <template #header>
-        <h3 class="font-semibold flex items-center gap-2">
-          <UIcon name="i-heroicons-question-mark-circle" class="w-5 h-5" />
-          How to Use This Dashboard
-        </h3>
-      </template>
-
-      <div class="grid md:grid-cols-2 gap-6 text-sm">
-        <div>
-          <h4 class="font-medium mb-2">For Betting Strategy:</h4>
-          <ol class="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400">
-            <li>Check <strong>High Confidence</strong> tab for safe bets (90%+ mention rate)</li>
-            <li>Use <strong>Term Search</strong> to verify specific market terms</li>
-            <li>Compare historical percentage to market prices in <strong>Markets</strong> tab</li>
-            <li>Track <strong>Trends</strong> to see if term usage is increasing or decreasing</li>
-          </ol>
-        </div>
-        <div>
-          <h4 class="font-medium mb-2">Understanding the Analysis:</h4>
-          <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
-            <li><strong>Percentage</strong>: % of briefings containing the term</li>
-            <li><strong>Trend</strong>: Whether usage is increasing, decreasing, or stable</li>
-            <li><strong>Expected Value</strong>: Positive EV means favorable bet</li>
-            <li><strong>Confidence</strong>: How certain the recommendation is</li>
-          </ul>
-        </div>
-      </div>
-    </UCard>
   </div>
 </template>

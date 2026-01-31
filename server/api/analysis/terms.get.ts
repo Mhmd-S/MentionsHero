@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getFolderIdsInTree } from '../../utils/folder-descendants'
 
 interface TermData {
   term: string
@@ -20,6 +21,53 @@ export default defineEventHandler(async (event): Promise<TermsResponse> => {
   const maxTerms = parseInt(query.max_terms as string) || 500
   const folderId = query.folder_id as string | undefined
   const speakers = (query.speakers as string)?.split(',').map(s => s.trim()).filter(Boolean) || undefined
+
+  function filterTranscriptBySpeakers(transcript: string, speakerList: string[]): string {
+    if (!speakerList.length) return transcript
+
+    const speakerLower = speakerList.map(s => s.toLowerCase())
+    const lines = transcript.split('\n')
+    const speakerPattern = /^([A-Z][a-zA-Z'-]*(?:\s+[A-Z][a-zA-Z'-]*)?|SPEAKER_\d+):\s*(.*)$/
+
+    let currentSpeaker: string | null = null
+    let currentContent: string[] = []
+    const segments: Array<{ speaker: string; content: string }> = []
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      const match = speakerPattern.exec(trimmed)
+      if (match) {
+        if (currentSpeaker && currentContent.length > 0) {
+          segments.push({ speaker: currentSpeaker, content: currentContent.join(' ').trim() })
+        }
+        currentSpeaker = match[1]
+        currentContent = match[2] ? [match[2]] : []
+        continue
+      }
+
+      if (currentSpeaker) {
+        currentContent.push(trimmed)
+      }
+    }
+
+    if (currentSpeaker && currentContent.length > 0) {
+      segments.push({ speaker: currentSpeaker, content: currentContent.join(' ').trim() })
+    }
+
+    const matchesSpeaker = (segmentSpeaker: string) => {
+      const segLower = segmentSpeaker.toLowerCase()
+      return speakerLower.some(sl => segLower === sl || segLower.startsWith(sl) || segLower.includes(sl))
+    }
+
+    return segments
+      .filter(segment => matchesSpeaker(segment.speaker))
+      .map(segment => segment.content)
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+  }
 
   // Try Python service first
   const pythonUrl = process.env.PYTHON_ANALYSIS_URL || 'http://localhost:8001'
@@ -47,7 +95,8 @@ export default defineEventHandler(async (event): Promise<TermsResponse> => {
     .select('id, transcript, name, created_at, folder_id')
 
   if (folderId) {
-    dbQuery = dbQuery.eq('folder_id', folderId)
+    const folderIds = await getFolderIdsInTree(supabase, folderId)
+    dbQuery = dbQuery.in('folder_id', folderIds)
   }
 
   const { data: transcripts, error } = await dbQuery
@@ -90,7 +139,13 @@ export default defineEventHandler(async (event): Promise<TermsResponse> => {
     totalBriefings++
 
     // Clean and tokenize - remove speaker labels like "Caroline:", "Reporter:", "SPEAKER_01:"
-    const text = t.transcript
+    const text = speakers?.length
+      ? filterTranscriptBySpeakers(t.transcript, speakers)
+      : t.transcript
+
+    if (!text) continue
+
+    const cleanedText = text
       .replace(/^\s*[A-Za-z]+:\s*\n?/gm, '') // Remove speaker labels (e.g., "Caroline:", "Reporter:")
       .replace(/^\s*SPEAKER_\d+:\s*\n?/gm, '') // Remove diarization labels
       .toLowerCase()
