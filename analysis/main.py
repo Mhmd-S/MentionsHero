@@ -6,16 +6,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from db import get_all_transcripts, get_folders, get_cached_analysis, set_cached_analysis
+from db import get_all_transcripts, get_all_transcripts_in_folder_tree, get_folders, get_cached_analysis, set_cached_analysis, update_transcript_speakers
 from nlp import (
     calculate_term_frequency,
     calculate_all_term_frequencies,
     extract_ngrams,
-    extract_entities,
     search_term_in_context,
-    get_high_confidence_phrases,
-    get_temporal_trends,
     extract_all_speakers,
+    parse_transcript_segments,
 )
 
 app = FastAPI(
@@ -67,12 +65,6 @@ class NgramsRequest(BaseModel):
     speakers: list[str] | None = None
 
 
-class EntitiesRequest(BaseModel):
-    entity_types: list[str] | None = None
-    folder_id: str | None = None
-    speakers: list[str] | None = None
-
-
 class SearchRequest(BaseModel):
     query: str
     context_chars: int = Field(default=200, ge=50, le=500)
@@ -80,16 +72,10 @@ class SearchRequest(BaseModel):
     speakers: list[str] | None = None
 
 
-class TemporalTrendsRequest(BaseModel):
-    terms: list[str]
-    folder_id: str | None = None
-    speakers: list[str] | None = None
-
-
-class HighConfidenceRequest(BaseModel):
-    min_percentage: float = Field(default=90.0, ge=50.0, le=100.0)
-    folder_id: str | None = None
-    speakers: list[str] | None = None
+async def _get_transcripts_for_folder(folder_id: str | None) -> list[dict[str, Any]]:
+    if folder_id:
+        return await get_all_transcripts_in_folder_tree(folder_id)
+    return await get_all_transcripts(None)
 
 
 # Health check
@@ -110,10 +96,23 @@ async def list_folders():
 # Speakers endpoint (GET for UI dropdown)
 @app.get("/analyze/speakers")
 async def list_speakers(folder_id: str | None = None):
-    """List all speakers found across transcripts."""
-    transcripts = await get_all_transcripts(folder_id)
+    """List all speakers found across transcripts. Extracts and saves speakers per transcript if not already stored."""
+    if folder_id:
+        transcripts = await get_all_transcripts_in_folder_tree(folder_id)
+    else:
+        transcripts = await get_all_transcripts(None)
     if not transcripts:
         return {"speakers": []}
+    # Ensure speakers are extracted and saved for each transcript that is missing them
+    for t in transcripts:
+        stored = t.get("speakers")
+        if stored is None or (isinstance(stored, list) and len(stored) == 0):
+            transcript_text = t.get("transcript", "")
+            if transcript_text:
+                segments = parse_transcript_segments(transcript_text)
+                names = sorted({s["speaker"] for s in segments})
+                if names:
+                    await update_transcript_speakers(t["id"], names)
     speakers = extract_all_speakers(transcripts)
     return {"speakers": speakers}
 
@@ -125,7 +124,7 @@ async def analyze_term_frequency(request: TermFrequencyRequest):
     if not request.term.strip():
         raise HTTPException(status_code=400, detail="Term cannot be empty")
 
-    transcripts = await get_all_transcripts(request.folder_id)
+    transcripts = await _get_transcripts_for_folder(request.folder_id)
     if not transcripts:
         raise HTTPException(status_code=404, detail="No transcripts found")
 
@@ -147,7 +146,7 @@ async def analyze_all_terms(request: AllTermsRequest):
     if cached:
         return cached
 
-    transcripts = await get_all_transcripts(request.folder_id)
+    transcripts = await _get_transcripts_for_folder(request.folder_id)
     if not transcripts:
         raise HTTPException(status_code=404, detail="No transcripts found")
 
@@ -175,7 +174,7 @@ async def analyze_ngrams(request: NgramsRequest):
     if cached:
         return cached
 
-    transcripts = await get_all_transcripts(request.folder_id)
+    transcripts = await _get_transcripts_for_folder(request.folder_id)
     if not transcripts:
         raise HTTPException(status_code=404, detail="No transcripts found")
 
@@ -195,37 +194,13 @@ async def analyze_ngrams(request: NgramsRequest):
     return response
 
 
-@app.post("/analyze/entities")
-async def analyze_entities(request: EntitiesRequest):
-    """Extract named entities from transcripts."""
-    types_key = ",".join(sorted(request.entity_types)) if request.entity_types else "default"
-    speakers_key = ",".join(sorted(request.speakers)) if request.speakers else ""
-    cache_key = f"entities:{request.folder_id}:{speakers_key}:{types_key}"
-    cached = await get_cached_analysis(cache_key)
-    if cached:
-        return cached
-
-    transcripts = await get_all_transcripts(request.folder_id)
-    if not transcripts:
-        raise HTTPException(status_code=404, detail="No transcripts found")
-
-    result = extract_entities(transcripts, request.entity_types, speakers=request.speakers)
-
-    response = {"entities": result, "count": len(result), "folder_id": request.folder_id}
-
-    # Cache for 1 hour
-    await set_cached_analysis(cache_key, response, expires_hours=1)
-
-    return response
-
-
 @app.post("/analyze/search")
 async def analyze_search(request: SearchRequest):
     """Search for a term with context."""
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    transcripts = await get_all_transcripts(request.folder_id)
+    transcripts = await _get_transcripts_for_folder(request.folder_id)
     if not transcripts:
         raise HTTPException(status_code=404, detail="No transcripts found")
 
@@ -236,43 +211,6 @@ async def analyze_search(request: SearchRequest):
         speakers=request.speakers
     )
     return result
-
-
-@app.post("/analyze/high-confidence")
-async def analyze_high_confidence(request: HighConfidenceRequest):
-    """Get phrases that appear in 90%+ of briefings."""
-    speakers_key = ",".join(sorted(request.speakers)) if request.speakers else ""
-    cache_key = f"high_confidence:{request.folder_id}:{speakers_key}:{request.min_percentage}"
-    cached = await get_cached_analysis(cache_key)
-    if cached:
-        return cached
-
-    transcripts = await get_all_transcripts(request.folder_id)
-    if not transcripts:
-        raise HTTPException(status_code=404, detail="No transcripts found")
-
-    result = get_high_confidence_phrases(transcripts, request.min_percentage, speakers=request.speakers)
-
-    response = {"phrases": result, "min_percentage": request.min_percentage, "count": len(result), "folder_id": request.folder_id}
-
-    # Cache for 1 hour
-    await set_cached_analysis(cache_key, response, expires_hours=1)
-
-    return response
-
-
-@app.post("/analyze/temporal-trends")
-async def analyze_temporal_trends(request: TemporalTrendsRequest):
-    """Get temporal trends for specific terms."""
-    if not request.terms:
-        raise HTTPException(status_code=400, detail="Terms list cannot be empty")
-
-    transcripts = await get_all_transcripts(request.folder_id)
-    if not transcripts:
-        raise HTTPException(status_code=404, detail="No transcripts found")
-
-    result = get_temporal_trends(transcripts, request.terms, speakers=request.speakers)
-    return {"trends": result, "terms": request.terms, "folder_id": request.folder_id}
 
 
 if __name__ == "__main__":

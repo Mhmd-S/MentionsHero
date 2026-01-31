@@ -42,6 +42,7 @@ CREATE TABLE public.transcripts (
   created_at timestamp with time zone DEFAULT now(),
   folder_id uuid,
   name text,
+  speakers jsonb,
   CONSTRAINT transcripts_pkey PRIMARY KEY (id),
   CONSTRAINT transcripts_folder_id_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id)
 );

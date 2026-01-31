@@ -2,7 +2,6 @@
 
 import re
 from collections import Counter
-from datetime import datetime
 from typing import Any
 
 import nltk
@@ -29,25 +28,6 @@ try:
     nltk.data.find('taggers/averaged_perceptron_tagger_eng')
 except LookupError:
     nltk.download('averaged_perceptron_tagger_eng', quiet=True)
-
-# spaCy model loading (lazy)
-_nlp = None
-
-
-def get_spacy_nlp():
-    """Lazy load spaCy model."""
-    global _nlp
-    if _nlp is None:
-        import spacy
-        try:
-            _nlp = spacy.load("en_core_web_sm")
-        except OSError:
-            # Model not installed, download it
-            import subprocess
-            subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"], check=True)
-            _nlp = spacy.load("en_core_web_sm")
-    return _nlp
-
 
 def clean_text(text: str) -> str:
     """Clean transcript text for analysis.
@@ -340,63 +320,6 @@ def extract_ngrams(
     return results
 
 
-def extract_entities(
-    transcripts: list[dict[str, Any]],
-    entity_types: list[str] | None = None,
-    speakers: list[str] | None = None
-) -> list[dict[str, Any]]:
-    """Extract named entities using spaCy (optionally for specific speakers only)."""
-    nlp = get_spacy_nlp()
-
-    # Default entity types if not specified
-    if entity_types is None:
-        entity_types = ["PERSON", "ORG", "GPE", "NORP", "LAW", "EVENT"]
-
-    entity_counts: Counter = Counter()
-    entity_briefing_counts: Counter = Counter()
-    entity_type_map: dict[str, str] = {}
-    total_briefings = 0
-
-    for t in transcripts:
-        transcript_text = t.get("transcript", "")
-        if not transcript_text:
-            continue
-
-        total_briefings += 1
-        text_to_analyze = filter_by_speakers(transcript_text, speakers) if speakers else transcript_text
-        cleaned = clean_text(text_to_analyze)
-
-        # Process with spaCy (limit text length for performance)
-        doc = nlp(cleaned[:100000])  # Limit to 100k chars
-
-        briefing_entities = set()
-        for ent in doc.ents:
-            if ent.label_ in entity_types:
-                entity_key = ent.text.strip()
-                if len(entity_key) > 1:  # Skip single chars
-                    entity_counts[entity_key] += 1
-                    briefing_entities.add(entity_key)
-                    entity_type_map[entity_key] = ent.label_
-
-        entity_briefing_counts.update(briefing_entities)
-
-    # Build result list
-    results = []
-    for entity, count in entity_counts.most_common(200):
-        briefing_count = entity_briefing_counts[entity]
-        percentage = (briefing_count / total_briefings * 100) if total_briefings > 0 else 0
-        results.append({
-            "entity": entity,
-            "type": entity_type_map.get(entity, "UNKNOWN"),
-            "count": count,
-            "briefings_with_entity": briefing_count,
-            "total_briefings": total_briefings,
-            "percentage": round(percentage, 2)
-        })
-
-    return results
-
-
 def search_term_in_context(
     transcripts: list[dict[str, Any]],
     query: str,
@@ -449,59 +372,3 @@ def search_term_in_context(
     }
 
 
-def get_high_confidence_phrases(
-    transcripts: list[dict[str, Any]],
-    min_percentage: float = 90.0,
-    speakers: list[str] | None = None
-) -> list[dict[str, Any]]:
-    """Get phrases that appear in 90%+ of briefings (high-confidence bets). Optionally for specific speakers only."""
-    # Combine bigrams and trigrams
-    bigrams = extract_ngrams(transcripts, n=2, min_frequency=1, speakers=speakers)
-    trigrams = extract_ngrams(transcripts, n=3, min_frequency=1, speakers=speakers)
-
-    all_phrases = bigrams + trigrams
-
-    # Filter to high-confidence (90%+)
-    high_confidence = [
-        p for p in all_phrases
-        if p["percentage"] >= min_percentage
-    ]
-
-    # Sort by percentage descending
-    high_confidence.sort(key=lambda x: (-x["percentage"], -x["count"]))
-
-    return high_confidence
-
-
-def get_temporal_trends(
-    transcripts: list[dict[str, Any]],
-    terms: list[str],
-    speakers: list[str] | None = None
-) -> dict[str, list[dict[str, Any]]]:
-    """Get temporal trends for specific terms (optionally for specific speakers only)."""
-    trends: dict[str, list[dict[str, Any]]] = {term: [] for term in terms}
-
-    # Sort transcripts by date
-    sorted_transcripts = sorted(
-        [t for t in transcripts if t.get("created_at")],
-        key=lambda x: x.get("created_at", "")
-    )
-
-    for t in sorted_transcripts:
-        transcript_text = t.get("transcript", "")
-        if not transcript_text:
-            continue
-
-        text_to_analyze = filter_by_speakers(transcript_text, speakers) if speakers else transcript_text
-        text_lower = text_to_analyze.lower()
-        date = t.get("created_at", "")[:10] if t.get("created_at") else None
-
-        for term in terms:
-            count = len(re.findall(re.escape(term.lower()), text_lower))
-            trends[term].append({
-                "date": date,
-                "count": count,
-                "transcript_name": t.get("name", "")
-            })
-
-    return trends
