@@ -40,7 +40,7 @@ const isJobActive = computed(() => {
   return props.progress && !['completed', 'failed', 'cancelled'].includes(props.progress.status)
 })
 
-const stages: JobStatus[] = ['pending', 'downloading', 'transcribing', 'cleaning', 'saving', 'completed', 'cancelled']
+const stages: JobStatus[] = ['pending', 'downloading', 'transcribing', 'saving', 'completed', 'cancelled']
 
 const progressPercent = computed(() => {
   if (!props.progress) return 0

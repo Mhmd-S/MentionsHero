@@ -13,7 +13,11 @@
       "mcp__ide__getDiagnostics",
       "Bash(find:*)",
       "Bash(npm install @google/genai)",
-      "Bash(yt-dlp:*)"
+      "Bash(yt-dlp:*)",
+      "Bash(pkill:*)",
+      "Bash(ulimit:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)"
     ]
   }
 }

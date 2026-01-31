@@ -7,7 +7,7 @@ export interface StageProgress {
   substep_detail?: string
 }
 
-export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'cleaning' | 'saving' | 'completed' | 'failed' | 'cancelled'
+export type JobStatus = 'pending' | 'downloading' | 'transcribing' | 'saving' | 'completed' | 'failed' | 'cancelled'
 
 export interface JobProgress {
   id: string
@@ -98,7 +98,6 @@ export function useJobProgress(jobId: Ref<string | null>) {
       pending: 'Starting...',
       downloading: 'Downloading audio...',
       transcribing: 'Transcribing...',
-      cleaning: 'Cleaning up transcript...',
       saving: 'Saving transcript...',
       completed: 'Completed',
       failed: 'Failed',
