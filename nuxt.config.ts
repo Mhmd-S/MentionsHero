@@ -4,10 +4,16 @@ import { fileURLToPath } from 'node:url'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  ignore: ['analysis/**'],
+  ignore: ['backend/**'],
   nitro: {
     alias: {
       '~': fileURLToPath(new URL('.', import.meta.url))
+    }
+  },
+  routeRules: {
+    '/api/_nuxt_icon/**': {},
+    '/api/**': {
+      proxy: 'http://localhost:8001/api/**'
     }
   },
   ui: {

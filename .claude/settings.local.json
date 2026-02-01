@@ -17,7 +17,9 @@
       "Bash(pkill:*)",
       "Bash(ulimit:*)",
       "Bash(lsof:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(grep:*)"
     ]
   }
 }

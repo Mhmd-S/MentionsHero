@@ -48,6 +48,19 @@
 
       <FolderPicker v-model="selectedFolderId" :disabled="isProcessing" />
 
+      <UFormField
+        label="Speaker context (optional)"
+        description="Help Gemini identify speakers, e.g. 'PMQ' or 'White House press with Caroline'"
+      >
+        <UTextarea
+          v-model="speakerHint"
+          placeholder="e.g. This is PMQ; speakers include the PM and opposition leader"
+          :rows="2"
+          class="w-full"
+          :disabled="isProcessing"
+        />
+      </UFormField>
+
       <div class="flex gap-3">
         <UButton
           v-if="!isProcessing && !isCompleted && !isCancelled"
@@ -157,6 +170,7 @@ const router = useRouter()
 
 const youtubeUrl = ref('')
 const selectedFolderId = ref<string | null>(null)
+const speakerHint = ref('')
 const isStarting = ref(false)
 const currentJobId = ref<string | null>(route.query.jobId as string || null)
 
@@ -345,7 +359,8 @@ async function startJob() {
         body: {
           url: videoInfo.value.url || youtubeUrl.value.trim(),
           folderId: selectedFolderId.value,
-          videoTitle: videoInfo.value.title
+          videoTitle: videoInfo.value.title,
+          speakerHint: speakerHint.value?.trim() || undefined
         }
       })
 
@@ -365,7 +380,8 @@ async function startJob() {
           })),
           folderId: selectedFolderId.value,
           playlistId: playlistInfo.value?.id,
-          playlistName: playlistInfo.value?.title
+          playlistName: playlistInfo.value?.title,
+          speakerHint: speakerHint.value?.trim() || undefined
         }
       })
 
@@ -386,6 +402,7 @@ async function startJob() {
 function resetForm() {
   youtubeUrl.value = ''
   selectedFolderId.value = null
+  speakerHint.value = ''
   currentJobId.value = null
   isCancelling.value = false
   videoInfo.value = null
