@@ -179,8 +179,14 @@ def calculate_term_frequency(
         if count > 0:
             briefings_with_term += 1
             total_mentions += count
+            # Use upload_date (YouTube upload) if available, format YYYYMMDD -> YYYY-MM-DD
+            upload_date = t.get("upload_date")
+            if upload_date and len(upload_date) == 8:
+                formatted_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
+            else:
+                formatted_date = None
             mentions_by_date.append({
-                "date": t.get("created_at", "")[:10] if t.get("created_at") else None,
+                "date": formatted_date,
                 "name": t.get("name") or "Unknown",
                 "count": count
             })
@@ -355,11 +361,17 @@ def search_term_in_context(
             if end < len(text_to_search):
                 context = context + "..."
 
+            # Use upload_date (YouTube upload) if available, format YYYYMMDD -> YYYY-MM-DD
+            upload_date = t.get("upload_date")
+            if upload_date and len(upload_date) == 8:
+                formatted_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
+            else:
+                formatted_date = None
             total_count += 1
             matches.append({
                 "transcript_id": t.get("id"),
                 "transcript_name": t.get("name") or "Unknown",
-                "date": t.get("created_at", "")[:10] if t.get("created_at") else None,
+                "date": formatted_date,
                 "context": context,
                 "position": match.start()
             })

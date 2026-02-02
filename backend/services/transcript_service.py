@@ -16,7 +16,7 @@ def _select_transcripts(
     supabase = get_supabase()
     try:
         query = supabase.table("transcripts").select(
-            "id, transcript, name, created_at, folder_id, speakers, youtube_url"
+            "id, transcript, name, created_at, folder_id, speakers, youtube_url, upload_date"
         )
         if folder_id:
             query = query.eq("folder_id", folder_id)
@@ -29,7 +29,7 @@ def _select_transcripts(
             raise
         # Fallback without speakers column
         query = supabase.table("transcripts").select(
-            "id, transcript, name, created_at, folder_id, youtube_url"
+            "id, transcript, name, created_at, folder_id, youtube_url, upload_date"
         )
         if folder_id:
             query = query.eq("folder_id", folder_id)

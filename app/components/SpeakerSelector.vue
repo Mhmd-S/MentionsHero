@@ -89,13 +89,17 @@ watch(
         :loading="loading"
         :disabled="!props.folderId"
         :placeholder="selectionPlaceholder"
-        class="min-w-[240px]"
+        class="w-60"
         multiple
         searchable
-        clearable
+        :reset-search-term-on-select="false"
         value-key="value"
         label-key="label"
-      />
+      >
+        <template>
+          <span class="truncate">{{ selectionPlaceholder }}</span>
+        </template>
+      </USelectMenu>
     </div>
     <div v-if="selected.length > 0" class="flex flex-wrap gap-2">
       <UBadge

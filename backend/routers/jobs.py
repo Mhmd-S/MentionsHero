@@ -26,7 +26,7 @@ from backend.models.job import (
 from backend.services import job_service
 from backend.services.download_service import download_audio, cleanup_audio_file
 from backend.services.transcription_service import transcribe_audio
-from backend.services.youtube_service import validate_youtube_url
+from backend.services.youtube_service import validate_youtube_url, get_video_info
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -48,12 +48,22 @@ async def process_job(
     """
     cancel_event = asyncio.Event()
     audio_path: str | None = None
+    upload_date: str | None = None
     downloads_dir = os.path.join(os.getcwd(), "downloads")
 
     try:
         # Check for cancellation before starting
         if await job_service.check_cancellation(job_id):
             raise CancellationError()
+
+        # Fetch video info to get upload date and title
+        video_title: str | None = None
+        try:
+            video_info = await get_video_info(url)
+            upload_date = video_info.upload_date
+            video_title = video_info.title
+        except Exception:
+            pass  # Continue without video info if fetch fails
 
         # Download audio
         await job_service.update_job_progress(
@@ -114,11 +124,16 @@ async def process_job(
         )
 
         supabase = get_supabase()
-        response = supabase.table("transcripts").insert({
+        insert_data: dict[str, Any] = {
             "youtube_url": url,
             "transcript": transcript,
             "folder_id": folder_id
-        }).execute()
+        }
+        if upload_date:
+            insert_data["upload_date"] = upload_date
+        if video_title:
+            insert_data["name"] = video_title
+        response = supabase.table("transcripts").insert(insert_data).execute()
 
         # Insert returns representation by default; data is a list with one row
         row = response.data[0] if response.data else None

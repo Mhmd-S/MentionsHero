@@ -15,7 +15,7 @@ class TermFrequencyRequest(BaseModel):
 
 class MentionByDate(BaseModel):
     """Mention count by date."""
-    date: str | None
+    date: str | None  # YouTube upload date
     name: str
     count: int
 
