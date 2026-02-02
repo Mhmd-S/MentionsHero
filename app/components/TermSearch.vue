@@ -120,8 +120,11 @@ function highlightMatch(text: string, query: string): string {
               :key="mention.date + mention.name"
               class="flex justify-between text-sm py-1 border-b border-gray-100 dark:border-gray-700"
             >
-              <span class="text-gray-600 dark:text-gray-400">{{ mention.name || mention.date }}</span>
-              <span class="font-medium">{{ mention.count }} mentions</span>
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-gray-600 dark:text-gray-400 truncate">{{ mention.name }}</span>
+                <span class="text-gray-400 dark:text-gray-500 text-xs shrink-0">{{ mention.date }}</span>
+              </div>
+              <span class="font-medium shrink-0 ml-2">{{ mention.count }} mentions</span>
             </div>
           </div>
         </template>

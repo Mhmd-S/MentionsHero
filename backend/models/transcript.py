@@ -14,6 +14,7 @@ class Transcript(BaseModel):
     created_at: datetime
     folder_id: str | None = None
     speakers: list[str] | None = None
+    upload_date: str | None = None  # YouTube upload date (YYYYMMDD format)
 
     class Config:
         from_attributes = True
