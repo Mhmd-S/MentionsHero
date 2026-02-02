@@ -35,6 +35,38 @@ CREATE TABLE public.jobs (
   CONSTRAINT jobs_pkey PRIMARY KEY (id),
   CONSTRAINT jobs_transcript_id_fkey FOREIGN KEY (transcript_id) REFERENCES public.transcripts(id)
 );
+CREATE TABLE public.persona_aliases (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  persona_id uuid NOT NULL,
+  alias text NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT persona_aliases_pkey PRIMARY KEY (id),
+  CONSTRAINT persona_aliases_persona_id_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id)
+);
+CREATE TABLE public.personas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT personas_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.speakers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT speakers_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transcript_speakers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transcript_id uuid NOT NULL,
+  speaker_id uuid NOT NULL,
+  segment_count integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT transcript_speakers_pkey PRIMARY KEY (id),
+  CONSTRAINT transcript_speakers_transcript_fkey FOREIGN KEY (transcript_id) REFERENCES public.transcripts(id),
+  CONSTRAINT transcript_speakers_speaker_fkey FOREIGN KEY (speaker_id) REFERENCES public.speakers(id)
+);
 CREATE TABLE public.transcripts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   youtube_url text NOT NULL,
@@ -42,7 +74,7 @@ CREATE TABLE public.transcripts (
   created_at timestamp with time zone DEFAULT now(),
   folder_id uuid,
   name text,
-  speakers jsonb,
+  upload_date text,
   CONSTRAINT transcripts_pkey PRIMARY KEY (id),
   CONSTRAINT transcripts_folder_id_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id)
 );

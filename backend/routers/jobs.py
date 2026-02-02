@@ -23,7 +23,7 @@ from backend.models.job import (
     BulkCancelResponse,
     CancelResponse,
 )
-from backend.services import job_service
+from backend.services import job_service, speaker_service
 from backend.services.download_service import download_audio, cleanup_audio_file
 from backend.services.transcription_service import transcribe_audio
 from backend.services.youtube_service import validate_youtube_url, get_video_info
@@ -138,6 +138,15 @@ async def process_job(
         # Insert returns representation by default; data is a list with one row
         row = response.data[0] if response.data else None
         transcript_id = row["id"] if row else None
+
+        # Extract and save speakers for this transcript
+        if transcript_id and transcript:
+            try:
+                await speaker_service.extract_and_save_transcript_speakers(
+                    transcript_id, transcript
+                )
+            except Exception:
+                pass  # Do not fail the job if speaker extraction fails
 
         # Mark job as completed
         await job_service.update_job_progress(

@@ -18,12 +18,20 @@
               New Transcript
             </NuxtLink>
             <NuxtLink
-              to="/analysis"
+              to="/term-search"
               class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
               active-class="bg-primary-100 dark:bg-primary-900 text-primary"
             >
-              <UIcon name="i-heroicons-chart-bar" class="size-5" />
-              Market Analysis
+              <UIcon name="i-heroicons-magnifying-glass" class="size-5" />
+              Term Search
+            </NuxtLink>
+            <NuxtLink
+              to="/personas"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+              active-class="bg-primary-100 dark:bg-primary-900 text-primary"
+            >
+              <UIcon name="i-heroicons-user-group" class="size-5" />
+              Personas
             </NuxtLink>
           </nav>
 
