@@ -88,7 +88,6 @@ watch(
         :items="options"
         :loading="loading"
         :disabled="!props.folderId"
-        :placeholder="selectionPlaceholder"
         class="w-60"
         multiple
         searchable
@@ -96,8 +95,13 @@ watch(
         value-key="value"
         label-key="label"
       >
-        <template>
-          <span class="truncate">{{ selectionPlaceholder }}</span>
+        <template #default="{ open }">
+          <span class="truncate flex-1 text-left">{{ selectionPlaceholder }}</span>
+          <UIcon
+            name="i-heroicons-chevron-down-20-solid"
+            class="w-5 h-5 shrink-0 text-gray-400 transition-transform"
+            :class="[open && 'transform rotate-180']"
+          />
         </template>
       </USelectMenu>
     </div>

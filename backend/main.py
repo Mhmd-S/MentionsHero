@@ -9,6 +9,7 @@ from backend.routers import (
     analysis,
     folders,
     jobs,
+    personas,
     playlist,
     polymarket,
     transcripts,
@@ -48,6 +49,7 @@ app.include_router(analysis.router)
 app.include_router(video.router)
 app.include_router(playlist.router)
 app.include_router(polymarket.router)
+app.include_router(personas.router)
 
 
 if __name__ == "__main__":

@@ -5,14 +5,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.core.database import get_cached_analysis, set_cached_analysis
-from backend.services import transcript_service
+from backend.services import transcript_service, speaker_service
 from backend.utils.nlp import (
     calculate_term_frequency,
     calculate_all_term_frequencies,
     extract_ngrams,
     search_term_in_context,
-    extract_all_speakers,
-    parse_transcript_segments,
 )
 from backend.models.analysis import (
     TermFrequencyRequest,
@@ -41,31 +39,55 @@ async def list_speakers(
     folder_id: str | None = Query(None, alias="folder_id")
 ) -> SpeakersResponse:
     """
-    List all speakers found across transcripts.
+    List all speakers found across transcripts (from database).
+    """
+    speakers = await speaker_service.get_all_speakers(folder_id)
+    return SpeakersResponse(speakers=speakers)
 
-    Extracts and saves speakers per transcript if not already stored.
+
+@router.get("/speakers/search")
+async def search_speakers_endpoint(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(50, ge=1, le=200)
+) -> SpeakersResponse:
+    """Search speakers by name."""
+    speakers = await speaker_service.search_speakers(q, limit)
+    return SpeakersResponse(speakers=speakers)
+
+
+@router.post("/speakers/migrate")
+async def migrate_speakers(
+    folder_id: str | None = Query(
+        None,
+        description="Optional: migrate only transcripts in this folder tree"
+    )
+) -> dict[str, int]:
+    """
+    One-time migration: extract and save speakers from existing transcripts.
+    Safe to call multiple times (idempotent).
     """
     if folder_id:
         transcripts = await transcript_service.get_transcripts_in_folder_tree(folder_id)
     else:
         transcripts = await transcript_service.get_all_transcripts()
 
-    if not transcripts:
-        return SpeakersResponse(speakers=[])
-
-    # Ensure speakers are extracted and saved for each transcript that is missing them
+    migrated = 0
+    skipped = 0
     for t in transcripts:
-        stored = t.get("speakers")
-        if stored is None or (isinstance(stored, list) and len(stored) == 0):
-            transcript_text = t.get("transcript", "")
-            if transcript_text:
-                segments = parse_transcript_segments(transcript_text)
-                names = sorted({s["speaker"] for s in segments})
-                if names:
-                    await transcript_service.update_transcript_speakers(t["id"], names)
+        transcript_text = t.get("transcript", "")
+        if not transcript_text:
+            skipped += 1
+            continue
+        await speaker_service.extract_and_save_transcript_speakers(
+            t["id"], transcript_text
+        )
+        migrated += 1
 
-    speakers = extract_all_speakers(transcripts)
-    return SpeakersResponse(speakers=speakers)
+    return {
+        "migrated": migrated,
+        "skipped": skipped,
+        "total": len(transcripts)
+    }
 
 
 @router.get("/terms")

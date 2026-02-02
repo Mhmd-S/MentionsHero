@@ -97,24 +97,37 @@ export function useAnalysis() {
   const error = useState<string | null>('analysis-error', () => null);
 
   /**
-   * Fetch all speakers (for dropdown)
+   * Fetch speakers (optionally filtered by folder). Omit folderId to get all speakers.
    */
   async function getSpeakers(folderId?: string | null): Promise<SpeakerInfo[]> {
     const id = folderId ?? selectedFolderId.value;
-    if (!id) {
-      speakersList.value = [];
-      return [];
-    }
     try {
       const result = await $fetch<{ speakers: SpeakerInfo[] }>(
-        "/api/analysis/speakers",
-        { query: { folder_id: id } }
+        '/api/analysis/speakers',
+        { query: id != null ? { folder_id: id } : {} }
       );
       speakersList.value = result.speakers || [];
       return speakersList.value;
     } catch (e: any) {
-      console.error("Failed to fetch speakers:", e);
+      console.error('Failed to fetch speakers:', e);
       speakersList.value = [];
+      return [];
+    }
+  }
+
+  /**
+   * Search speakers by name (database-backed).
+   */
+  async function searchSpeakers(query: string, limit = 50): Promise<SpeakerInfo[]> {
+    if (!query?.trim()) return [];
+    try {
+      const result = await $fetch<{ speakers: SpeakerInfo[] }>(
+        '/api/analysis/speakers/search',
+        { query: { q: query.trim(), limit } }
+      );
+      return result.speakers || [];
+    } catch (e: any) {
+      console.error('Failed to search speakers:', e);
       return [];
     }
   }
@@ -360,6 +373,7 @@ export function useAnalysis() {
     speakersList: readonly(speakersList),
     fetchFolders,
     getSpeakers,
+    searchSpeakers,
     getTermFrequency,
     getAllTerms,
     getNgrams,
