@@ -36,6 +36,29 @@ const availableSpeakers = ref<SpeakerInfo[]>([])
 const loadingAvailableSpeakers = ref(false)
 const selectedSpeakersToAdd = ref<string[]>([])
 
+// Polymarket state
+interface PersonaEventMarket {
+  market: { id: string; question: string | null; outcome_prices: string[] | null; closed?: boolean }
+  search_config: { search_terms: string[]; min_count: number } | null
+  result_count: number | null
+  result_last_updated: string | null
+  result_briefings_with_term: number | null
+  result_total_briefings: number | null
+  result_percentage: number | null
+  result_trend: string | null
+  result_mentions_by_date: { date: string | null; name: string; count: number }[] | null
+}
+interface PersonaEvent {
+  event: { id: string; slug: string; title: string | null; image: string | null }
+  markets: PersonaEventMarket[]
+}
+const personaEvents = ref<PersonaEvent[]>([])
+const loadingPersonaEvents = ref(false)
+const showAddEventModal = ref(false)
+const newEventSlug = ref('')
+const addingEvent = ref(false)
+const refreshingEventId = ref<string | null>(null)
+
 // Load all speakers from database (single request)
 async function loadAllSpeakers() {
   if (availableSpeakers.value.length > 0) return
@@ -180,6 +203,76 @@ async function handleRemoveAlias(persona: ReadonlyPersona, alias: string) {
   await removeAliases(persona.id, [alias])
 }
 
+// Polymarket: load events for selected persona
+async function loadPersonaEvents() {
+  if (!selectedPersona.value) return
+  loadingPersonaEvents.value = true
+  try {
+    personaEvents.value = await $fetch<PersonaEvent[]>(`/api/polymarket/events/${selectedPersona.value.id}`)
+  } catch (e) {
+    console.error('Failed to load persona events:', e)
+    personaEvents.value = []
+  } finally {
+    loadingPersonaEvents.value = false
+  }
+}
+
+watch(selectedPersona, (p) => {
+  if (p) loadPersonaEvents()
+  else personaEvents.value = []
+})
+
+function extractSlugFromInput(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) return ''
+  try {
+    const url = new URL(trimmed)
+    const path = url.pathname
+    const match = path.match(/\/event\/([^/]+)/) || path.match(/\/market\/([^/]+)/)
+    if (match && match[1]) return match[1]
+  } catch {
+    // not a URL
+  }
+  return trimmed
+}
+
+async function handleAddEvent() {
+  if (!selectedPersona.value) return
+  const slug = extractSlugFromInput(newEventSlug.value)
+  if (!slug) return
+  addingEvent.value = true
+  try {
+    await $fetch('/api/polymarket/events', {
+      method: 'POST',
+      body: { persona_id: selectedPersona.value.id, slug }
+    })
+    showAddEventModal.value = false
+    newEventSlug.value = ''
+    await loadPersonaEvents()
+  } catch (e: any) {
+    console.error('Failed to add event:', e)
+    alert(e?.data?.detail || 'Failed to add event')
+  } finally {
+    addingEvent.value = false
+  }
+}
+
+async function handleRefreshEvent(eventId: string) {
+  if (!selectedPersona.value) return
+  refreshingEventId.value = eventId
+  try {
+    await $fetch(`/api/polymarket/events/${eventId}/refresh`, {
+      method: 'POST',
+      query: { persona_id: selectedPersona.value.id }
+    })
+    await loadPersonaEvents()
+  } catch (e) {
+    console.error('Failed to refresh event:', e)
+  } finally {
+    refreshingEventId.value = null
+  }
+}
+
 // Initialize
 onMounted(async () => {
   await Promise.all([
@@ -268,39 +361,126 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Transcripts Panel -->
-    <div v-if="selectedPersona" class="mt-8">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">
-          Transcripts containing "{{ selectedPersona.name }}"
-        </h2>
-        <UButton size="xs" variant="ghost" @click="selectedPersona = null; personaTranscripts = []">
-          Close
-        </UButton>
+    <!-- Tabs Panel -->
+    <div v-if="selectedPersona" class="mt-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-semibold">{{ selectedPersona.name }}</h2>
+        <UButton size="xs" variant="ghost" icon="i-heroicons-x-mark" @click="selectedPersona = null; personaTranscripts = []" />
       </div>
 
-      <div v-if="loadingTranscripts" class="flex items-center justify-center p-8">
-        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
-      </div>
+      <UTabs :default-value="'events'" :items="[{ label: 'Polymarket Events', value: 'events' }, { label: 'Transcripts', value: 'transcripts' }]">
+        <template #content="{ item }">
+          <!-- Polymarket Events Tab -->
+          <div v-if="item.value === 'events'" class="pt-3">
+            <div class="flex justify-end mb-2">
+              <UButton size="xs" icon="i-heroicons-plus" @click="showAddEventModal = true">Add Event</UButton>
+            </div>
 
-      <div v-else-if="personaTranscripts.length === 0" class="text-gray-500 text-sm p-4 border border-dashed rounded-lg">
-        No transcripts found containing this persona's aliases
-      </div>
+            <div v-if="loadingPersonaEvents" class="flex items-center justify-center p-6">
+              <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
+            </div>
 
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <NuxtLink
-          v-for="transcript in personaTranscripts"
-          :key="transcript.id"
-          :to="`/transcripts/${transcript.id}`"
-          class="p-3 border rounded-lg hover:border-primary-500 transition-colors"
-        >
-          <div class="font-medium truncate">{{ transcript.name || 'Untitled' }}</div>
-          <div class="text-xs text-gray-500 mt-1">
-            {{ new Date(transcript.created_at).toLocaleDateString() }}
+            <div v-else-if="personaEvents.length === 0" class="text-gray-500 text-sm p-3 border border-dashed rounded-lg">
+              No events linked. Add by slug or URL.
+            </div>
+
+            <div v-else class="space-y-3">
+              <div
+                v-for="item in personaEvents"
+                :key="item.event.id"
+                class="border rounded-lg overflow-hidden"
+              >
+                <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
+                  <img v-if="item.event.image" :src="item.event.image" :alt="item.event.title || ''" class="w-8 h-8 rounded object-cover" />
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium truncate">{{ item.event.title || item.event.slug }}</div>
+                  </div>
+                  <UButton size="xs" variant="ghost" icon="i-heroicons-arrow-path" :loading="refreshingEventId === item.event.id" @click="handleRefreshEvent(item.event.id)" />
+                </div>
+                <div>
+                  <TermSection
+                    v-for="m in item.markets"
+                    :key="m.market.id"
+                    :market-id="m.market.id"
+                    :question="m.market.question"
+                    :search-terms="m.search_config?.search_terms || []"
+                    :result-count="m.result_count"
+                    :result-last-updated="m.result_last_updated"
+                    :outcome-price="m.market.outcome_prices?.[0] || null"
+                    :persona-id="selectedPersona!.id"
+                    :briefings-with-term="m.result_briefings_with_term"
+                    :total-briefings="m.result_total_briefings"
+                    :percentage="m.result_percentage"
+                    :trend="m.result_trend"
+                    :mentions-by-date="m.result_mentions_by_date"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
-        </NuxtLink>
-      </div>
+
+          <!-- Transcripts Tab -->
+          <div v-if="item.value === 'transcripts'" class="pt-3">
+            <div v-if="loadingTranscripts" class="flex items-center justify-center p-6">
+              <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
+            </div>
+
+            <div v-else-if="personaTranscripts.length === 0" class="text-gray-500 text-sm p-3 border border-dashed rounded-lg">
+              No transcripts found for this persona.
+            </div>
+
+            <UTable
+              v-else
+              :data="personaTranscripts"
+              :columns="[
+                { key: 'name', header: 'Name' },
+                { key: 'created_at', header: 'Date' }
+              ]"
+              class="text-sm"
+            >
+              <template #name-cell="{ row }">
+                <NuxtLink :to="`/transcripts/${row.original.id}`" class="text-primary-500 hover:underline truncate block max-w-xs">
+                  {{ row.original.name || 'Untitled' }}
+                </NuxtLink>
+              </template>
+              <template #created_at-cell="{ row }">
+                <span class="text-gray-500 text-xs">{{ new Date(row.original.created_at).toLocaleDateString() }}</span>
+              </template>
+            </UTable>
+          </div>
+        </template>
+      </UTabs>
     </div>
+
+    <!-- Add Polymarket Event Modal -->
+    <UModal v-model:open="showAddEventModal">
+      <template #content>
+        <div class="p-6">
+          <h3 class="text-lg font-semibold mb-4">Add Polymarket Event</h3>
+          <p class="text-sm text-gray-500 mb-4">
+            Enter the event slug or full URL (e.g. polymarket.com/event/fed-decision-in-october).
+          </p>
+          <UFormField label="Event slug or URL">
+            <UInput
+              v-model="newEventSlug"
+              placeholder="fed-decision-in-october or https://polymarket.com/event/..."
+              class="w-full"
+              @keyup.enter="handleAddEvent()"
+            />
+          </UFormField>
+          <div class="flex justify-end gap-2 mt-6">
+            <UButton variant="ghost" @click="showAddEventModal = false">Cancel</UButton>
+            <UButton
+              :loading="addingEvent"
+              :disabled="!extractSlugFromInput(newEventSlug)"
+              @click="handleAddEvent()"
+            >
+              Add Event
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
 
     <!-- Create Persona Modal -->
     <UModal v-model:open="showCreateModal">

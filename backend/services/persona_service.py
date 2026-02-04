@@ -234,9 +234,11 @@ async def get_transcripts_for_persona(
     # Get persona aliases
     persona = await get_persona_by_id(persona_id)
     if not persona or not persona["aliases"]:
+        print(f"[get_transcripts_for_persona] No persona or no aliases for persona_id={persona_id}")
         return []
 
     aliases = persona["aliases"]
+    print(f"[get_transcripts_for_persona] persona_id={persona_id}, aliases={aliases}")
 
     # Get transcripts
     query = supabase.table("transcripts").select("id, name, youtube_url, created_at, folder_id")
@@ -250,6 +252,7 @@ async def get_transcripts_for_persona(
 
     response = query.order("created_at", desc=True).execute()
     transcripts = response.data if response.data else []
+    print(f"[get_transcripts_for_persona] Total transcripts to check: {len(transcripts)}")
 
     # Filter transcripts that contain any alias in transcript text
     # We need to fetch transcripts content to search
@@ -270,4 +273,5 @@ async def get_transcripts_for_persona(
                     matching.append(t)
                     break
 
+    print(f"[get_transcripts_for_persona] Matching transcripts: {len(matching)}")
     return matching
