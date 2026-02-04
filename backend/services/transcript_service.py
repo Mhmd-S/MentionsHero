@@ -71,6 +71,31 @@ async def get_transcript_by_id(transcript_id: str) -> dict[str, Any] | None:
     return response.data
 
 
+async def get_transcripts_by_ids(transcript_ids: list[str]) -> list[dict[str, Any]]:
+    """Fetch full transcript rows (including transcript text) for the given IDs."""
+    if not transcript_ids:
+        return []
+    supabase = get_supabase()
+    try:
+        response = (
+            supabase.table("transcripts")
+            .select("id, transcript, name, created_at, upload_date, folder_id, youtube_url")
+            .in_("id", transcript_ids)
+            .execute()
+        )
+        return response.data or []
+    except APIError as exc:
+        if not is_missing_speakers_column(exc):
+            raise
+        response = (
+            supabase.table("transcripts")
+            .select("id, transcript, name, created_at, upload_date, folder_id, youtube_url")
+            .in_("id", transcript_ids)
+            .execute()
+        )
+        return response.data or []
+
+
 async def create_transcript(
     youtube_url: str,
     transcript: str,

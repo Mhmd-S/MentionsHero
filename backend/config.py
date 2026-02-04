@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     supabase_service_key: str
 
     # Gemini API
-    gemini_api_key: str
+    gemini_api_key: str = ""
+
+    # Replicate API
+    replicate_api_token: str = ""
 
     # Server
     host: str = "0.0.0.0"

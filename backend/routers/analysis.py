@@ -269,9 +269,16 @@ async def get_term_frequency(
     term: str,
     case_sensitive: bool = Query(False, alias="case_sensitive"),
     folder_id: str | None = Query(None, alias="folder_id"),
-    speakers: str | None = Query(None)
+    speakers: str | None = Query(None),
+    persona_id: str | None = Query(None, alias="persona_id")
 ) -> TermFrequencyResponse:
-    """Get frequency analysis for a specific term."""
+    """Get frequency analysis for a specific term.
+
+    If persona_id is provided, uses the persona's aliases as speakers filter
+    and only searches transcripts containing the persona.
+    """
+    from backend.services import persona_service
+
     if not term.strip():
         raise HTTPException(status_code=400, detail="Term cannot be empty")
 
@@ -279,7 +286,30 @@ async def get_term_frequency(
     if speakers:
         speaker_list = [s.strip() for s in speakers.split(",") if s.strip()]
 
-    transcripts = await _get_transcripts_for_folder(folder_id)
+    # If persona_id is provided, use persona's aliases and transcripts
+    if persona_id:
+        persona = await persona_service.get_persona_by_id(persona_id)
+        if persona:
+            speaker_list = persona.get("aliases", [])
+            # Get transcripts for this persona
+            persona_transcripts = await persona_service.get_transcripts_for_persona(persona_id)
+            if not persona_transcripts:
+                return TermFrequencyResponse(
+                    term=term,
+                    total_mentions=0,
+                    briefings_with_term=0,
+                    total_briefings=0,
+                    percentage=0.0,
+                    trend="stable",
+                    mentions_by_date=[]
+                )
+            transcript_ids = [t["id"] for t in persona_transcripts]
+            transcripts = await transcript_service.get_transcripts_by_ids(transcript_ids)
+        else:
+            transcripts = await _get_transcripts_for_folder(folder_id)
+    else:
+        transcripts = await _get_transcripts_for_folder(folder_id)
+
     if not transcripts:
         return TermFrequencyResponse(
             term=term,
