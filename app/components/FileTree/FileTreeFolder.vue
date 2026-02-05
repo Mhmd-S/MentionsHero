@@ -35,13 +35,14 @@
       </button>
     </div>
 
-    <div v-show="isExpanded" class="pl-4">
+    <div v-show="isExpanded || searchQuery" class="pl-4">
       <FileTreeFolder
         v-for="child in childFolders"
         :key="child.id"
         :folder="child"
         :folders="folders"
         :transcripts="transcripts"
+        :search-query="searchQuery"
         class="group"
         @request-rename="$emit('request-rename', $event)"
         @delete="$emit('delete', $event)"
@@ -56,7 +57,7 @@
       />
 
       <div
-        v-if="childFolders.length === 0 && childTranscripts.length === 0"
+        v-if="!searchQuery && childFolders.length === 0 && childTranscripts.length === 0"
         class="px-2 py-1 text-xs text-gray-400 italic"
       >
         Empty folder
@@ -72,6 +73,7 @@ const props = defineProps<{
   folder: Folder
   folders: Folder[]
   transcripts: Transcript[]
+  searchQuery?: string
 }>()
 
 const emit = defineEmits<{
@@ -83,8 +85,30 @@ const emit = defineEmits<{
 const isExpanded = ref(true)
 const isDragOver = ref(false)
 
-const childFolders = computed(() => props.folders.filter(f => f.parent_id === props.folder.id))
-const childTranscripts = computed(() => props.transcripts.filter(t => t.folder_id === props.folder.id))
+function matchesSearch(name: string): boolean {
+  if (!props.searchQuery?.trim()) return true
+  return name.toLowerCase().includes(props.searchQuery.toLowerCase().trim())
+}
+
+function folderHasMatchingDescendants(folderId: string): boolean {
+  const childTranscripts = props.transcripts.filter(t => t.folder_id === folderId)
+  if (childTranscripts.some(t => matchesSearch(t.name || ''))) return true
+
+  const childFolders = props.folders.filter(f => f.parent_id === folderId)
+  return childFolders.some(f => matchesSearch(f.name) || folderHasMatchingDescendants(f.id))
+}
+
+const childFolders = computed(() => {
+  const allChildren = props.folders.filter(f => f.parent_id === props.folder.id)
+  if (!props.searchQuery?.trim()) return allChildren
+  return allChildren.filter(f => matchesSearch(f.name) || folderHasMatchingDescendants(f.id))
+})
+
+const childTranscripts = computed(() => {
+  const allChildren = props.transcripts.filter(t => t.folder_id === props.folder.id)
+  if (!props.searchQuery?.trim()) return allChildren
+  return allChildren.filter(t => matchesSearch(t.name || ''))
+})
 
 function toggle() {
   isExpanded.value = !isExpanded.value

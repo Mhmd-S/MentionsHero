@@ -19,7 +19,9 @@
       "Bash(lsof:*)",
       "Bash(curl:*)",
       "Bash(python:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)"
     ]
   }
 }
