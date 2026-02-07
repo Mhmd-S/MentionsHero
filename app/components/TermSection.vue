@@ -1,10 +1,23 @@
 <script setup lang="ts">
+export interface TermResult {
+  search_term: string
+  total_mentions: number
+  briefings_with_term: number
+  total_briefings: number
+  percentage: number
+  trend: string
+  mentions_by_date: { date: string | null; name: string; count: number }[]
+  context_matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number }[]
+  context_total_matches: number
+  context_transcripts_with_matches: number
+  last_updated?: string | null
+}
+
 interface Props {
   marketId: string
   question: string | null
   searchTerm: string
-  resultCount: number | null
-  resultLastUpdated: string | null
+  termResult: TermResult | null
   outcomePrice: string | null
   personaId: string
 }
@@ -16,50 +29,24 @@ const yesPrice = computed(() => {
   return (parseFloat(props.outcomePrice) * 100).toFixed(0)
 })
 
-// Local state for fetched data (when cached data is missing)
-const loading = ref(false)
-const fetchedData = ref<{
-  total_mentions: number
-  briefings_with_term: number
-  total_briefings: number
-  percentage: number
-  trend: string
-  mentions_by_date: { date: string | null; name: string; count: number }[]
-} | null>(null)
+const totalMentions = computed(() => props.termResult?.total_mentions ?? null)
+const briefings = computed(() => props.termResult?.briefings_with_term ?? null)
+const hasData = computed(() => totalMentions.value !== null || (props.termResult?.context_matches?.length ?? 0) > 0)
 
-// Context state
-const loadingContext = ref(false)
-const contextData = ref<{
-  query: string
-  total_matches: number
-  transcripts_with_matches: number
-  matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number }[]
-} | null>(null)
-
-// Use cached data if available, otherwise use fetched data
-const totalMentions = computed(() => props.resultCount ?? fetchedData.value?.total_mentions ?? null)
-const briefings = computed(() => fetchedData.value?.briefings_with_term ?? null)
-
-const hasData = computed(() => totalMentions.value !== null)
-const needsFetch = computed(() =>
-  props.searchTerm && !fetchedData.value
-)
-
-// Display cap
 const displayCap = 8
 const showAll = ref(false)
 const expandedTranscripts = ref(new Set<string>())
 
-// Group context matches by transcript
 const groupedByTranscript = computed(() => {
-  if (!contextData.value?.matches?.length) return []
+  const matches = props.termResult?.context_matches
+  if (!matches?.length) return []
   const groups = new Map<string, {
     transcript_id: string
     transcript_name: string
     date: string | null
     snippets: string[]
   }>()
-  for (const match of contextData.value.matches) {
+  for (const match of matches) {
     const existing = groups.get(match.transcript_id)
     if (existing) {
       existing.snippets.push(match.context)
@@ -82,63 +69,17 @@ const displayedTranscripts = computed(() => {
 
 const hasMore = computed(() => groupedByTranscript.value.length > displayCap)
 
-// Summary line
 const summaryLine = computed(() => {
-  const total = contextData.value?.total_matches ?? totalMentions.value ?? 0
-  const transcriptCount = contextData.value?.transcripts_with_matches ?? briefings.value ?? 0
+  const total = props.termResult?.context_total_matches ?? props.termResult?.total_mentions ?? 0
+  const transcriptCount = props.termResult?.context_transcripts_with_matches ?? props.termResult?.briefings_with_term ?? 0
   return `${total} mention${total !== 1 ? 's' : ''} across ${transcriptCount} transcript${transcriptCount !== 1 ? 's' : ''}`
 })
-
-async function fetchTermData() {
-  if (!props.searchTerm || fetchedData.value) return
-
-  loading.value = true
-  try {
-    const data = await $fetch(`/api/analysis/term/${encodeURIComponent(props.searchTerm)}`, {
-      params: { persona_id: props.personaId }
-    })
-    fetchedData.value = data as typeof fetchedData.value
-  } catch (e) {
-    console.error('Failed to fetch term data:', e)
-  } finally {
-    loading.value = false
-  }
-}
-
-async function fetchContext() {
-  if (!props.searchTerm || contextData.value) return
-
-  loadingContext.value = true
-  try {
-    const data = await $fetch('/api/analysis/search', {
-      method: 'POST',
-      body: {
-        query: props.searchTerm,
-        context_chars: 300,
-        speakers: null
-      }
-    })
-    contextData.value = data as typeof contextData.value
-  } catch (e) {
-    console.error('Failed to fetch context:', e)
-  } finally {
-    loadingContext.value = false
-  }
-}
 
 function highlightTerm(text: string): string {
   if (!props.searchTerm) return text
   const regex = new RegExp(`\\b(${props.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi')
   return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>')
 }
-
-// Fetch data and context on mount
-onMounted(() => {
-  if (needsFetch.value) {
-    fetchTermData()
-  }
-  fetchContext()
-})
 </script>
 
 <template>
@@ -158,13 +99,8 @@ onMounted(() => {
 
     <!-- Details -->
     <div class="px-3 py-2">
-      <!-- Loading -->
-      <div v-if="loading || loadingContext" class="flex items-center justify-center py-3">
-        <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
-      </div>
-
       <!-- Has Data -->
-      <div v-else-if="hasData || contextData" class="space-y-2">
+      <div v-if="hasData || groupedByTranscript.length" class="space-y-2">
         <!-- Summary Line -->
         <div class="text-xs text-gray-500">
           {{ summaryLine }}

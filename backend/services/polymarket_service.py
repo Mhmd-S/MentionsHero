@@ -15,7 +15,7 @@ from backend.models.polymarket import (
     PolymarketEvent,
     PolymarketTag,
 )
-from backend.utils.nlp import calculate_term_frequency
+from backend.utils.nlp import calculate_term_frequency, search_term_in_context
 
 
 POLYMARKET_CLOB_API = "https://clob.polymarket.com"
@@ -572,6 +572,19 @@ async def add_persona_event(persona_id: str, slug: str) -> dict[str, Any] | None
     return await get_persona_event_internal(persona_id, event_id)
 
 
+async def remove_persona_event(persona_id: str, event_id: str) -> bool:
+    """Remove the link between a persona and a Polymarket event."""
+    supabase = get_supabase()
+    result = (
+        supabase.table("persona_polymarket_events")
+        .delete()
+        .eq("persona_id", persona_id)
+        .eq("polymarket_event_id", event_id)
+        .execute()
+    )
+    return bool(result.data)
+
+
 async def get_persona_events(persona_id: str) -> list[dict[str, Any]]:
     """List events linked to a persona with markets and analysis results."""
     supabase = get_supabase()
@@ -586,7 +599,7 @@ async def get_persona_events(persona_id: str) -> list[dict[str, Any]]:
 
 
 async def get_persona_event_internal(persona_id: str, event_id: str) -> dict[str, Any] | None:
-    """Build one PersonaEventWithMarkets-like dict for a single event."""
+    """Build one PersonaEventWithMarkets-like dict for a single event. Reads term_results from market_term_results."""
     supabase = get_supabase()
     event_row = supabase.table("polymarket_events").select("*").eq("id", event_id).single().execute()
     if not event_row.data:
@@ -599,18 +612,27 @@ async def get_persona_event_internal(persona_id: str, event_id: str) -> dict[str
         market_id = m["id"]
         cfg = supabase.table("market_search_configs").select("*").eq("market_id", market_id).limit(1).execute()
         cfg_data = cfg.data[0] if cfg.data and len(cfg.data) > 0 else None
-        res = supabase.table("market_search_results").select("*").eq("market_id", market_id).eq("persona_id", persona_id).limit(1).execute()
-        res_data = res.data[0] if res.data and len(res.data) > 0 else None
+        term_rows = supabase.table("market_term_results").select("*").eq("market_id", market_id).eq("persona_id", persona_id).execute()
+        term_results = (term_rows.data or [])
         market_with_analysis.append({
             "market": m,
             "search_config": cfg_data,
-            "result_count": res_data.get("count") if res_data else None,
-            "result_last_updated": res_data.get("last_updated") if res_data else None,
-            "result_briefings_with_term": res_data.get("briefings_with_term") if res_data else None,
-            "result_total_briefings": res_data.get("total_briefings") if res_data else None,
-            "result_percentage": res_data.get("percentage") if res_data else None,
-            "result_trend": res_data.get("trend") if res_data else None,
-            "result_mentions_by_date": res_data.get("mentions_by_date") if res_data else None,
+            "term_results": [
+                {
+                    "search_term": r["search_term"],
+                    "total_mentions": r["total_mentions"],
+                    "briefings_with_term": r["briefings_with_term"],
+                    "total_briefings": r["total_briefings"],
+                    "percentage": float(r["percentage"]) if r.get("percentage") is not None else 0,
+                    "trend": r.get("trend") or "stable",
+                    "mentions_by_date": r.get("mentions_by_date") or [],
+                    "context_matches": r.get("context_matches") or [],
+                    "context_total_matches": r.get("context_total_matches") or 0,
+                    "context_transcripts_with_matches": r.get("context_transcripts_with_matches") or 0,
+                    "last_updated": r.get("last_updated"),
+                }
+                for r in term_results
+            ],
         })
     return {
         "event": event_data,
@@ -620,8 +642,8 @@ async def get_persona_event_internal(persona_id: str, event_id: str) -> dict[str
 
 async def update_market_analysis(persona_id: str, event_id: str) -> None:
     """
-    For each market in the event, get persona's transcripts, run term search (first search term),
-    and upsert market_search_results.
+    For each market in the event, for each search term: compute frequency + context,
+    and upsert into market_term_results.
     """
     from backend.services import persona_service, transcript_service
 
@@ -629,14 +651,11 @@ async def update_market_analysis(persona_id: str, event_id: str) -> None:
     markets = supabase.table("polymarket_markets").select("id").eq("event_id", event_id).execute()
     market_ids = [r["id"] for r in (markets.data or [])]
 
-    # Get persona to check aliases
     persona = await persona_service.get_persona_by_id(persona_id)
     aliases = persona.get("aliases", []) if persona else []
     print(f"[update_market_analysis] persona_id={persona_id}, aliases={aliases}")
 
     persona_transcripts = await persona_service.get_transcripts_for_persona(persona_id)
-    print(f"[update_market_analysis] persona_transcripts count={len(persona_transcripts)}")
-
     transcript_ids = [t["id"] for t in persona_transcripts]
     transcripts = await transcript_service.get_transcripts_by_ids(transcript_ids) if transcript_ids else []
     print(f"[update_market_analysis] full transcripts count={len(transcripts)}")
@@ -645,37 +664,27 @@ async def update_market_analysis(persona_id: str, event_id: str) -> None:
         cfg = supabase.table("market_search_configs").select("*").eq("market_id", market_id).limit(1).execute()
         cfg_data = cfg.data[0] if cfg.data and len(cfg.data) > 0 else None
         search_terms = (cfg_data.get("search_terms") or []) if cfg_data else []
-        min_count = int(cfg_data.get("min_count", 0)) if cfg_data else 0
-        primary_term = search_terms[0] if search_terms else ""
-        print(f"[update_market_analysis] market_id={market_id}, search_terms={search_terms}, primary_term='{primary_term}'")
-
-        if not primary_term:
-            freq = {
-                "total_mentions": 0,
-                "briefings_with_term": 0,
-                "total_briefings": len(transcripts),
-                "percentage": 0,
-                "trend": "stable",
-                "mentions_by_date": []
-            }
-            print(f"[update_market_analysis] No primary_term, setting count=0")
-        else:
-            # Filter to only count mentions from the persona's speakers (aliases)
-            freq = calculate_term_frequency(transcripts, primary_term, case_sensitive=False, speakers=aliases)
-            print(f"[update_market_analysis] term='{primary_term}', speakers={aliases}, count={freq.get('total_mentions', 0)}, briefings_with_term={freq.get('briefings_with_term', 0)}")
-
-        now = datetime.now(timezone.utc).isoformat()
-        supabase.table("market_search_results").upsert({
-            "market_id": market_id,
-            "persona_id": persona_id,
-            "count": freq.get("total_mentions", 0),
-            "briefings_with_term": freq.get("briefings_with_term", 0),
-            "total_briefings": freq.get("total_briefings", 0),
-            "percentage": freq.get("percentage", 0),
-            "trend": freq.get("trend", "stable"),
-            "mentions_by_date": freq.get("mentions_by_date", []),
-            "last_updated": now,
-        }, on_conflict="market_id,persona_id").execute()
+        if not search_terms:
+            continue
+        for term in search_terms:
+            freq = calculate_term_frequency(transcripts, term, case_sensitive=False, speakers=aliases)
+            ctx = search_term_in_context(transcripts, term, context_chars=300, speakers=aliases)
+            now = datetime.now(timezone.utc).isoformat()
+            supabase.table("market_term_results").upsert({
+                "market_id": market_id,
+                "persona_id": persona_id,
+                "search_term": term,
+                "total_mentions": freq.get("total_mentions", 0),
+                "briefings_with_term": freq.get("briefings_with_term", 0),
+                "total_briefings": freq.get("total_briefings", 0),
+                "percentage": freq.get("percentage", 0),
+                "trend": freq.get("trend", "stable"),
+                "mentions_by_date": freq.get("mentions_by_date", []),
+                "context_matches": ctx.get("matches", []),
+                "context_total_matches": ctx.get("total_matches", 0),
+                "context_transcripts_with_matches": ctx.get("transcripts_with_matches", 0),
+                "last_updated": now,
+            }, on_conflict="market_id,persona_id,search_term").execute()
 
 
 async def refresh_persona_event(persona_id: str, event_id: str) -> dict[str, Any] | None:
@@ -705,3 +714,35 @@ async def refresh_persona_event(persona_id: str, event_id: str) -> dict[str, Any
         }, on_conflict="market_id").execute()
     await update_market_analysis(persona_id, event_id)
     return await get_persona_event_internal(persona_id, event_id)
+
+
+async def reprocess_persona_markets(persona_id: str) -> None:
+    """Reprocess all market analysis for a persona across all linked events."""
+    supabase = get_supabase()
+    links = supabase.table("persona_polymarket_events").select("polymarket_event_id").eq("persona_id", persona_id).execute()
+    event_ids = [r["polymarket_event_id"] for r in (links.data or [])]
+    for event_id in event_ids:
+        await update_market_analysis(persona_id, event_id)
+
+
+async def find_affected_persona_ids(speaker_names: list[str]) -> list[str]:
+    """Find persona IDs whose aliases match any of the given speaker names (case-insensitive)."""
+    if not speaker_names:
+        return []
+    supabase = get_supabase()
+    rows = supabase.table("persona_aliases").select("persona_id, alias").execute()
+    aliases_data = rows.data or []
+    speaker_lower = [s.strip().lower() for s in speaker_names if s and s.strip()]
+    if not speaker_lower:
+        return []
+    affected: set[str] = set()
+    for row in aliases_data:
+        alias = (row.get("alias") or "").strip()
+        if not alias:
+            continue
+        alias_lower = alias.lower()
+        for sl in speaker_lower:
+            if sl == alias_lower or alias_lower in sl or sl in alias_lower:
+                affected.add(row["persona_id"])
+                break
+    return list(affected)

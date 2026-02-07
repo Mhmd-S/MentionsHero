@@ -23,7 +23,8 @@ from backend.models.job import (
     BulkCancelResponse,
     CancelResponse,
 )
-from backend.services import job_service, speaker_service
+from backend.services import job_service, speaker_service, polymarket_service
+from backend.utils.nlp import parse_transcript_segments
 from backend.services.download_service import download_audio, cleanup_audio_file
 from backend.services.transcription_service import transcribe_audio
 from backend.services.youtube_service import validate_youtube_url, get_video_info
@@ -148,6 +149,17 @@ async def process_job(
             except Exception:
                 pass  # Do not fail the job if speaker extraction fails
 
+        # Auto-reprocess market analysis for personas whose aliases appear in this transcript
+        if transcript_id and transcript:
+            try:
+                segments = parse_transcript_segments(transcript)
+                speaker_names = list({s['speaker'] for s in segments if s.get('speaker')})
+                affected_ids = await polymarket_service.find_affected_persona_ids(speaker_names)
+                for pid in affected_ids:
+                    await polymarket_service.reprocess_persona_markets(pid)
+            except Exception:
+                pass  # Never fail the job for market reprocessing
+
         # Mark job as completed
         await job_service.update_job_progress(
             job_id,
@@ -179,6 +191,43 @@ async def list_jobs() -> dict[str, list[dict[str, Any]]]:
     """List all active jobs."""
     jobs = await job_service.get_active_jobs()
     return {"jobs": jobs}
+
+
+@router.get("/list/stream")
+async def stream_jobs_list():
+    """Stream active jobs list updates via Server-Sent Events (no polling)."""
+    list_event = job_service.get_list_event()
+    wait_timeout = 30.0  # heartbeat so connection stays alive
+
+    async def event_generator():
+        # Send initial list immediately
+        jobs = await job_service.get_active_jobs()
+        yield f"data: {json.dumps({'jobs': jobs})}\n\n"
+
+        while True:
+            try:
+                list_event.clear()
+                await asyncio.wait_for(
+                    asyncio.shield(asyncio.to_thread(list_event.wait)),
+                    timeout=wait_timeout
+                )
+            except asyncio.TimeoutError:
+                pass  # re-fetch and send (heartbeat)
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                break
+            jobs = await job_service.get_active_jobs()
+            yield f"data: {json.dumps({'jobs': jobs})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 @router.post("")
@@ -332,7 +381,9 @@ async def force_cancel_job(job_id: str) -> CancelResponse:
 
 @router.get("/{job_id}/stream")
 async def stream_job(job_id: str):
-    """Stream job status updates via Server-Sent Events."""
+    """Stream job status updates via Server-Sent Events (event-driven, no polling)."""
+    job_event = job_service.get_job_event(job_id)
+    wait_timeout = 30.0  # heartbeat so connection stays alive
 
     async def event_generator():
         last_status = ""
@@ -361,9 +412,15 @@ async def stream_job(job_id: str):
                 ]:
                     break
 
-                await asyncio.sleep(1)
+                job_event.clear()
+                await asyncio.wait_for(
+                    asyncio.shield(asyncio.to_thread(job_event.wait)),
+                    timeout=wait_timeout
+                )
 
-            except Exception as e:
+            except asyncio.TimeoutError:
+                pass  # re-fetch and send if changed (heartbeat)
+            except Exception:
                 yield f"data: {json.dumps({'error': 'Failed to fetch job status'})}\n\n"
                 break
 

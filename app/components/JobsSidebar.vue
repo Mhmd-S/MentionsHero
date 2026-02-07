@@ -101,12 +101,26 @@ const groupedJobs = computed((): JobGroup[] => {
   return Array.from(groups.values())
 })
 
-const fetchJobs = async () => {
-  try {
-    const response = await $fetch<{ jobs: Job[] }>('/api/jobs')
-    jobs.value = response.jobs
-  } catch (e) {
-    console.error('Failed to fetch jobs:', e)
+let eventSource: EventSource | null = null
+
+function connectJobsStream() {
+  if (import.meta.server) return
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+  eventSource = new EventSource('/api/jobs/list/stream')
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data) as { jobs: Job[] }
+      jobs.value = data.jobs ?? []
+    } catch (e) {
+      console.error('Failed to parse jobs stream:', e)
+    }
+  }
+  eventSource.onerror = () => {
+    eventSource?.close()
+    eventSource = null
   }
 }
 
@@ -131,17 +145,14 @@ async function bulkCancel(playlistId: string) {
   }
 }
 
-// Poll for active jobs
-let pollInterval: ReturnType<typeof setInterval> | null = null
-
 onMounted(() => {
-  fetchJobs()
-  pollInterval = setInterval(fetchJobs, 5000)
+  connectJobsStream()
 })
 
 onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval)
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
   }
 })
 

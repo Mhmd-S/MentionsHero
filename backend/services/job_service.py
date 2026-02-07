@@ -1,10 +1,48 @@
 """Job service for database operations."""
 
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
 from backend.core.database import get_supabase
 from backend.models.job import JobStatus, StageProgress
+
+# Thread-safe events for SSE: wait() in thread pool, set() from async main thread
+_jobs_list_event: threading.Event | None = None
+_job_events: dict[str, threading.Event] = {}
+
+
+def _get_list_event() -> threading.Event:
+    global _jobs_list_event
+    if _jobs_list_event is None:
+        _jobs_list_event = threading.Event()
+    return _jobs_list_event
+
+
+def _get_job_event(job_id: str) -> threading.Event:
+    if job_id not in _job_events:
+        _job_events[job_id] = threading.Event()
+    return _job_events[job_id]
+
+
+def notify_jobs_list_changed() -> None:
+    """Call when any job is created/updated/cancelled so list stream can push."""
+    _get_list_event().set()
+
+
+def notify_job_changed(job_id: str) -> None:
+    """Call when a specific job is updated so its stream can push."""
+    _get_job_event(job_id).set()
+
+
+def get_list_event() -> threading.Event:
+    """Event to wait on in the jobs list SSE loop (use in asyncio.to_thread)."""
+    return _get_list_event()
+
+
+def get_job_event(job_id: str) -> threading.Event:
+    """Event to wait on in a per-job SSE loop (use in asyncio.to_thread)."""
+    return _get_job_event(job_id)
 
 
 async def create_job(
@@ -27,6 +65,7 @@ async def create_job(
         "playlist_index": playlist_index
     }).execute()
 
+    notify_jobs_list_changed()
     return response.data[0]
 
 
@@ -79,6 +118,8 @@ async def update_job_progress(
         update_data["transcript_id"] = transcript_id
 
     supabase.table("jobs").update(update_data).eq("id", job_id).execute()
+    notify_job_changed(job_id)
+    notify_jobs_list_changed()
 
 
 async def check_cancellation(job_id: str) -> bool:
@@ -106,6 +147,8 @@ async def mark_job_cancelled(job_id: str) -> None:
         "status": JobStatus.CANCELLED.value,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }).eq("id", job_id).execute()
+    notify_job_changed(job_id)
+    notify_jobs_list_changed()
 
 
 async def request_cancellation(job_id: str) -> bool:
@@ -133,6 +176,8 @@ async def request_cancellation(job_id: str) -> bool:
     supabase.table("jobs").update({
         "cancel_requested": True
     }).eq("id", job_id).execute()
+    notify_job_changed(job_id)
+    notify_jobs_list_changed()
 
     return True
 
@@ -146,6 +191,8 @@ async def force_cancel_job(job_id: str) -> bool:
         "cancel_requested": True,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }).eq("id", job_id).execute()
+    notify_job_changed(job_id)
+    notify_jobs_list_changed()
 
     return True
 
@@ -181,5 +228,9 @@ async def bulk_cancel_playlist_jobs(playlist_id: str) -> int:
     }).eq("playlist_id", playlist_id).filter(
         "status", "not.in", terminal_statuses
     ).execute()
+
+    for job in jobs:
+        notify_job_changed(job["id"])
+    notify_jobs_list_changed()
 
     return len(jobs)
