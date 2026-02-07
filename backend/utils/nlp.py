@@ -173,8 +173,8 @@ def calculate_term_frequency(
         cleaned_text = clean_text(text_to_analyze)
         text_to_search = cleaned_text if case_sensitive else cleaned_text.lower()
 
-        # Count occurrences
-        count = len(re.findall(re.escape(search_term), text_to_search))
+        # Count occurrences (whole word match)
+        count = len(re.findall(r'\b' + re.escape(search_term) + r'\b', text_to_search))
 
         if count > 0:
             briefings_with_term += 1
@@ -340,7 +340,7 @@ def search_term_in_context(
     total_count = 0
 
     query_lower = query.lower()
-    pattern = re.compile(re.escape(query), re.IGNORECASE)
+    pattern = re.compile(r'\b' + re.escape(query) + r'\b', re.IGNORECASE)
 
     for t in transcripts:
         transcript_text = t.get("transcript", "")

@@ -56,31 +56,28 @@ def escape_html(text: str) -> str:
 
 
 def highlight_text(text: str, search_string: str) -> str:
-    """Highlight matching text in a string."""
+    """Highlight matching text in a string (whole word match)."""
     if not search_string or not search_string.strip():
         return escape_html(text)
 
-    search_lower = search_string.lower()
-    text_lower = text.lower()
+    pattern = re.compile(r'\b' + re.escape(search_string) + r'\b', re.IGNORECASE)
     parts: list[str] = []
     last_index = 0
-    index = text_lower.find(search_lower, last_index)
 
-    # If no matches found, return escaped text
-    if index == -1:
-        return escape_html(text)
-
-    while index != -1:
+    for match in pattern.finditer(text):
         # Add text before match
-        if index > last_index:
-            parts.append(escape_html(text[last_index:index]))
+        if match.start() > last_index:
+            parts.append(escape_html(text[last_index:match.start()]))
         # Add highlighted match
         parts.append(
             f'<mark class="bg-yellow-200 dark:bg-yellow-900">'
-            f'{escape_html(text[index:index + len(search_string)])}</mark>'
+            f'{escape_html(match.group())}</mark>'
         )
-        last_index = index + len(search_string)
-        index = text_lower.find(search_lower, last_index)
+        last_index = match.end()
+
+    # If no matches found, return escaped text
+    if not parts:
+        return escape_html(text)
 
     # Add remaining text
     if last_index < len(text):
@@ -120,7 +117,7 @@ def highlight_transcript(
         is_content_match = (
             search_string and
             search_string.strip() and
-            search_string.lower() in segment['content'].lower()
+            bool(re.search(r'\b' + re.escape(search_string) + r'\b', segment['content'], re.IGNORECASE))
         )
 
         is_match = is_speaker_match or is_content_match
@@ -179,14 +176,11 @@ def calculate_speaker_frequencies(
     frequency_map: dict[str, int] = {}
     search_lower = search_string.lower()
 
+    word_pattern = re.compile(r'\b' + re.escape(search_lower) + r'\b')
+
     for segment in segments:
         content_lower = segment['content'].lower()
-        count = 0
-        index = content_lower.find(search_lower)
-
-        while index != -1:
-            count += 1
-            index = content_lower.find(search_lower, index + 1)
+        count = len(word_pattern.findall(content_lower))
 
         if count > 0:
             current = frequency_map.get(segment['speaker'], 0)

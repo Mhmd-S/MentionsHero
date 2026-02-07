@@ -5,7 +5,8 @@
       <p class="text-gray-500 mt-1">Enter a YouTube URL to generate a transcript</p>
     </div>
 
-    <div class="max-w-xl space-y-6">
+    <!-- Single / detecting / batch mode: single column -->
+    <div v-if="inputMode !== 'playlist'" class="max-w-xl space-y-6">
       <!-- URL Input Mode -->
       <div v-if="inputMode === 'single' || inputMode === 'detecting'">
         <UFormField label="YouTube URL">
@@ -25,16 +26,6 @@
         :video="videoInfo"
         :loading="videoLoading"
         :error="videoError"
-      />
-
-      <!-- Playlist Selector -->
-      <PlaylistSelector
-        v-if="inputMode === 'playlist'"
-        :playlist="playlistInfo"
-        :loading="playlistLoading"
-        :error="playlistError"
-        v-model:selected="selectedVideos"
-        @back="clearInput"
       />
 
       <!-- Batch URL Input -->
@@ -137,6 +128,116 @@
         >
           Start New
         </UButton>
+      </div>
+    </div>
+
+    <!-- Playlist mode: two-column layout -->
+    <div v-else class="flex gap-6 items-start">
+      <!-- Left column: playlist video list -->
+      <div class="flex-1 min-w-0">
+        <PlaylistSelector
+          :playlist="playlistInfo"
+          :loading="playlistLoading"
+          :error="playlistError"
+          v-model:selected="selectedVideos"
+          @back="clearInput"
+        />
+      </div>
+
+      <!-- Right column: transcript options -->
+      <div class="w-80 flex-shrink-0 space-y-5">
+        <FolderPicker v-model="selectedFolderId" :disabled="isProcessing" />
+
+        <UFormField
+          label="Speaker context (optional)"
+          description="Help Gemini identify speakers"
+        >
+          <UTextarea
+            v-model="speakerHint"
+            placeholder="e.g. This is PMQ; speakers include the PM and opposition leader"
+            :rows="2"
+            class="w-full"
+            :disabled="isProcessing"
+          />
+        </UFormField>
+
+        <div class="flex gap-3">
+          <UButton
+            v-if="!isProcessing && !isCompleted && !isCancelled"
+            @click="startJob"
+            :loading="isStarting"
+            :disabled="!canTranscribe || isStarting"
+            size="lg"
+          >
+            {{ transcribeButtonLabel }}
+          </UButton>
+
+          <UButton
+            v-if="isProcessing && !isStarting"
+            @click="cancelJob"
+            :loading="isCancelling"
+            :disabled="isCancelling"
+            color="error"
+            variant="outline"
+            size="lg"
+          >
+            Cancel
+          </UButton>
+        </div>
+
+        <JobProgress
+          v-if="progress"
+          :progress="progress"
+          :status-label="statusLabel"
+          :chunk-info="chunkInfo"
+          :substep-label="substepLabel"
+          :substep-detail="substepDetail"
+        />
+
+        <UAlert
+          v-if="error"
+          color="error"
+          :title="error"
+        />
+
+        <div v-if="isCompleted && progress?.transcript_id" class="space-y-4">
+          <UAlert color="success" title="Transcript saved successfully!" />
+
+          <div class="flex gap-3">
+            <UButton
+              variant="outline"
+              :to="`/transcripts/${progress.transcript_id}`"
+            >
+              View Transcript
+            </UButton>
+
+            <UButton
+              variant="ghost"
+              @click="resetForm"
+            >
+              Start New
+            </UButton>
+          </div>
+        </div>
+
+        <div v-if="isFailed" class="space-y-4">
+          <UButton
+            variant="outline"
+            @click="resetForm"
+          >
+            Try Again
+          </UButton>
+        </div>
+
+        <div v-if="isCancelled" class="space-y-4">
+          <UAlert color="warning" title="Job was cancelled" />
+          <UButton
+            variant="outline"
+            @click="resetForm"
+          >
+            Start New
+          </UButton>
+        </div>
       </div>
     </div>
   </div>

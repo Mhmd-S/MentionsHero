@@ -17,7 +17,7 @@ export default defineNuxtConfig({
     }
   },
   ui: {
-    colorMode: false
+    colorMode: true
   },
     css: ['~/assets/css/main.css'],
   modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui'],

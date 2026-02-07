@@ -128,8 +128,6 @@ async def update_persona(
         supabase.table("personas")
         .update(updates)
         .eq("id", persona_id)
-        .select()
-        .single()
         .execute()
     )
 
@@ -144,7 +142,7 @@ async def update_persona(
         .execute()
     )
 
-    persona = response.data
+    persona = response.data[0]
     persona["aliases"] = [a["alias"] for a in (aliases_response.data or [])]
     return persona
 

@@ -110,11 +110,9 @@ async def create_transcript(
             "transcript": transcript,
             "folder_id": folder_id
         })
-        .select()
-        .single()
         .execute()
     )
-    return response.data
+    return response.data[0] if response.data else None
 
 
 async def update_transcript(
@@ -140,11 +138,9 @@ async def update_transcript(
         supabase.table("transcripts")
         .update(updates)
         .eq("id", transcript_id)
-        .select()
-        .single()
         .execute()
     )
-    return response.data
+    return response.data[0] if response.data else None
 
 
 async def delete_transcript(transcript_id: str) -> bool:
