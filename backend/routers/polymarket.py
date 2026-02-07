@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 
 from backend.models.polymarket import (
     PolymarketMarket,
@@ -141,6 +141,21 @@ async def list_persona_events(persona_id: str):
     return await polymarket_service.get_persona_events(persona_id)
 
 
+@router.delete("/events/{event_id}")
+async def remove_event(
+    event_id: str,
+    persona_id: str = Query(..., description="Persona ID to unlink from"),
+):
+    """Remove the link between a persona and a Polymarket event."""
+    persona = await persona_service.get_persona_by_id(persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    removed = await polymarket_service.remove_persona_event(persona_id, event_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Link not found")
+    return {"ok": True}
+
+
 @router.post("/events/{event_id}/refresh")
 async def refresh_event(
     event_id: str,
@@ -154,3 +169,17 @@ async def refresh_event(
     if not result:
         raise HTTPException(status_code=404, detail="Event not found or refresh failed")
     return result
+
+
+@router.post("/events/backfill-term-results")
+async def backfill_term_results(background_tasks: BackgroundTasks) -> dict:
+    """One-time backfill: schedule update_market_analysis for every persona-event link."""
+    from backend.core.database import get_supabase
+    supabase = get_supabase()
+    links = supabase.table("persona_polymarket_events").select("persona_id, polymarket_event_id").execute()
+    rows = links.data or []
+    for r in rows:
+        persona_id = r["persona_id"]
+        event_id = r["polymarket_event_id"]
+        background_tasks.add_task(polymarket_service.update_market_analysis, persona_id, event_id)
+    return {"scheduled": len(rows), "message": "Backfill scheduled for all persona-event links."}

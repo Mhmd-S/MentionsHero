@@ -11,16 +11,23 @@ const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
 
 // Polymarket state
+export interface TermResult {
+  search_term: string
+  total_mentions: number
+  briefings_with_term: number
+  total_briefings: number
+  percentage: number
+  trend: string
+  mentions_by_date: { date: string | null; name: string; count: number }[]
+  context_matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number }[]
+  context_total_matches: number
+  context_transcripts_with_matches: number
+  last_updated?: string | null
+}
 interface PersonaEventMarket {
   market: { id: string; question: string | null; outcome_prices: string[] | null; closed?: boolean }
   search_config: { search_terms: string[]; min_count: number } | null
-  result_count: number | null
-  result_last_updated: string | null
-  result_briefings_with_term: number | null
-  result_total_briefings: number | null
-  result_percentage: number | null
-  result_trend: string | null
-  result_mentions_by_date: { date: string | null; name: string; count: number }[] | null
+  term_results: TermResult[]
 }
 interface PersonaEvent {
   event: { id: string; slug: string; title: string | null; image: string | null }
@@ -64,6 +71,13 @@ async function handleAddEvent() {
   if (!slug) return
   addingEvent.value = true
   try {
+    // Remove existing events first
+    for (const pe of personaEvents.value) {
+      await $fetch(`/api/polymarket/events/${pe.event.id}`, {
+        method: 'DELETE',
+        query: { persona_id: personaId }
+      })
+    }
     await $fetch('/api/polymarket/events', {
       method: 'POST',
       body: { persona_id: personaId, slug }
@@ -110,7 +124,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6 max-w-7xl mx-auto">
+  <div class="max-w-7xl mx-auto">
     <!-- Header with back button -->
     <div class="mb-6">
       <NuxtLink to="/personas"
@@ -172,9 +186,14 @@ onMounted(async () => {
           <template v-for="m in pe.markets" :key="m.market.id">
             <TermSection
               v-for="term in (m.search_config?.search_terms || []).length ? (m.search_config?.search_terms || []) : ['']"
-              :key="`${m.market.id}-${term}`" :market-id="m.market.id" :question="m.market.question" :search-term="term"
-              :result-count="m.result_count" :result-last-updated="m.result_last_updated"
-              :outcome-price="m.market.outcome_prices?.[0] || null" :persona-id="personaId" />
+              :key="`${m.market.id}-${term}`"
+              :market-id="m.market.id"
+              :question="m.market.question"
+              :search-term="term"
+              :term-result="m.term_results?.find(tr => tr.search_term === term) || null"
+              :outcome-price="m.market.outcome_prices?.[0] || null"
+              :persona-id="personaId"
+            />
           </template>
 
         </div>
