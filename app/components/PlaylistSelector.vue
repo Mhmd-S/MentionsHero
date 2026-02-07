@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3">
     <!-- Loading state -->
     <div v-if="loading" class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
       <div class="flex items-center gap-3">
@@ -19,9 +19,9 @@
     </div>
 
     <!-- Playlist loaded -->
-    <div v-else-if="playlist" class="space-y-4">
+    <div v-else-if="playlist" class="flex flex-col space-y-3">
       <!-- Playlist header -->
-      <div class="flex items-start justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div class="flex items-start justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div>
           <h3 class="font-medium">{{ playlist.title }}</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -33,23 +33,35 @@
         </UButton>
       </div>
 
-      <!-- Selection controls -->
-      <div class="flex items-center justify-between">
-        <div class="flex gap-2">
-          <UButton size="xs" variant="outline" @click="selectAll">Select All</UButton>
-          <UButton size="xs" variant="outline" @click="selectNone">Select None</UButton>
+      <!-- Search and selection controls -->
+      <div class="space-y-2">
+        <UInput
+          v-model="searchQuery"
+          placeholder="Search videos..."
+          icon="i-heroicons-magnifying-glass"
+          size="sm"
+          class="w-full"
+        />
+        <div class="flex items-center justify-between">
+          <div class="flex gap-2">
+            <UButton size="xs" variant="outline" @click="selectAll">Select All</UButton>
+            <UButton size="xs" variant="outline" @click="selectNone">Select None</UButton>
+          </div>
+          <span class="text-sm text-gray-500">
+            {{ selected.length }} of {{ playlist.videos.length }} selected
+            <template v-if="searchQuery && filteredVideos.length !== playlist.videos.length">
+              ({{ filteredVideos.length }} shown)
+            </template>
+          </span>
         </div>
-        <span class="text-sm text-gray-500">
-          {{ selected.length }} of {{ playlist.videos.length }} selected
-        </span>
       </div>
 
       <!-- Video list -->
-      <div class="space-y-2 max-h-96 overflow-y-auto">
+      <div class="space-y-1.5 max-h-[calc(100vh-320px)] min-h-64 overflow-y-auto">
         <div
-          v-for="(video, index) in playlist.videos"
+          v-for="video in filteredVideos"
           :key="video.id"
-          class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+          class="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
           @click="toggleSelection(video)"
         >
           <UCheckbox
@@ -57,7 +69,7 @@
             @update:model-value="toggleSelection(video)"
             @click.stop
           />
-          <span class="text-xs text-gray-400 w-6 text-right">{{ index + 1 }}</span>
+          <span class="text-xs text-gray-400 w-6 text-right">{{ getVideoIndex(video) }}</span>
           <img
             :src="video.thumbnail"
             :alt="video.title"
@@ -68,6 +80,9 @@
             <p class="text-xs text-gray-500 dark:text-gray-400">{{ video.durationFormatted }}</p>
           </div>
         </div>
+        <p v-if="searchQuery && filteredVideos.length === 0" class="text-sm text-gray-400 text-center py-4">
+          No videos match "{{ searchQuery }}"
+        </p>
       </div>
 
       <!-- Total duration -->
@@ -108,6 +123,21 @@ const emit = defineEmits<{
   'update:selected': [videos: VideoInfo[]]
   'back': []
 }>()
+
+const searchQuery = ref('')
+
+const filteredVideos = computed(() => {
+  if (!props.playlist || !searchQuery.value.trim()) {
+    return props.playlist?.videos ?? []
+  }
+  const query = searchQuery.value.toLowerCase()
+  return props.playlist.videos.filter(v => v.title.toLowerCase().includes(query))
+})
+
+function getVideoIndex(video: VideoInfo): number {
+  const idx = props.playlist?.videos.indexOf(video) ?? -1
+  return idx + 1
+}
 
 function isSelected(video: VideoInfo): boolean {
   return props.selected.some(v => v.id === video.id)

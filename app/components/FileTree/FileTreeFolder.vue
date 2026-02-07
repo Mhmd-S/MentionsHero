@@ -46,6 +46,7 @@
         class="group"
         @request-rename="$emit('request-rename', $event)"
         @delete="$emit('delete', $event)"
+        @delete-transcript="$emit('delete-transcript', $event)"
         @move="$emit('move', $event)"
       />
 
@@ -54,6 +55,7 @@
         :key="transcript.id"
         :transcript="transcript"
         @request-rename="$emit('request-rename', $event)"
+        @delete="$emit('delete-transcript', $event)"
       />
 
       <div
@@ -79,10 +81,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   'request-rename': [payload: { id: string; type: 'folder' | 'transcript'; currentName: string }]
   'delete': [id: string]
+  'delete-transcript': [id: string]
   'move': [payload: { type: 'folder' | 'transcript'; id: string; targetFolderId: string | null }]
 }>()
 
-const isExpanded = ref(true)
+const isExpanded = ref(false)
 const isDragOver = ref(false)
 
 function matchesSearch(name: string): boolean {

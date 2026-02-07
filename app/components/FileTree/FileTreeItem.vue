@@ -26,6 +26,13 @@
     >
       <UIcon name="i-heroicons-pencil-square" class="size-4" />
     </button>
+    <button
+      class="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity p-0.5"
+      title="Delete"
+      @click.stop="onDelete"
+    >
+      <UIcon name="i-heroicons-trash" class="size-4" />
+    </button>
   </div>
 </template>
 
@@ -38,6 +45,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'request-rename': [payload: { id: string; type: 'transcript'; currentName: string }]
+  'delete': [id: string]
 }>()
 
 const route = useRoute()
@@ -50,6 +58,12 @@ function onRename() {
     type: 'transcript',
     currentName: props.transcript.name || 'Untitled'
   })
+}
+
+function onDelete() {
+  if (confirm('Are you sure you want to delete this transcript?')) {
+    emit('delete', props.transcript.id)
+  }
 }
 
 function onDragStart(e: DragEvent) {

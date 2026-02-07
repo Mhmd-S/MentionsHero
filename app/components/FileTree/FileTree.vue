@@ -49,6 +49,7 @@
         class="group"
         @request-rename="handleRename($event)"
         @delete="deleteFolder"
+        @delete-transcript="deleteTranscript"
         @move="handleMove"
       />
 
@@ -58,6 +59,7 @@
         :key="transcript.id"
         :transcript="transcript"
         @request-rename="handleRename($event)"
+        @delete="deleteTranscript"
       />
 
       <div
@@ -96,6 +98,7 @@ const {
   createFolder,
   renameFolder,
   deleteFolder,
+  deleteTranscript,
   renameTranscript,
   moveFolder,
   moveTranscript

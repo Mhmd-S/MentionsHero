@@ -21,7 +21,9 @@
       "Bash(python:*)",
       "Bash(grep:*)",
       "Bash(pip install:*)",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/pip show:*)",
+      "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/python:*)"
     ]
   }
 }

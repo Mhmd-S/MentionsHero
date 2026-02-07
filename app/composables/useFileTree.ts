@@ -120,6 +120,11 @@ export function useFileTree() {
     )
   }
 
+  async function deleteTranscript(id: string) {
+    await $fetch(`/api/transcripts/${id}`, { method: 'DELETE' })
+    transcripts.value = transcripts.value.filter(t => t.id !== id)
+  }
+
   async function renameTranscript(id: string, name: string) {
     const data = await $fetch<Transcript>(`/api/transcripts/${id}`, {
       method: 'PATCH',
@@ -157,6 +162,7 @@ export function useFileTree() {
     renameFolder,
     moveFolder,
     deleteFolder,
+    deleteTranscript,
     renameTranscript,
     moveTranscript,
     setDropTarget

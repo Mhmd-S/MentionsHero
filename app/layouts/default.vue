@@ -1,8 +1,8 @@
 <template>
   <UApp>
     <div class="flex min-h-screen">
-      <aside class="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex flex-col">
-        <div class="p-4 flex-1 overflow-y-auto">
+      <aside class="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 fixed top-0 left-0 h-screen overflow-y-auto">
+        <div class="p-4">
           <div class="flex items-center gap-2 mb-6">
             <UIcon name="i-heroicons-microphone" class="size-6 text-primary" />
             <span class="font-bold text-lg">Transcripts</span>
@@ -41,7 +41,7 @@
         </div>
       </aside>
 
-      <main class="flex-1 p-8">
+      <main class="flex-1 p-8 ml-64">
         <slot />
       </main>
     </div>

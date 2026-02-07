@@ -35,11 +35,9 @@ async def create_folder(name: str, parent_id: str | None = None) -> dict[str, An
             "name": name.strip(),
             "parent_id": parent_id
         })
-        .select()
-        .single()
         .execute()
     )
-    return response.data
+    return response.data[0] if response.data else None
 
 
 async def update_folder(
@@ -64,11 +62,9 @@ async def update_folder(
         supabase.table("folders")
         .update(updates)
         .eq("id", folder_id)
-        .select()
-        .single()
         .execute()
     )
-    return response.data
+    return response.data[0] if response.data else None
 
 
 async def delete_folder(folder_id: str) -> bool:
