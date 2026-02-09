@@ -35,6 +35,51 @@ CREATE TABLE public.jobs (
   CONSTRAINT jobs_pkey PRIMARY KEY (id),
   CONSTRAINT jobs_transcript_id_fkey FOREIGN KEY (transcript_id) REFERENCES public.transcripts(id)
 );
+CREATE TABLE public.market_search_configs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  market_id uuid NOT NULL UNIQUE,
+  search_terms jsonb NOT NULL DEFAULT '[]'::jsonb,
+  min_count integer DEFAULT 0,
+  logic text DEFAULT 'at_least'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT market_search_configs_pkey PRIMARY KEY (id),
+  CONSTRAINT market_search_configs_market_fkey FOREIGN KEY (market_id) REFERENCES public.polymarket_markets(id)
+);
+CREATE TABLE public.market_search_results (
+  market_id uuid NOT NULL,
+  persona_id uuid NOT NULL,
+  count integer NOT NULL DEFAULT 0,
+  last_updated timestamp with time zone DEFAULT now(),
+  briefings_with_term integer DEFAULT 0,
+  total_briefings integer DEFAULT 0,
+  percentage numeric DEFAULT 0,
+  trend text DEFAULT 'stable'::text,
+  mentions_by_date jsonb DEFAULT '[]'::jsonb,
+  CONSTRAINT market_search_results_pkey PRIMARY KEY (market_id, persona_id),
+  CONSTRAINT market_search_results_market_fkey FOREIGN KEY (market_id) REFERENCES public.polymarket_markets(id),
+  CONSTRAINT market_search_results_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id)
+);
+CREATE TABLE public.market_term_results (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  market_id uuid NOT NULL,
+  persona_id uuid NOT NULL,
+  search_term text NOT NULL,
+  total_mentions integer NOT NULL DEFAULT 0,
+  briefings_with_term integer NOT NULL DEFAULT 0,
+  total_briefings integer NOT NULL DEFAULT 0,
+  percentage numeric NOT NULL DEFAULT 0,
+  trend text NOT NULL DEFAULT 'stable'::text,
+  mentions_by_date jsonb NOT NULL DEFAULT '[]'::jsonb,
+  context_matches jsonb NOT NULL DEFAULT '[]'::jsonb,
+  context_total_matches integer NOT NULL DEFAULT 0,
+  context_transcripts_with_matches integer NOT NULL DEFAULT 0,
+  last_updated timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT market_term_results_pkey PRIMARY KEY (id),
+  CONSTRAINT market_term_results_market_fkey FOREIGN KEY (market_id) REFERENCES public.polymarket_markets(id),
+  CONSTRAINT market_term_results_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id)
+);
 CREATE TABLE public.persona_aliases (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   persona_id uuid NOT NULL,
@@ -43,6 +88,15 @@ CREATE TABLE public.persona_aliases (
   CONSTRAINT persona_aliases_pkey PRIMARY KEY (id),
   CONSTRAINT persona_aliases_persona_id_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id)
 );
+CREATE TABLE public.persona_polymarket_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  persona_id uuid NOT NULL,
+  polymarket_event_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT persona_polymarket_events_pkey PRIMARY KEY (id),
+  CONSTRAINT persona_polymarket_events_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id),
+  CONSTRAINT persona_polymarket_events_event_fkey FOREIGN KEY (polymarket_event_id) REFERENCES public.polymarket_events(id)
+);
 CREATE TABLE public.personas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -50,6 +104,63 @@ CREATE TABLE public.personas (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT personas_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.polymarket_series (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  polymarket_id text NOT NULL UNIQUE,
+  slug text NOT NULL UNIQUE,
+  title text,
+  description text,
+  image text,
+  icon text,
+  series_type text,
+  recurrence text,
+  active boolean DEFAULT true,
+  closed boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT polymarket_series_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.persona_polymarket_series (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  persona_id uuid NOT NULL,
+  polymarket_series_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT persona_polymarket_series_pkey PRIMARY KEY (id),
+  CONSTRAINT persona_polymarket_series_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
+  CONSTRAINT persona_polymarket_series_series_fkey FOREIGN KEY (polymarket_series_id) REFERENCES public.polymarket_series(id) ON DELETE CASCADE,
+  CONSTRAINT persona_polymarket_series_unique UNIQUE (persona_id, polymarket_series_id)
+);
+CREATE TABLE public.polymarket_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE,
+  title text,
+  image text,
+  start_date timestamp with time zone,
+  end_date timestamp with time zone,
+  series_id uuid,
+  polymarket_id text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT polymarket_events_pkey PRIMARY KEY (id),
+  CONSTRAINT polymarket_events_series_fkey FOREIGN KEY (series_id) REFERENCES public.polymarket_series(id) ON DELETE SET NULL
+);
+CREATE TABLE public.polymarket_markets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL,
+  condition_id text,
+  question text,
+  slug text,
+  active boolean,
+  closed boolean,
+  outcome_prices jsonb,
+  resolved_outcome text,
+  closed_time timestamp with time zone,
+  resolution_source text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT polymarket_markets_pkey PRIMARY KEY (id),
+  CONSTRAINT polymarket_markets_event_fkey FOREIGN KEY (event_id) REFERENCES public.polymarket_events(id)
 );
 CREATE TABLE public.speakers (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -78,27 +189,3 @@ CREATE TABLE public.transcripts (
   CONSTRAINT transcripts_pkey PRIMARY KEY (id),
   CONSTRAINT transcripts_folder_id_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id)
 );
-
-CREATE TABLE public.market_term_results (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  market_id uuid NOT NULL,
-  persona_id uuid NOT NULL,
-  search_term text NOT NULL,
-  total_mentions integer NOT NULL DEFAULT 0,
-  briefings_with_term integer NOT NULL DEFAULT 0,
-  total_briefings integer NOT NULL DEFAULT 0,
-  percentage numeric(5,2) NOT NULL DEFAULT 0,
-  trend text NOT NULL DEFAULT 'stable',
-  mentions_by_date jsonb NOT NULL DEFAULT '[]',
-  context_matches jsonb NOT NULL DEFAULT '[]',
-  context_total_matches integer NOT NULL DEFAULT 0,
-  context_transcripts_with_matches integer NOT NULL DEFAULT 0,
-  last_updated timestamptz DEFAULT now(),
-  created_at timestamptz DEFAULT now(),
-  CONSTRAINT market_term_results_pkey PRIMARY KEY (id),
-  CONSTRAINT market_term_results_market_fkey FOREIGN KEY (market_id) REFERENCES public.polymarket_markets(id) ON DELETE CASCADE,
-  CONSTRAINT market_term_results_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
-  CONSTRAINT market_term_results_unique UNIQUE (market_id, persona_id, search_term)
-);
-CREATE INDEX idx_mtr_persona ON market_term_results(persona_id);
-CREATE INDEX idx_mtr_market_persona ON market_term_results(market_id, persona_id);

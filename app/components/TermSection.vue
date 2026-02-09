@@ -20,6 +20,8 @@ interface Props {
   termResult: TermResult | null
   outcomePrice: string | null
   personaId: string
+  resolvedOutcome?: string | null
+  closedTime?: string | null
 }
 
 const props = defineProps<Props>()
@@ -88,6 +90,9 @@ function highlightTerm(text: string): string {
     <div class="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
       <span class="text-sm font-medium truncate flex-1">{{ question || '—' }}</span>
       <div class="flex items-center gap-2 shrink-0">
+        <UBadge v-if="resolvedOutcome" :color="resolvedOutcome === 'YES' ? 'success' : 'error'" variant="subtle" size="xs">
+          {{ resolvedOutcome }}
+        </UBadge>
         <UBadge v-if="searchTerm" color="primary" variant="subtle" size="xs">
           "{{ searchTerm }}"
         </UBadge>
