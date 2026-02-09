@@ -117,6 +117,7 @@ CREATE TABLE public.polymarket_series (
   recurrence text,
   active boolean DEFAULT true,
   closed boolean DEFAULT false,
+  base_slug text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT polymarket_series_pkey PRIMARY KEY (id)
@@ -125,10 +126,12 @@ CREATE TABLE public.persona_polymarket_series (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   persona_id uuid NOT NULL,
   polymarket_series_id uuid NOT NULL,
+  folder_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT persona_polymarket_series_pkey PRIMARY KEY (id),
   CONSTRAINT persona_polymarket_series_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
   CONSTRAINT persona_polymarket_series_series_fkey FOREIGN KEY (polymarket_series_id) REFERENCES public.polymarket_series(id) ON DELETE CASCADE,
+  CONSTRAINT persona_polymarket_series_folder_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id) ON DELETE SET NULL,
   CONSTRAINT persona_polymarket_series_unique UNIQUE (persona_id, polymarket_series_id)
 );
 CREATE TABLE public.polymarket_events (

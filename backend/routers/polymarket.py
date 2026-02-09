@@ -152,16 +152,10 @@ async def add_series(request: AddSeriesRequest):
     return result
 
 
-@router.get("/series/search")
-async def search_series(
-    q: str = Query("", description="Search query (slug fragment)"),
-    active: bool | None = Query(None),
-    closed: bool | None = Query(None),
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-):
-    """Search Gamma series API for discovery."""
-    return await polymarket_service.search_series(q, active=active, closed=closed, limit=limit, offset=offset)
+@router.get("/series/discover")
+async def discover_series():
+    """Discover series from active Gamma events (grouped by seriesSlug)."""
+    return await polymarket_service.discover_series()
 
 
 @router.post("/series/backfill-from-events")
@@ -169,6 +163,14 @@ async def backfill_series(background_tasks: BackgroundTasks):
     """One-time migration: associate existing events with series."""
     background_tasks.add_task(polymarket_service.backfill_series_from_existing_events)
     return {"message": "Backfill scheduled"}
+
+
+@router.post("/series/{series_id}/load-past-events")
+async def load_past_events(series_id: str):
+    """Fetch + store closed events matching base slug from Gamma."""
+    result = await polymarket_service.fetch_past_events_for_series(series_id)
+    detail = await polymarket_service.get_series_detail(series_id)
+    return {**result, "detail": detail}
 
 
 @router.get("/series/{series_id}")
@@ -204,7 +206,7 @@ async def link_persona_to_series(series_id: str, request: LinkPersonaToSeriesReq
     persona = await persona_service.get_persona_by_id(request.persona_id)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona not found")
-    linked = await polymarket_service.link_persona_to_series(request.persona_id, series_id)
+    linked = await polymarket_service.link_persona_to_series(request.persona_id, series_id, folder_id=request.folder_id)
     if not linked:
         raise HTTPException(status_code=409, detail="Already linked")
     return {"ok": True}

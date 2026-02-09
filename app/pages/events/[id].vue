@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { usePolymarket, type SeriesDetail, type PolymarketEvent, type PersonaEventMarket } from '~/composables/usePolymarket'
 import { usePersonas } from '~/composables/usePersonas'
+import { useFileTree } from '~/composables/useFileTree'
 
 const route = useRoute()
 const seriesId = route.params.id as string
@@ -8,9 +9,11 @@ const seriesId = route.params.id as string
 const {
   getSeriesDetail, refreshSeries, refreshEvent,
   linkPersonaToSeries, unlinkPersonaFromSeries,
-  getEventWithAnalysis,
+  getEventWithAnalysis, loadPastEvents,
 } = usePolymarket()
 const { personas, fetchPersonas } = usePersonas()
+const { folders, fetchFolders } = useFileTree()
+const toast = useToast()
 
 const detail = ref<SeriesDetail | null>(null)
 const loading = ref(true)
@@ -28,14 +31,22 @@ const selectedPersonaId = ref<string | null>(null)
 // Link persona modal
 const showLinkModal = ref(false)
 const linkPersonaId = ref<string | null>(null)
+const linkFolderId = ref<string | undefined>(undefined)
 const linking = ref(false)
+
+// Folder options for the link modal (top-level folders)
+const folderOptions = computed(() =>
+  folders.value.filter(f => !f.parent_id).map(f => ({ label: f.name, value: f.id }))
+)
+
+// Load past events state
+const loadingPastEvents = ref(false)
 
 async function loadDetail() {
   loading.value = true
   try {
     detail.value = await getSeriesDetail(seriesId)
     if (detail.value?.events.length && !selectedEventId.value) {
-      // Find the active event (first with non-null end_date in the future, or just the first)
       const now = new Date()
       const activeEvent = detail.value.events.find(e => {
         if (!e.end_date) return true
@@ -43,9 +54,8 @@ async function loadDetail() {
       })
       selectedEventId.value = activeEvent?.id || detail.value.events[0]?.id || null
     }
-    // Set default persona
     if (detail.value?.persona_ids.length && !selectedPersonaId.value) {
-      selectedPersonaId.value = detail.value.persona_ids[0]
+      selectedPersonaId.value = detail.value.persona_ids[0] ?? null
     }
   } finally {
     loading.value = false
@@ -93,9 +103,10 @@ async function handleLinkPersona() {
   if (!linkPersonaId.value) return
   linking.value = true
   try {
-    await linkPersonaToSeries(seriesId, linkPersonaId.value)
+    await linkPersonaToSeries(seriesId, linkPersonaId.value, linkFolderId.value)
     showLinkModal.value = false
     linkPersonaId.value = null
+    linkFolderId.value = undefined
     await loadDetail()
   } finally {
     linking.value = false
@@ -110,6 +121,23 @@ async function handleUnlinkPersona(personaId: string) {
   await loadDetail()
 }
 
+async function handleLoadPastEvents() {
+  loadingPastEvents.value = true
+  try {
+    const result = await loadPastEvents(seriesId)
+    if (result) {
+      toast.add({ title: `Added ${result.added} past events`, description: `${result.total_matching} matching`, color: 'info' })
+      if (result.detail) {
+        detail.value = result.detail
+      } else {
+        await loadDetail()
+      }
+    }
+  } finally {
+    loadingPastEvents.value = false
+  }
+}
+
 function getPersonaName(id: string): string {
   const p = personas.value.find(p => p.id === id)
   return p?.name || id.slice(0, 8)
@@ -121,20 +149,29 @@ const availablePersonas = computed(() => {
   return personas.value.filter(p => !linkedIds.has(p.id))
 })
 
-// Persona select options
-const personaOptions = computed(() => {
-  return (detail.value?.persona_ids || []).map(id => ({
-    label: getPersonaName(id),
-    value: id,
-  }))
-})
-
-// Event select options
+// Event select options: show date for closed, title for active. Active first, then closed by end_date desc.
 const eventOptions = computed(() => {
-  return (detail.value?.events || []).map(e => ({
-    label: e.title || e.slug,
-    value: e.id,
-  }))
+  const events = detail.value?.events || []
+  const now = new Date()
+
+  const sorted = [...events].sort((a, b) => {
+    const aActive = !a.end_date || new Date(a.end_date) > now
+    const bActive = !b.end_date || new Date(b.end_date) > now
+    if (aActive && !bActive) return -1
+    if (!aActive && bActive) return 1
+    const aDate = a.end_date ? new Date(a.end_date).getTime() : 0
+    const bDate = b.end_date ? new Date(b.end_date).getTime() : 0
+    return bDate - aDate
+  })
+
+  return sorted.map(e => {
+    const isActive = !e.end_date || new Date(e.end_date) > now
+    if (isActive) {
+      return { label: e.title || e.slug, value: e.id }
+    }
+    const dateStr = e.end_date ? new Date(e.end_date).toLocaleDateString() : 'closed'
+    return { label: dateStr, value: e.id }
+  })
 })
 
 // Watch for event/persona changes to reload
@@ -143,13 +180,15 @@ watch([selectedEventId, selectedPersonaId], () => {
 })
 
 onMounted(async () => {
-  await fetchPersonas()
+  await Promise.all([fetchPersonas(), fetchFolders()])
   await loadDetail()
+  // Automatically backfill past events from Gamma (re-associates orphaned events too)
+  handleLoadPastEvents()
 })
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto">
+  <div class="max-w-6xl mx-auto">
     <!-- Back button -->
     <NuxtLink to="/events"
       class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4">
@@ -180,13 +219,6 @@ onMounted(async () => {
           </div>
           <p v-if="detail.series.description" class="text-gray-500 text-sm line-clamp-2">{{ detail.series.description }}</p>
         </div>
-        <UButton
-          size="sm"
-          variant="ghost"
-          icon="i-heroicons-arrow-path"
-          :loading="refreshing"
-          @click="handleRefreshSeries"
-        />
       </div>
 
       <!-- Persona selector -->
@@ -217,12 +249,13 @@ onMounted(async () => {
         <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Event:</span>
         <USelectMenu
           v-if="eventOptions.length > 0"
-          v-model="selectedEventId"
+          :model-value="selectedEventId ?? undefined"
           :items="eventOptions"
           placeholder="Select event..."
-          class="w-80"
+          class="w-64"
           value-key="value"
           label-key="label"
+          @update:model-value="selectedEventId = $event ?? null"
         />
         <span v-else class="text-sm text-gray-500">No events</span>
         <UButton
@@ -291,16 +324,30 @@ onMounted(async () => {
           <div v-if="availablePersonas.length === 0" class="text-gray-500 text-sm">
             All personas are already linked.
           </div>
-          <div v-else class="space-y-2">
-            <div
-              v-for="p in availablePersonas"
-              :key="p.id"
-              class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-              :class="{ 'ring-2 ring-primary': linkPersonaId === p.id }"
-              @click="linkPersonaId = p.id"
-            >
-              <span class="font-medium text-sm">{{ p.name }}</span>
-              <span v-if="p.description" class="text-xs text-gray-500 truncate">{{ p.description }}</span>
+          <div v-else class="space-y-4">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Persona</label>
+              <div
+                v-for="p in availablePersonas"
+                :key="p.id"
+                class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                :class="{ 'ring-2 ring-primary': linkPersonaId === p.id }"
+                @click="linkPersonaId = p.id"
+              >
+                <span class="font-medium text-sm">{{ p.name }}</span>
+                <span v-if="p.description" class="text-xs text-gray-500 truncate">{{ p.description }}</span>
+              </div>
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Transcript Folder (optional)</label>
+              <USelectMenu
+                v-model="linkFolderId"
+                :items="folderOptions"
+                value-key="value"
+                placeholder="All transcripts"
+                class="w-full"
+              />
             </div>
           </div>
 

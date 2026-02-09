@@ -30,7 +30,6 @@ const yesPrice = computed(() => {
   if (!props.outcomePrice) return null
   return (parseFloat(props.outcomePrice) * 100).toFixed(0)
 })
-
 const totalMentions = computed(() => props.termResult?.total_mentions ?? null)
 const briefings = computed(() => props.termResult?.briefings_with_term ?? null)
 const hasData = computed(() => totalMentions.value !== null || (props.termResult?.context_matches?.length ?? 0) > 0)
@@ -96,7 +95,7 @@ function highlightTerm(text: string): string {
         <UBadge v-if="searchTerm" color="primary" variant="subtle" size="xs">
           "{{ searchTerm }}"
         </UBadge>
-        <span v-if="yesPrice" class="text-sm font-semibold text-primary">
+        <span v-if="yesPrice && !resolvedOutcome" class="text-sm font-semibold text-primary">
           {{ yesPrice }}%
         </span>
       </div>

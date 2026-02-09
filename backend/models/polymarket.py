@@ -203,6 +203,7 @@ class AddSeriesRequest(BaseModel):
 class LinkPersonaToSeriesRequest(BaseModel):
     """Request to link a persona to a series."""
     persona_id: str
+    folder_id: str | None = None
 
 
 class MarketWithAnalysis(BaseModel):
