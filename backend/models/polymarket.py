@@ -62,6 +62,37 @@ class PolymarketEvent(BaseModel):
         populate_by_name = True
 
 
+class PolymarketSeriesEvent(BaseModel):
+    """Event stub as returned by the Gamma Series API (no nested markets)."""
+    id: str
+    slug: str
+    title: str | None = None
+    description: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    active: bool = True
+    closed: bool = False
+    image: str | None = None
+
+
+class PolymarketSeries(BaseModel):
+    """Gamma API series response model."""
+    id: str
+    slug: str
+    title: str | None = None
+    description: str | None = None
+    image: str | None = None
+    icon: str | None = None
+    series_type: str | None = Field(None, alias="seriesType")
+    recurrence: str | None = None
+    active: bool = True
+    closed: bool = False
+    events: list[PolymarketSeriesEvent] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
+
+
 class MarketsResponse(BaseModel):
     """Response model for markets endpoint."""
     markets: list[PolymarketMarket]
@@ -91,18 +122,6 @@ class AnalyzeResponse(BaseModel):
 # ----- DB-backed persona–event integration -----
 
 
-class PolymarketEventRecord(BaseModel):
-    """Stored Polymarket event (our DB row)."""
-    id: str
-    slug: str
-    title: str | None = None
-    image: str | None = None
-    start_date: datetime | None = None
-    end_date: datetime | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-
 class PolymarketMarketRecord(BaseModel):
     """Stored Polymarket market (our DB row)."""
     id: str
@@ -113,6 +132,9 @@ class PolymarketMarketRecord(BaseModel):
     active: bool | None = None
     closed: bool | None = None
     outcome_prices: list[str] | None = None
+    resolved_outcome: str | None = None
+    closed_time: datetime | None = None
+    resolution_source: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -136,10 +158,51 @@ class MarketSearchResultRecord(BaseModel):
     last_updated: datetime | None = None
 
 
+class PolymarketSeriesRecord(BaseModel):
+    """Stored Polymarket series (our DB row)."""
+    id: str
+    polymarket_id: str
+    slug: str
+    title: str | None = None
+    description: str | None = None
+    image: str | None = None
+    icon: str | None = None
+    series_type: str | None = None
+    recurrence: str | None = None
+    active: bool = True
+    closed: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class PolymarketEventRecord(BaseModel):
+    """Stored Polymarket event (our DB row)."""
+    id: str
+    slug: str
+    title: str | None = None
+    image: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    series_id: str | None = None
+    polymarket_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 class AddEventRequest(BaseModel):
     """Request to add a Polymarket event to a persona by slug."""
     persona_id: str
     slug: str
+
+
+class AddSeriesRequest(BaseModel):
+    """Request to add a Polymarket series by slug."""
+    slug: str
+
+
+class LinkPersonaToSeriesRequest(BaseModel):
+    """Request to link a persona to a series."""
+    persona_id: str
 
 
 class MarketWithAnalysis(BaseModel):

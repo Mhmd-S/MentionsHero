@@ -10,6 +10,8 @@ from backend.models.polymarket import (
     AnalyzeRequest,
     AnalyzeResponse,
     AddEventRequest,
+    AddSeriesRequest,
+    LinkPersonaToSeriesRequest,
 )
 from backend.services import polymarket_service, persona_service
 from backend.utils.nlp import calculate_term_frequency
@@ -115,7 +117,137 @@ async def analyze_market(request: AnalyzeRequest) -> AnalyzeResponse:
     )
 
 
-# ----- Persona–event integration -----
+# ----- Series endpoints -----
+
+
+@router.get("/series")
+async def list_series():
+    """List all stored series with event counts and persona IDs."""
+    return await polymarket_service.get_all_series()
+
+
+@router.post("/series")
+async def add_series(request: AddSeriesRequest):
+    """Add a series by slug."""
+    if not request.slug:
+        raise HTTPException(status_code=400, detail="slug is required")
+    result, error = await polymarket_service.add_series(request.slug)
+    if error == "not_found":
+        raise HTTPException(
+            status_code=404,
+            detail=f"Series not found for slug: {request.slug}. Check the slug or search /api/polymarket/series/search first.",
+        )
+    if error == "api_error":
+        raise HTTPException(
+            status_code=502,
+            detail="Polymarket Gamma API error. Try again later or check the slug.",
+        )
+    if error == "db_error":
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to save series to database. Check logs and database state.",
+        )
+    if result is None:
+        raise HTTPException(status_code=502, detail="Failed to add series")
+    return result
+
+
+@router.get("/series/search")
+async def search_series(
+    q: str = Query("", description="Search query (slug fragment)"),
+    active: bool | None = Query(None),
+    closed: bool | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """Search Gamma series API for discovery."""
+    return await polymarket_service.search_series(q, active=active, closed=closed, limit=limit, offset=offset)
+
+
+@router.post("/series/backfill-from-events")
+async def backfill_series(background_tasks: BackgroundTasks):
+    """One-time migration: associate existing events with series."""
+    background_tasks.add_task(polymarket_service.backfill_series_from_existing_events)
+    return {"message": "Backfill scheduled"}
+
+
+@router.get("/series/{series_id}")
+async def get_series_detail(series_id: str):
+    """Get series detail with events and linked personas."""
+    result = await polymarket_service.get_series_detail(series_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Series not found")
+    return result
+
+
+@router.post("/series/{series_id}/refresh")
+async def refresh_series(series_id: str):
+    """Refresh series from Gamma API."""
+    result = await polymarket_service.refresh_series(series_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Series not found")
+    return result
+
+
+@router.delete("/series/{series_id}")
+async def delete_series(series_id: str):
+    """Delete a stored series."""
+    removed = await polymarket_service.delete_series(series_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Series not found")
+    return {"ok": True}
+
+
+@router.post("/series/{series_id}/personas")
+async def link_persona_to_series(series_id: str, request: LinkPersonaToSeriesRequest):
+    """Link a persona to a series."""
+    persona = await persona_service.get_persona_by_id(request.persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    linked = await polymarket_service.link_persona_to_series(request.persona_id, series_id)
+    if not linked:
+        raise HTTPException(status_code=409, detail="Already linked")
+    return {"ok": True}
+
+
+@router.delete("/series/{series_id}/personas/{persona_id}")
+async def unlink_persona_from_series(series_id: str, persona_id: str):
+    """Unlink a persona from a series."""
+    removed = await polymarket_service.unlink_persona_from_series(persona_id, series_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Link not found")
+    return {"ok": True}
+
+
+@router.get("/series/{series_id}/personas")
+async def get_series_personas(series_id: str):
+    """Get persona IDs linked to a series."""
+    return await polymarket_service.get_personas_for_series(series_id)
+
+
+@router.get("/series/{series_id}/events/{event_id}")
+async def get_series_event(
+    series_id: str,
+    event_id: str,
+    persona_id: str | None = Query(None, description="Optional persona ID for analysis data"),
+):
+    """Get event with markets and optional persona analysis."""
+    result = await polymarket_service.get_event_with_analysis(event_id, persona_id=persona_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return result
+
+
+@router.post("/series/{series_id}/events/{event_id}/refresh")
+async def refresh_series_event(series_id: str, event_id: str):
+    """Refresh a single event from Gamma."""
+    result = await polymarket_service.refresh_single_event(event_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return result
+
+
+# ----- Persona–event integration (legacy) -----
 
 
 @router.post("/events")

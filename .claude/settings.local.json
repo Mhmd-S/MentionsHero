@@ -23,7 +23,10 @@
       "Bash(pip install:*)",
       "Bash(pip3 install:*)",
       "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/pip show:*)",
-      "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/python:*)"
+      "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/python:*)",
+      "WebFetch(domain:docs.polymarket.com)",
+      "WebFetch(domain:gamma-api.polymarket.com)",
+      "Bash(python3:*)"
     ]
   }
 }

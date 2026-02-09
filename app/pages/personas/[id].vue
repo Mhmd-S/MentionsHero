@@ -1,125 +1,66 @@
 <script setup lang="ts">
 import { usePersonas } from '~/composables/usePersonas'
+import { usePolymarket, type PolymarketSeries } from '~/composables/usePolymarket'
 
 const route = useRoute()
 const personaId = route.params.id as string
 
 const { getPersona } = usePersonas()
+const { fetchAllSeries, linkPersonaToSeries, unlinkPersonaFromSeries } = usePolymarket()
 
-// Persona state
 const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
 
-// Polymarket state
-export interface TermResult {
-  search_term: string
-  total_mentions: number
-  briefings_with_term: number
-  total_briefings: number
-  percentage: number
-  trend: string
-  mentions_by_date: { date: string | null; name: string; count: number }[]
-  context_matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number }[]
-  context_total_matches: number
-  context_transcripts_with_matches: number
-  last_updated?: string | null
-}
-interface PersonaEventMarket {
-  market: { id: string; question: string | null; outcome_prices: string[] | null; closed?: boolean }
-  search_config: { search_terms: string[]; min_count: number } | null
-  term_results: TermResult[]
-}
-interface PersonaEvent {
-  event: { id: string; slug: string; title: string | null; image: string | null }
-  markets: PersonaEventMarket[]
-}
-const personaEvents = ref<PersonaEvent[]>([])
-const loadingPersonaEvents = ref(false)
-const showAddEventModal = ref(false)
-const newEventSlug = ref('')
-const addingEvent = ref(false)
-const refreshingEventId = ref<string | null>(null)
+// Series linking
+const linkedSeries = ref<PolymarketSeries[]>([])
+const allSeries = ref<PolymarketSeries[]>([])
+const loadingSeries = ref(false)
+const showLinkSeriesModal = ref(false)
+const linking = ref(false)
+const selectedSeriesId = ref<string | null>(null)
 
-function extractSlugFromInput(input: string): string {
-  const trimmed = input.trim()
-  if (!trimmed) return ''
+async function loadLinkedSeries() {
+  loadingSeries.value = true
   try {
-    const url = new URL(trimmed)
-    const path = url.pathname
-    const match = path.match(/\/event\/([^/]+)/) || path.match(/\/market\/([^/]+)/)
-    if (match && match[1]) return match[1]
-  } catch {
-    // not a URL
-  }
-  return trimmed
-}
-
-async function loadPersonaEvents() {
-  loadingPersonaEvents.value = true
-  try {
-    personaEvents.value = await $fetch<PersonaEvent[]>(`/api/polymarket/events/${personaId}`)
-  } catch (e) {
-    console.error('Failed to load persona events:', e)
-    personaEvents.value = []
+    const all = await fetchAllSeries()
+    allSeries.value = all
+    linkedSeries.value = all.filter(s => s.persona_ids?.includes(personaId))
   } finally {
-    loadingPersonaEvents.value = false
+    loadingSeries.value = false
   }
 }
 
-async function handleAddEvent() {
-  const slug = extractSlugFromInput(newEventSlug.value)
-  if (!slug) return
-  addingEvent.value = true
+const availableSeries = computed(() => {
+  const linkedIds = new Set(linkedSeries.value.map(s => s.id))
+  return allSeries.value.filter(s => !linkedIds.has(s.id))
+})
+
+async function handleLinkSeries() {
+  if (!selectedSeriesId.value) return
+  linking.value = true
   try {
-    // Remove existing events first
-    for (const pe of personaEvents.value) {
-      await $fetch(`/api/polymarket/events/${pe.event.id}`, {
-        method: 'DELETE',
-        query: { persona_id: personaId }
-      })
-    }
-    await $fetch('/api/polymarket/events', {
-      method: 'POST',
-      body: { persona_id: personaId, slug }
-    })
-    showAddEventModal.value = false
-    newEventSlug.value = ''
-    await loadPersonaEvents()
-  } catch (e: any) {
-    console.error('Failed to add event:', e)
-    alert(e?.data?.detail || 'Failed to add event')
+    await linkPersonaToSeries(selectedSeriesId.value, personaId)
+    showLinkSeriesModal.value = false
+    selectedSeriesId.value = null
+    await loadLinkedSeries()
   } finally {
-    addingEvent.value = false
+    linking.value = false
   }
 }
 
-async function handleRefreshEvent(eventId: string) {
-  refreshingEventId.value = eventId
-  try {
-    await $fetch(`/api/polymarket/events/${eventId}/refresh`, {
-      method: 'POST',
-      query: { persona_id: personaId }
-    })
-    await loadPersonaEvents()
-  } catch (e) {
-    console.error('Failed to refresh event:', e)
-  } finally {
-    refreshingEventId.value = null
-  }
+async function handleUnlinkSeries(seriesId: string) {
+  await unlinkPersonaFromSeries(seriesId, personaId)
+  await loadLinkedSeries()
 }
 
-// Load everything on mount
 onMounted(async () => {
   loadingPersona.value = true
   try {
     persona.value = await getPersona(personaId)
-  } catch (e) {
-    console.error('Failed to load persona:', e)
   } finally {
     loadingPersona.value = false
   }
-
-  await loadPersonaEvents()
+  await loadLinkedSeries()
 })
 </script>
 
@@ -154,69 +95,68 @@ onMounted(async () => {
       </template>
     </div>
 
-    <!-- Polymarket Events -->
+    <!-- Linked Series -->
     <template v-if="persona">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xl font-semibold">Polymarket Events</h2>
-        <UButton size="sm" icon="i-heroicons-plus" @click="showAddEventModal = true">Add Event</UButton>
+        <h2 class="text-xl font-semibold">Linked Series</h2>
+        <UButton size="sm" icon="i-heroicons-plus" @click="showLinkSeriesModal = true">Link to Series</UButton>
       </div>
 
-      <div v-if="loadingPersonaEvents" class="flex items-center justify-center p-8">
-        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
+      <div v-if="loadingSeries" class="flex items-center justify-center p-4">
+        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
       </div>
 
-      <div v-else-if="personaEvents.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
-        No events linked. Add by slug or URL.
+      <div v-else-if="linkedSeries.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
+        No series linked. Click "Link to Series" to associate this persona with a Polymarket series.
       </div>
 
-      <div v-else class="space-y-4">
-        <div v-for="pe in personaEvents" :key="pe.event.id" class="overflow-hidden flex flex-col gap-4">
-
-          <div class="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800/50">
-            <img v-if="pe.event.image" :src="pe.event.image" :alt="pe.event.title || ''"
-              class="w-10 h-10 rounded object-cover" />
-            <div class="flex-1 min-w-0">
-              <div class="text-base font-medium truncate">{{ pe.event.title || pe.event.slug }}</div>
-            </div>
-            <UButton size="xs" variant="ghost" icon="i-heroicons-arrow-path"
-              :loading="refreshingEventId === pe.event.id" @click="handleRefreshEvent(pe.event.id)" />
-          </div>
-
-
-          <template v-for="m in pe.markets" :key="m.market.id">
-            <TermSection
-              v-for="term in (m.search_config?.search_terms || []).length ? (m.search_config?.search_terms || []) : ['']"
-              :key="`${m.market.id}-${term}`"
-              :market-id="m.market.id"
-              :question="m.market.question"
-              :search-term="term"
-              :term-result="m.term_results?.find(tr => tr.search_term === term) || null"
-              :outcome-price="m.market.outcome_prices?.[0] || null"
-              :persona-id="personaId"
-            />
-          </template>
-
-        </div>
+      <div v-else class="flex flex-wrap gap-2">
+        <NuxtLink
+          v-for="s in linkedSeries"
+          :key="s.id"
+          :to="`/events/${s.id}`"
+          class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg hover:border-primary-500 transition-colors"
+        >
+          <img v-if="s.image" :src="s.image" class="w-6 h-6 rounded object-cover" />
+          <span class="text-sm font-medium">{{ s.title || s.slug }}</span>
+          <UBadge v-if="s.recurrence" color="primary" variant="subtle" size="xs">{{ s.recurrence }}</UBadge>
+          <UIcon
+            name="i-heroicons-x-mark"
+            class="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer"
+            @click.prevent="handleUnlinkSeries(s.id)"
+          />
+        </NuxtLink>
       </div>
     </template>
 
-    <!-- Add Polymarket Event Modal -->
-    <UModal v-model:open="showAddEventModal">
+    <!-- Link Series Modal -->
+    <UModal v-model:open="showLinkSeriesModal">
       <template #content>
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">Add Polymarket Event</h3>
-          <p class="text-base text-gray-500 mb-4">
-            Enter the event slug or full URL (e.g. polymarket.com/event/fed-decision-in-october).
-          </p>
-          <UFormField label="Event slug or URL">
-            <UInput v-model="newEventSlug" placeholder="fed-decision-in-october or https://polymarket.com/event/..."
-              class="w-full" @keyup.enter="handleAddEvent()" />
-          </UFormField>
+          <h3 class="text-lg font-semibold mb-4">Link to Series</h3>
+
+          <div v-if="availableSeries.length === 0" class="text-gray-500 text-sm">
+            No available series to link. Add series from the Events page first.
+          </div>
+          <div v-else class="space-y-2 max-h-64 overflow-y-auto">
+            <div
+              v-for="s in availableSeries"
+              :key="s.id"
+              class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+              :class="{ 'ring-2 ring-primary': selectedSeriesId === s.id }"
+              @click="selectedSeriesId = s.id"
+            >
+              <img v-if="s.image" :src="s.image" class="w-8 h-8 rounded object-cover shrink-0" />
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium truncate">{{ s.title || s.slug }}</div>
+                <div class="text-xs text-gray-500">{{ s.event_count || 0 }} events</div>
+              </div>
+            </div>
+          </div>
+
           <div class="flex justify-end gap-2 mt-6">
-            <UButton variant="ghost" @click="showAddEventModal = false">Cancel</UButton>
-            <UButton :loading="addingEvent" :disabled="!extractSlugFromInput(newEventSlug)" @click="handleAddEvent()">
-              Add Event
-            </UButton>
+            <UButton variant="ghost" @click="showLinkSeriesModal = false">Cancel</UButton>
+            <UButton :loading="linking" :disabled="!selectedSeriesId" @click="handleLinkSeries">Link</UButton>
           </div>
         </div>
       </template>
