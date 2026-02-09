@@ -64,15 +64,20 @@ export interface SeriesDetail {
   persona_ids: string[]
 }
 
-export interface GammaSeriesResult {
-  id: string
+export interface DiscoveredSeries {
   slug: string
   title: string | null
-  description: string | null
   image: string | null
-  recurrence: string | null
+  market_count: number
   active: boolean
   closed: boolean
+}
+
+export interface LoadPastEventsResult {
+  added: number
+  total_matching: number
+  base_slug: string | null
+  detail: SeriesDetail | null
 }
 
 export function usePolymarket() {
@@ -127,22 +132,20 @@ export function usePolymarket() {
     }
   }
 
-  async function searchSeries(query: string): Promise<GammaSeriesResult[]> {
+  async function discoverSeries(): Promise<DiscoveredSeries[]> {
     try {
-      return await $fetch<GammaSeriesResult[]>('/api/polymarket/series/search', {
-        query: { q: query },
-      })
+      return await $fetch<DiscoveredSeries[]>('/api/polymarket/series/discover')
     } catch (e) {
-      console.error('Failed to search series:', e)
+      console.error('Failed to discover series:', e)
       return []
     }
   }
 
-  async function linkPersonaToSeries(seriesId: string, personaId: string): Promise<boolean> {
+  async function linkPersonaToSeries(seriesId: string, personaId: string, folderId?: string | null): Promise<boolean> {
     try {
       await $fetch(`/api/polymarket/series/${seriesId}/personas`, {
         method: 'POST',
-        body: { persona_id: personaId },
+        body: { persona_id: personaId, folder_id: folderId || null },
       })
       return true
     } catch (e) {
@@ -200,6 +203,17 @@ export function usePolymarket() {
     }
   }
 
+  async function loadPastEvents(seriesId: string): Promise<LoadPastEventsResult | null> {
+    try {
+      return await $fetch<LoadPastEventsResult>(`/api/polymarket/series/${seriesId}/load-past-events`, {
+        method: 'POST',
+      })
+    } catch (e) {
+      console.error('Failed to load past events:', e)
+      return null
+    }
+  }
+
   function extractSlugFromInput(input: string): string {
     const trimmed = input.trim()
     if (!trimmed) return ''
@@ -221,12 +235,13 @@ export function usePolymarket() {
     getSeriesDetail,
     refreshSeries,
     deleteSeries,
-    searchSeries,
+    discoverSeries,
     linkPersonaToSeries,
     unlinkPersonaFromSeries,
     getEventWithAnalysis,
     refreshEvent,
     getSeriesForPersona,
     extractSlugFromInput,
+    loadPastEvents,
   }
 }

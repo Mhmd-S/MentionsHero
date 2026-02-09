@@ -329,6 +329,64 @@ def extract_ngrams(
     return results
 
 
+def group_nearby_mentions(
+    matches: list[dict[str, Any]],
+    proximity_chars: int = 800,
+) -> list[dict[str, Any]]:
+    """
+    Group matches within the same transcript that are within proximity_chars of each other.
+    Merges their context strings into one block.
+
+    Input matches have: transcript_id, transcript_name, date, context, position
+    Returns clusters: transcript_id, transcript_name, date, merged_context, mention_count, positions
+    """
+    # Group by transcript first
+    by_transcript: dict[str, list[dict[str, Any]]] = {}
+    for m in matches:
+        tid = m.get("transcript_id") or ""
+        by_transcript.setdefault(tid, []).append(m)
+
+    clusters: list[dict[str, Any]] = []
+
+    for tid, transcript_matches in by_transcript.items():
+        # Sort by position
+        sorted_matches = sorted(transcript_matches, key=lambda x: x.get("position", 0))
+
+        current_cluster: list[dict[str, Any]] = [sorted_matches[0]]
+
+        for m in sorted_matches[1:]:
+            last_pos = current_cluster[-1].get("position", 0)
+            cur_pos = m.get("position", 0)
+
+            if cur_pos - last_pos <= proximity_chars:
+                current_cluster.append(m)
+            else:
+                # Emit current cluster
+                clusters.append(_build_cluster(current_cluster))
+                current_cluster = [m]
+
+        # Emit final cluster
+        clusters.append(_build_cluster(current_cluster))
+
+    return clusters
+
+
+def _build_cluster(matches: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build a cluster dict from a list of nearby matches."""
+    first = matches[0]
+    contexts = [m.get("context", "") for m in matches]
+    # Merge contexts: join with separator, deduplicate overlapping text
+    merged = "\n---\n".join(contexts)
+    return {
+        "transcript_id": first.get("transcript_id"),
+        "transcript_name": first.get("transcript_name", "Unknown"),
+        "date": first.get("date"),
+        "merged_context": merged,
+        "mention_count": len(matches),
+        "positions": [m.get("position", 0) for m in matches],
+    }
+
+
 def search_term_in_context(
     transcripts: list[dict[str, Any]],
     query: str,

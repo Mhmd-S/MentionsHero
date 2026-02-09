@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { usePolymarket, type PolymarketSeries, type GammaSeriesResult } from '~/composables/usePolymarket'
+import { usePolymarket, type PolymarketSeries, type DiscoveredSeries } from '~/composables/usePolymarket'
 import { usePersonas } from '~/composables/usePersonas'
 
-const { fetchAllSeries, addSeriesBySlug, deleteSeries, searchSeries, extractSlugFromInput } = usePolymarket()
+const { fetchAllSeries, addSeriesBySlug, deleteSeries, discoverSeries } = usePolymarket()
 const { personas, fetchPersonas } = usePersonas()
 
 const seriesList = ref<PolymarketSeries[]>([])
@@ -10,11 +10,22 @@ const loading = ref(true)
 
 // Add Series modal
 const showAddModal = ref(false)
-const addInput = ref('')
-const adding = ref(false)
-const searchResults = ref<GammaSeriesResult[]>([])
-const searching = ref(false)
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
+const adding = ref<string | null>(null)
+const discovered = ref<DiscoveredSeries[]>([])
+const loadingDiscovery = ref(false)
+const filterText = ref('')
+
+const addedSlugs = computed(() => new Set(seriesList.value.map(s => s.slug)))
+
+const filteredDiscovered = computed(() => {
+  const q = filterText.value.toLowerCase().trim()
+  const list = discovered.value.filter(d => !addedSlugs.value.has(d.slug))
+  if (!q) return list
+  return list.filter(d =>
+    (d.title || '').toLowerCase().includes(q) ||
+    d.slug.toLowerCase().includes(q)
+  )
+})
 
 async function loadSeries() {
   loading.value = true
@@ -25,54 +36,32 @@ async function loadSeries() {
   }
 }
 
-function handleSearchInput() {
-  if (searchTimeout) clearTimeout(searchTimeout)
-  const q = addInput.value.trim()
-  if (!q || q.length < 2) {
-    searchResults.value = []
-    return
-  }
-  searchTimeout = setTimeout(async () => {
-    searching.value = true
+async function openAddModal() {
+  showAddModal.value = true
+  filterText.value = ''
+  if (discovered.value.length === 0) {
+    loadingDiscovery.value = true
     try {
-      searchResults.value = await searchSeries(q)
+      discovered.value = await discoverSeries()
     } finally {
-      searching.value = false
+      loadingDiscovery.value = false
     }
-  }, 400)
+  }
 }
 
-async function handleAddBySlug() {
-  const slug = extractSlugFromInput(addInput.value)
-  if (!slug) return
-  adding.value = true
+async function handleSelectSeries(item: DiscoveredSeries) {
+  if (addedSlugs.value.has(item.slug) || adding.value) return
+  adding.value = item.slug
   try {
-    const result = await addSeriesBySlug(slug)
+    const result = await addSeriesBySlug(item.slug)
     if (result) {
       showAddModal.value = false
-      addInput.value = ''
-      searchResults.value = []
       await loadSeries()
     } else {
-      alert('Failed to add series. Check the slug and try again.')
+      alert('Failed to add series. Try again.')
     }
   } finally {
-    adding.value = false
-  }
-}
-
-async function handleAddFromSearch(result: GammaSeriesResult) {
-  adding.value = true
-  try {
-    const added = await addSeriesBySlug(result.slug)
-    if (added) {
-      showAddModal.value = false
-      addInput.value = ''
-      searchResults.value = []
-      await loadSeries()
-    }
-  } finally {
-    adding.value = false
+    adding.value = null
   }
 }
 
@@ -100,7 +89,7 @@ onMounted(async () => {
         <h1 class="text-3xl font-bold mb-1">Events</h1>
         <p class="text-gray-500 text-base">Polymarket series, events, and markets</p>
       </div>
-      <UButton icon="i-heroicons-plus" @click="showAddModal = true">Add Series</UButton>
+      <UButton icon="i-heroicons-plus" @click="openAddModal">Add Series</UButton>
     </div>
 
     <!-- Loading -->
@@ -159,48 +148,55 @@ onMounted(async () => {
       <template #content>
         <div class="p-6">
           <h3 class="text-lg font-semibold mb-4">Add Polymarket Series</h3>
-          <p class="text-base text-gray-500 mb-4">
-            Enter a series slug, URL, or search by keyword.
+          <p class="text-base text-gray-500 mb-3">
+            Active series discovered from Polymarket events.
           </p>
-          <UFormField label="Series slug, URL, or search">
-            <UInput
-              v-model="addInput"
-              placeholder="e.g. white-house-press-briefing or search..."
-              class="w-full"
-              @input="handleSearchInput"
-              @keyup.enter="handleAddBySlug()"
-            />
-          </UFormField>
 
-          <!-- Search results -->
-          <div v-if="searching" class="flex items-center justify-center p-4">
-            <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+          <!-- Filter -->
+          <UInput
+            v-model="filterText"
+            placeholder="Filter series..."
+            class="w-full mb-3"
+            icon="i-heroicons-magnifying-glass"
+          />
+
+          <!-- Loading discovery -->
+          <div v-if="loadingDiscovery" class="flex items-center justify-center p-8">
+            <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
           </div>
-          <div v-else-if="searchResults.length > 0" class="mt-3 max-h-64 overflow-y-auto space-y-1">
+
+          <!-- No results -->
+          <div v-else-if="filteredDiscovered.length === 0 && discovered.length > 0" class="p-4 text-center text-gray-500 border border-dashed rounded-lg">
+            {{ filterText ? 'No series match your filter.' : 'All discovered series are already added.' }}
+          </div>
+
+          <!-- Series list -->
+          <div v-else-if="filteredDiscovered.length > 0" class="max-h-80 overflow-y-auto space-y-1 border rounded-lg">
             <div
-              v-for="r in searchResults"
-              :key="r.id"
-              class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-              @click="handleAddFromSearch(r)"
+              v-for="d in filteredDiscovered"
+              :key="d.slug"
+              class="flex items-center gap-2 p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+              @click="handleSelectSeries(d)"
             >
-              <img v-if="r.image" :src="r.image" class="w-8 h-8 rounded object-cover shrink-0" />
+              <img v-if="d.image" :src="d.image" class="w-9 h-9 rounded object-cover shrink-0" />
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium truncate">{{ r.title || r.slug }}</div>
+                <div class="text-sm font-medium truncate">{{ d.title || d.slug }}</div>
                 <div class="text-xs text-gray-500">
-                  <span v-if="r.recurrence">{{ r.recurrence }}</span>
-                  <span v-if="r.active"> &middot; Active</span>
+                  {{ d.market_count }} market{{ d.market_count !== 1 ? 's' : '' }}
                 </div>
               </div>
+              <UButton
+                size="xs"
+                icon="i-heroicons-plus"
+                :loading="adding === d.slug"
+                :disabled="adding !== null && adding !== d.slug"
+                @click.stop="handleSelectSeries(d)"
+              >Add</UButton>
             </div>
           </div>
 
-          <div class="flex justify-end gap-2 mt-6">
+          <div class="flex justify-end mt-6">
             <UButton variant="ghost" @click="showAddModal = false">Cancel</UButton>
-            <UButton
-              :loading="adding"
-              :disabled="!extractSlugFromInput(addInput)"
-              @click="handleAddBySlug()"
-            >Add</UButton>
           </div>
         </div>
       </template>

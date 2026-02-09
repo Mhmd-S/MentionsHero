@@ -26,7 +26,8 @@
       "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/python:*)",
       "WebFetch(domain:docs.polymarket.com)",
       "WebFetch(domain:gamma-api.polymarket.com)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/pip install:*)"
     ]
   }
 }

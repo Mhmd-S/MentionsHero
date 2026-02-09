@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { usePersonas } from '~/composables/usePersonas'
 import { usePolymarket, type PolymarketSeries } from '~/composables/usePolymarket'
+import { useFileTree } from '~/composables/useFileTree'
 
 const route = useRoute()
 const personaId = route.params.id as string
 
 const { getPersona } = usePersonas()
 const { fetchAllSeries, linkPersonaToSeries, unlinkPersonaFromSeries } = usePolymarket()
+const { folders, fetchFolders } = useFileTree()
 
 const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
@@ -18,6 +20,11 @@ const loadingSeries = ref(false)
 const showLinkSeriesModal = ref(false)
 const linking = ref(false)
 const selectedSeriesId = ref<string | null>(null)
+const selectedFolderId = ref<string | undefined>(undefined)
+
+const folderOptions = computed(() =>
+  folders.value.filter(f => !f.parent_id).map(f => ({ label: f.name, value: f.id }))
+)
 
 async function loadLinkedSeries() {
   loadingSeries.value = true
@@ -39,9 +46,10 @@ async function handleLinkSeries() {
   if (!selectedSeriesId.value) return
   linking.value = true
   try {
-    await linkPersonaToSeries(selectedSeriesId.value, personaId)
+    await linkPersonaToSeries(selectedSeriesId.value, personaId, selectedFolderId.value)
     showLinkSeriesModal.value = false
     selectedSeriesId.value = null
+    selectedFolderId.value = undefined
     await loadLinkedSeries()
   } finally {
     linking.value = false
@@ -60,7 +68,7 @@ onMounted(async () => {
   } finally {
     loadingPersona.value = false
   }
-  await loadLinkedSeries()
+  await Promise.all([loadLinkedSeries(), fetchFolders()])
 })
 </script>
 
@@ -138,19 +146,33 @@ onMounted(async () => {
           <div v-if="availableSeries.length === 0" class="text-gray-500 text-sm">
             No available series to link. Add series from the Events page first.
           </div>
-          <div v-else class="space-y-2 max-h-64 overflow-y-auto">
-            <div
-              v-for="s in availableSeries"
-              :key="s.id"
-              class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-              :class="{ 'ring-2 ring-primary': selectedSeriesId === s.id }"
-              @click="selectedSeriesId = s.id"
-            >
-              <img v-if="s.image" :src="s.image" class="w-8 h-8 rounded object-cover shrink-0" />
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium truncate">{{ s.title || s.slug }}</div>
-                <div class="text-xs text-gray-500">{{ s.event_count || 0 }} events</div>
+          <div v-else class="space-y-4">
+            <div class="space-y-2 max-h-64 overflow-y-auto">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Series</label>
+              <div
+                v-for="s in availableSeries"
+                :key="s.id"
+                class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                :class="{ 'ring-2 ring-primary': selectedSeriesId === s.id }"
+                @click="selectedSeriesId = s.id"
+              >
+                <img v-if="s.image" :src="s.image" class="w-8 h-8 rounded object-cover shrink-0" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium truncate">{{ s.title || s.slug }}</div>
+                  <div class="text-xs text-gray-500">{{ s.event_count || 0 }} events</div>
+                </div>
               </div>
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Transcript Folder (optional)</label>
+              <USelectMenu
+                v-model="selectedFolderId"
+                :items="folderOptions"
+                value-key="value"
+                placeholder="All transcripts"
+                class="w-full"
+              />
             </div>
           </div>
 
