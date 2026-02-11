@@ -151,6 +151,7 @@ interface Transcript {
 
 const route = useRoute()
 const router = useRouter()
+const { authFetch } = useAuthFetch()
 const copied = ref(false)
 const deleting = ref(false)
 const searchInput = ref('')
@@ -241,7 +242,7 @@ async function deleteTranscript() {
 
   deleting.value = true
   try {
-    await $fetch(`/api/transcripts/${route.params.id}`, {
+    await authFetch(`/api/transcripts/${route.params.id}`, {
       method: 'DELETE'
     })
     router.push('/transcripts')

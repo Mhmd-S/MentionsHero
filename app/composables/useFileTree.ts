@@ -15,6 +15,7 @@ export interface Transcript {
 }
 
 export function useFileTree() {
+  const { authFetch } = useAuthFetch();
   const folders = useState<Folder[]>('file-tree-folders', () => [])
   const transcripts = useState<Transcript[]>('file-tree-transcripts', () => [])
   const loading = useState('file-tree-loading', () => false)
@@ -22,7 +23,7 @@ export function useFileTree() {
 
   async function fetchFolders() {
     try {
-      const data = await $fetch<Folder[]>('/api/folders')
+      const data = await authFetch<Folder[]>('/api/folders')
       folders.value = data
     } catch (err) {
       console.error('Failed to fetch folders:', err)
@@ -31,7 +32,7 @@ export function useFileTree() {
   }
 
   async function fetchTranscripts() {
-    const data = await $fetch<Transcript[]>('/api/transcripts')
+    const data = await authFetch<Transcript[]>('/api/transcripts')
     transcripts.value = data
   }
 
@@ -46,7 +47,7 @@ export function useFileTree() {
 
   async function createFolder(parentId: string | null = null) {
     const name = generateUniqueFolderName(parentId)
-    const data = await $fetch<Folder>('/api/folders', {
+    const data = await authFetch<Folder>('/api/folders', {
       method: 'POST',
       body: { name, parent_id: parentId }
     })
@@ -69,7 +70,7 @@ export function useFileTree() {
   }
 
   async function renameFolder(id: string, name: string) {
-    const data = await $fetch<Folder>(`/api/folders/${id}`, {
+    const data = await authFetch<Folder>(`/api/folders/${id}`, {
       method: 'PATCH',
       body: { name }
     })
@@ -87,7 +88,7 @@ export function useFileTree() {
       return
     }
 
-    const data = await $fetch<Folder>(`/api/folders/${id}`, {
+    const data = await authFetch<Folder>(`/api/folders/${id}`, {
       method: 'PATCH',
       body: { parent_id: parentId }
     })
@@ -105,7 +106,7 @@ export function useFileTree() {
   }
 
   async function deleteFolder(id: string) {
-    await $fetch(`/api/folders/${id}`, { method: 'DELETE' })
+    await authFetch(`/api/folders/${id}`, { method: 'DELETE' })
 
     // Update local state: move children to parent
     const deletedFolder = folders.value.find(f => f.id === id)
@@ -121,12 +122,12 @@ export function useFileTree() {
   }
 
   async function deleteTranscript(id: string) {
-    await $fetch(`/api/transcripts/${id}`, { method: 'DELETE' })
+    await authFetch(`/api/transcripts/${id}`, { method: 'DELETE' })
     transcripts.value = transcripts.value.filter(t => t.id !== id)
   }
 
   async function renameTranscript(id: string, name: string) {
-    const data = await $fetch<Transcript>(`/api/transcripts/${id}`, {
+    const data = await authFetch<Transcript>(`/api/transcripts/${id}`, {
       method: 'PATCH',
       body: { name }
     })
@@ -138,7 +139,7 @@ export function useFileTree() {
     const transcript = transcripts.value.find(t => t.id === id)
     if (!transcript || transcript.folder_id === folderId) return
 
-    const data = await $fetch<Transcript>(`/api/transcripts/${id}`, {
+    const data = await authFetch<Transcript>(`/api/transcripts/${id}`, {
       method: 'PATCH',
       body: { folder_id: folderId }
     })

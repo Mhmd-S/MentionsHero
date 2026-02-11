@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { authFetch } = useAuthFetch()
+
 export interface SpeakerInfo {
   name: string
   segment_count: number
@@ -49,7 +51,7 @@ const selectionPlaceholder = computed(() =>
 async function loadSpeakers() {
   loading.value = true
   try {
-    const result = await $fetch<{ speakers: SpeakerInfo[] }>('/api/analysis/speakers', {
+    const result = await authFetch<{ speakers: SpeakerInfo[] }>('/api/analysis/speakers', {
       query: props.folderId ? { folder_id: props.folderId } : undefined
     })
     speakers.value = result.speakers || []

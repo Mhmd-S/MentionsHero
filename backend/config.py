@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8001
 
-    # CORS
+    # CORS — set CORS_ORIGINS env var as comma-separated list in production
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 

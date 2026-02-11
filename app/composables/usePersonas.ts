@@ -20,6 +20,7 @@ export interface PersonaTranscript {
 }
 
 export function usePersonas() {
+  const { authFetch } = useAuthFetch();
   const personas = useState<Persona[]>('personas-list', () => []);
   const loading = useState<boolean>('personas-loading', () => false);
   const error = useState<string | null>('personas-error', () => null);
@@ -31,7 +32,7 @@ export function usePersonas() {
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<Persona[]>('/api/personas');
+      const result = await authFetch<Persona[]>('/api/personas');
       personas.value = Array.isArray(result) ? result : [];
       return personas.value;
     } catch (e: any) {
@@ -48,7 +49,7 @@ export function usePersonas() {
    */
   async function getPersona(id: string): Promise<Persona | null> {
     try {
-      const result = await $fetch<Persona>(`/api/personas/${id}`);
+      const result = await authFetch<Persona>(`/api/personas/${id}`);
       return result;
     } catch (e: any) {
       console.error('Failed to fetch persona:', e);
@@ -67,7 +68,7 @@ export function usePersonas() {
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<Persona>('/api/personas', {
+      const result = await authFetch<Persona>('/api/personas', {
         method: 'POST',
         body: { name, description, aliases: aliases || [] }
       });
@@ -94,7 +95,7 @@ export function usePersonas() {
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<Persona>(`/api/personas/${id}`, {
+      const result = await authFetch<Persona>(`/api/personas/${id}`, {
         method: 'PATCH',
         body: { name, description }
       });
@@ -117,7 +118,7 @@ export function usePersonas() {
     loading.value = true;
     error.value = null;
     try {
-      await $fetch(`/api/personas/${id}`, { method: 'DELETE' });
+      await authFetch(`/api/personas/${id}`, { method: 'DELETE' });
       // Refresh list
       await fetchPersonas();
       return true;
@@ -137,7 +138,7 @@ export function usePersonas() {
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<Persona>(`/api/personas/${id}/aliases`, {
+      const result = await authFetch<Persona>(`/api/personas/${id}/aliases`, {
         method: 'POST',
         body: { aliases }
       });
@@ -160,7 +161,7 @@ export function usePersonas() {
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<Persona>(`/api/personas/${id}/aliases`, {
+      const result = await authFetch<Persona>(`/api/personas/${id}/aliases`, {
         method: 'DELETE',
         body: { aliases }
       });
@@ -184,7 +185,7 @@ export function usePersonas() {
     folderId?: string | null
   ): Promise<PersonaTranscript[]> {
     try {
-      const result = await $fetch<PersonaTranscript[]>(
+      const result = await authFetch<PersonaTranscript[]>(
         `/api/personas/${id}/transcripts`,
         { query: folderId ? { folder_id: folderId } : undefined }
       );

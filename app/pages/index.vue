@@ -268,6 +268,7 @@ type InputMode = 'detecting' | 'single' | 'playlist' | 'batch'
 
 const route = useRoute()
 const router = useRouter()
+const { authFetch } = useAuthFetch()
 
 const youtubeUrl = ref('')
 const selectedFolderId = ref<string | null>(null)
@@ -393,7 +394,7 @@ async function fetchVideoInfo(url: string) {
   videoError.value = null
 
   try {
-    const info = await $fetch<VideoInfo>('/api/video/info', {
+    const info = await authFetch<VideoInfo>('/api/video/info', {
       method: 'POST',
       body: { url }
     })
@@ -410,7 +411,7 @@ async function fetchPlaylistInfo(url: string) {
   playlistError.value = null
 
   try {
-    const info = await $fetch<PlaylistInfo>('/api/playlist/info', {
+    const info = await authFetch<PlaylistInfo>('/api/playlist/info', {
       method: 'POST',
       body: { url }
     })
@@ -429,7 +430,7 @@ async function fetchBatchVideoInfo(urls: string[]) {
 
   for (const url of urls) {
     try {
-      const info = await $fetch<VideoInfo>('/api/video/info', {
+      const info = await authFetch<VideoInfo>('/api/video/info', {
         method: 'POST',
         body: { url }
       })
@@ -455,7 +456,7 @@ async function startJob() {
   try {
     // Single video mode
     if (inputMode.value === 'single' && videoInfo.value) {
-      const response = await $fetch<{ jobId: string }>('/api/jobs', {
+      const response = await authFetch<{ jobId: string }>('/api/jobs', {
         method: 'POST',
         body: {
           url: videoInfo.value.url || youtubeUrl.value.trim(),
@@ -472,7 +473,7 @@ async function startJob() {
 
     // Batch mode (playlist or multiple URLs)
     if ((inputMode.value === 'playlist' || inputMode.value === 'batch') && selectedVideos.value.length > 0) {
-      const response = await $fetch<{ jobIds: string[] }>('/api/jobs/batch', {
+      const response = await authFetch<{ jobIds: string[] }>('/api/jobs/batch', {
         method: 'POST',
         body: {
           videos: selectedVideos.value.map(v => ({
@@ -522,7 +523,7 @@ async function cancelJob() {
   isCancelling.value = true
 
   try {
-    await $fetch(`/api/jobs/${currentJobId.value}/cancel`, {
+    await authFetch(`/api/jobs/${currentJobId.value}/cancel`, {
       method: 'POST'
     })
   } catch (err: any) {

@@ -33,6 +33,8 @@
 <script setup lang="ts">
 import type { Folder } from '~/composables/useFileTree'
 
+const { authFetch } = useAuthFetch()
+
 const props = defineProps<{
   modelValue: string | null
   disabled?: boolean
@@ -125,7 +127,7 @@ async function createNewFolder() {
   try {
     // Create folder under the currently selected parent (or root if none)
     const parentId = props.modelValue || null
-    const data = await $fetch<Folder>('/api/folders', {
+    const data = await authFetch<Folder>('/api/folders', {
       method: 'POST',
       body: { name: newFolderName.value.trim(), parent_id: parentId }
     })
