@@ -1,10 +1,11 @@
 """FastAPI application entry point."""
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
+from backend.core.auth import require_auth
 from backend.routers import (
     analysis,
     folders,
@@ -21,7 +22,8 @@ settings = get_settings()
 app = FastAPI(
     title="Transcript Analysis API",
     description="Backend API for press briefing transcription and analysis",
-    version="2.0.0"
+    version="2.0.0",
+    dependencies=[Depends(require_auth)],
 )
 
 # CORS middleware for Nuxt frontend

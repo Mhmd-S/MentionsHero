@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const { logout } = useAuth();
+</script>
+
 <template>
   <UApp>
     <div class="flex min-h-screen">
@@ -6,6 +10,15 @@
           <div class="flex items-center gap-2 mb-6">
             <UIcon name="i-heroicons-microphone" class="size-6 text-primary" />
             <span class="font-bold text-lg">Transcripts</span>
+            <UButton
+              icon="i-heroicons-arrow-right-on-rectangle"
+              variant="ghost"
+              size="xs"
+              color="neutral"
+              class="ml-auto"
+              title="Sign out"
+              @click="logout"
+            />
           </div>
 
           <nav class="space-y-1 mb-4">

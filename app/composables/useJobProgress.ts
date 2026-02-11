@@ -36,7 +36,14 @@ export function useJobProgress(jobId: Ref<string | null>) {
       eventSource.value.close()
     }
 
-    const es = new EventSource(`/api/jobs/${jobId.value}/stream`)
+    // EventSource doesn't support custom headers, pass token as query param
+    const { getAccessToken } = useAuth()
+    const token = getAccessToken()
+    const url = token
+      ? `/api/jobs/${jobId.value}/stream?token=${encodeURIComponent(token)}`
+      : `/api/jobs/${jobId.value}/stream`
+
+    const es = new EventSource(url)
     eventSource.value = es
 
     es.onmessage = (event) => {

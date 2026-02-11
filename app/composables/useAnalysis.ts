@@ -87,6 +87,7 @@ export interface SpeakerInfo {
 }
 
 export function useAnalysis() {
+  const { authFetch } = useAuthFetch();
   // Shared state for folder and speaker selection across all components
   // Using useState for SSR-safe shared state that persists across components
   const selectedFolderId = useState<string | null>('analysis-selected-folder', () => null);
@@ -102,7 +103,7 @@ export function useAnalysis() {
   async function getSpeakers(folderId?: string | null): Promise<SpeakerInfo[]> {
     const id = folderId ?? selectedFolderId.value;
     try {
-      const result = await $fetch<{ speakers: SpeakerInfo[] }>(
+      const result = await authFetch<{ speakers: SpeakerInfo[] }>(
         '/api/analysis/speakers',
         { query: id != null ? { folder_id: id } : {} }
       );
@@ -121,7 +122,7 @@ export function useAnalysis() {
   async function searchSpeakers(query: string, limit = 50): Promise<SpeakerInfo[]> {
     if (!query?.trim()) return [];
     try {
-      const result = await $fetch<{ speakers: SpeakerInfo[] }>(
+      const result = await authFetch<{ speakers: SpeakerInfo[] }>(
         '/api/analysis/speakers/search',
         { query: { q: query.trim(), limit } }
       );
@@ -137,7 +138,7 @@ export function useAnalysis() {
    */
   async function fetchFolders(): Promise<AnalysisFolder[]> {
     try {
-      const result = await $fetch<AnalysisFolder[]>("/api/folders");
+      const result = await authFetch<AnalysisFolder[]>("/api/folders");
       folders.value = Array.isArray(result) ? result : [];
       return folders.value;
     } catch (e: any) {
@@ -168,7 +169,7 @@ export function useAnalysis() {
       : undefined;
 
     try {
-      const result = await $fetch<TermFrequency>(
+      const result = await authFetch<TermFrequency>(
         `/api/analysis/term/${encodeURIComponent(term)}`,
         {
           query: {
@@ -209,7 +210,7 @@ export function useAnalysis() {
       : undefined;
 
     try {
-      const result = await $fetch<{ terms: TermData[] }>(
+      const result = await authFetch<{ terms: TermData[] }>(
         "/api/analysis/terms",
         {
           query: {
@@ -252,7 +253,7 @@ export function useAnalysis() {
       : undefined;
 
     try {
-      const result = await $fetch<{ ngrams: NgramData[] }>(
+      const result = await authFetch<{ ngrams: NgramData[] }>(
         "/api/analysis/ngrams",
         {
           query: {
@@ -296,7 +297,7 @@ export function useAnalysis() {
       : undefined;
 
     try {
-      const result = await $fetch<SearchResult>("/api/analysis/search", {
+      const result = await authFetch<SearchResult>("/api/analysis/search", {
         method: "POST",
         body: {
           query,
@@ -325,7 +326,7 @@ export function useAnalysis() {
     error.value = null;
 
     try {
-      const result = await $fetch<{ markets: PolymarketMarket[] }>(
+      const result = await authFetch<{ markets: PolymarketMarket[] }>(
         "/api/polymarket/markets",
         {
           query: { type },
@@ -351,7 +352,7 @@ export function useAnalysis() {
     error.value = null;
 
     try {
-      const result = await $fetch<MarketAnalysis>("/api/polymarket/analyze", {
+      const result = await authFetch<MarketAnalysis>("/api/polymarket/analyze", {
         method: "POST",
         body: { market, term },
       });

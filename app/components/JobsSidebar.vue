@@ -101,6 +101,9 @@ const groupedJobs = computed((): JobGroup[] => {
   return Array.from(groups.values())
 })
 
+const { getAccessToken } = useAuth()
+const { authFetch } = useAuthFetch()
+
 let eventSource: EventSource | null = null
 
 function connectJobsStream() {
@@ -109,7 +112,11 @@ function connectJobsStream() {
     eventSource.close()
     eventSource = null
   }
-  eventSource = new EventSource('/api/jobs/list/stream')
+  const token = getAccessToken()
+  const url = token
+    ? `/api/jobs/list/stream?token=${encodeURIComponent(token)}`
+    : '/api/jobs/list/stream'
+  eventSource = new EventSource(url)
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data) as { jobs: Job[] }
@@ -126,7 +133,7 @@ function connectJobsStream() {
 
 async function forceCancel(jobId: string) {
   try {
-    await $fetch(`/api/jobs/${jobId}/force-cancel`, { method: 'POST' })
+    await authFetch(`/api/jobs/${jobId}/force-cancel`, { method: 'POST' })
     jobs.value = jobs.value.filter(j => j.id !== jobId)
   } catch (e) {
     console.error('Failed to force cancel job:', e)
@@ -135,7 +142,7 @@ async function forceCancel(jobId: string) {
 
 async function bulkCancel(playlistId: string) {
   try {
-    await $fetch('/api/jobs/bulk-cancel', {
+    await authFetch('/api/jobs/bulk-cancel', {
       method: 'POST',
       body: { playlistId }
     })
