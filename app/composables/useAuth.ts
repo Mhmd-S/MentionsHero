@@ -3,10 +3,11 @@ import type { User, Session } from "@supabase/supabase-js";
 export function useAuth() {
   const user = useState<User | null>("auth-user", () => null);
   const session = useState<Session | null>("auth-session", () => null);
-  const loading = useState<boolean>("auth-loading", () => true);
+  const loading = useState<boolean>("auth-loading", () => false);
   const error = useState<string | null>("auth-error", () => null);
 
   async function init() {
+    loading.value = true;
     const supabase = useSupabaseClient();
 
     // Read existing session
