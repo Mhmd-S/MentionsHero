@@ -10,13 +10,17 @@ _bearer = HTTPBearer(auto_error=False)
 
 def _validate_session(token: str) -> dict:
     """Validate an access token against Supabase Auth."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     supabase = get_supabase()
     try:
         response = supabase.auth.get_user(token)
         if response and response.user:
             return {"sub": response.user.id, "email": response.user.email}
-    except Exception:
-        pass
+        logger.warning("Token validation returned no user")
+    except Exception as e:
+        logger.warning("Token validation failed: %s", e)
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
