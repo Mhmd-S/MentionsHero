@@ -15,8 +15,8 @@ RUN pnpm build
 # Stage 2: Production
 FROM python:3.13-slim
 
-# Install Node.js 22 (needed for Nuxt SSR runtime)
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+# Install Node.js 22 (needed for Nuxt SSR runtime) and ffmpeg (needed for yt-dlp postprocessing)
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates ffmpeg \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get purge -y curl \
