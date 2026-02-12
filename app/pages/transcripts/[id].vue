@@ -178,13 +178,29 @@ const searchQuery = computed(() => {
   return query
 })
 
-const { data: transcript, pending, error, refresh } = await useFetch<Transcript>(
-  `/api/transcripts/${route.params.id}`,
-  {
-    query: searchQuery,
-    watch: [searchQuery]
+const transcript = ref<Transcript | null>(null)
+const pending = ref(true)
+const error = ref<any>(null)
+
+async function refresh() {
+  pending.value = true
+  error.value = null
+  try {
+    const query: Record<string, string> = {}
+    if (debouncedSearch.value.trim()) query.search = debouncedSearch.value.trim()
+    if (selectedSpeakers.value.length > 0) query.speakers = selectedSpeakers.value.join(',')
+    const params = new URLSearchParams(query).toString()
+    const url = `/api/transcripts/${route.params.id}` + (params ? `?${params}` : '')
+    transcript.value = await authFetch<Transcript>(url)
+  } catch (e: any) {
+    error.value = e
+  } finally {
+    pending.value = false
   }
-)
+}
+
+watch(searchQuery, () => refresh())
+await refresh()
 
 const availableSpeakers = computed(() => transcript.value?.availableSpeakers || [])
 const hasHighlights = computed(() => transcript.value?.hasHighlights || false)

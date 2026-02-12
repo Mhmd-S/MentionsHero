@@ -22,9 +22,6 @@ export default defineNuxtConfig({
     css: ['~/assets/css/main.css'],
   modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui'],
   runtimeConfig: {
-    geminiApiKey: process.env.GEMINI_API_KEY,
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabasePublishableKey: process.env.SUPABASE_KEY,
