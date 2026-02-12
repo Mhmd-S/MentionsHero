@@ -48,7 +48,18 @@ interface Transcript {
   created_at: string
 }
 
-const { data: transcripts, pending, error } = await useFetch<Transcript[]>('/api/transcripts')
+const { authFetch } = useAuthFetch()
+const transcripts = ref<Transcript[] | null>(null)
+const pending = ref(true)
+const error = ref<any>(null)
+
+try {
+  transcripts.value = await authFetch<Transcript[]>('/api/transcripts')
+} catch (e: any) {
+  error.value = e
+} finally {
+  pending.value = false
+}
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
