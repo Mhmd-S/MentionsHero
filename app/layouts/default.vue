@@ -54,6 +54,14 @@ const { logout } = useAuth();
               <UIcon name="i-heroicons-chart-bar" class="size-5" />
               Events
             </NuxtLink>
+            <NuxtLink
+              to="/model"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+              active-class="bg-primary-100 dark:bg-primary-900 text-primary"
+            >
+              <UIcon name="i-heroicons-cpu-chip" class="size-5" />
+              Model
+            </NuxtLink>
           </nav>
 
           <FileTree />

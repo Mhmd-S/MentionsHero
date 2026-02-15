@@ -135,6 +135,24 @@ onMounted(async () => {
           />
         </NuxtLink>
       </div>
+
+      <!-- ML Model link -->
+      <div class="mt-8">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xl font-semibold">ML Model</h2>
+          <NuxtLink
+            :to="{ path: '/model', query: { persona: personaId } }"
+            class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg hover:border-primary-500 transition-colors text-sm font-medium"
+          >
+            <span>Open</span>
+            <UBadge v-if="persona?.has_model" color="success" variant="subtle" size="xs">Model trained</UBadge>
+            <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
+          </NuxtLink>
+        </div>
+        <p class="text-gray-500 text-sm">
+          Train and test a LoRA model on this persona's speech. In local dev, training runs in the terminal.
+        </p>
+      </div>
     </template>
 
     <!-- Link Series Modal -->

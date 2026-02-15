@@ -7,6 +7,7 @@ export interface Persona {
   name: string;
   description: string | null;
   aliases: string[];
+  has_model?: boolean;
   created_at: string | null;
   updated_at: string | null;
 }

@@ -1,0 +1,18 @@
+adapter-path: /Users/moslmn/projects/transcripts_generator/models/personas/8b74be41-14da-4351-a997-4ed409acbf15/adapters
+batch-size: 2
+data: /Users/moslmn/projects/transcripts_generator/models/personas/8b74be41-14da-4351-a997-4ed409acbf15/data
+grad-accumulation-steps: 4
+grad-checkpoint: true
+iters: 400
+learning-rate: 5.0e-05
+lora-layers: 18
+lora_parameters:
+  dropout: 0.0
+  rank: 16
+  scale: 10.0
+max-seq-length: 1024
+model: mlx-community/Llama-3.2-3B-Instruct-4bit
+steps-per-eval: 100
+steps-per-report: 10
+train: true
+val-batches: 25
