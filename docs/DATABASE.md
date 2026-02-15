@@ -79,6 +79,7 @@ Named entities (people) tracked across transcripts.
 | id | uuid PK | |
 | name | text NOT NULL | |
 | description | text | |
+| youtube_channel_url | text | YouTube channel URL for channel monitor auto-detection |
 | has_model | boolean | True if ML model trained |
 | last_trained_at | timestamptz | Last successful training time |
 | created_at | timestamptz | |
@@ -218,7 +219,7 @@ Per-term analysis results for a market-persona pair.
 ## Junction Tables
 
 ### persona_polymarket_series
-Links personas to series with optional folder scoping.
+Links personas to series with optional folder scoping and auto-trade flag.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -226,6 +227,7 @@ Links personas to series with optional folder scoping.
 | persona_id | uuid FK → personas | ON DELETE CASCADE |
 | polymarket_series_id | uuid FK → polymarket_series | ON DELETE CASCADE |
 | folder_id | uuid FK → folders | ON DELETE SET NULL — scopes transcript analysis |
+| auto_trade | boolean NOT NULL DEFAULT false | Enable auto-trading when channel monitor detects new video |
 | created_at | timestamptz | |
 
 **Unique constraint:** `(persona_id, polymarket_series_id)`
@@ -267,6 +269,81 @@ LoRA fine-tuning job tracking.
 | completed_at | timestamptz | |
 | cancel_requested | boolean | Cooperative cancellation flag |
 
+## Trading Tables
+
+### trading_sessions
+One per live streaming + trading session.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| youtube_url | text NOT NULL | Live stream URL |
+| video_title | text | |
+| persona_id | uuid FK → personas | |
+| series_id | uuid FK → polymarket_series | ON DELETE SET NULL |
+| status | text NOT NULL | pending, streaming, completed, failed, cancelled |
+| config | jsonb NOT NULL | TradingConfig (chunk sizes, thresholds, amounts) |
+| stage_progress | jsonb NOT NULL | `{chunks_processed, terms_detected, trades_placed, positions_open}` |
+| error_message | text | |
+| cancel_requested | boolean NOT NULL | Cooperative cancellation flag |
+| started_at | timestamptz | When streaming began |
+| ended_at | timestamptz | When session finished |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+### trades
+Individual buy/sell trade records.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| session_id | uuid FK → trading_sessions | ON DELETE CASCADE |
+| market_id | uuid FK → polymarket_markets | |
+| token_id | text | CLOB token ID |
+| condition_id | text | Market condition ID |
+| side | text NOT NULL | buy, sell |
+| amount_usd | numeric | Dollar amount |
+| price | numeric | Execution price |
+| shares | numeric | Number of shares |
+| order_id | text | CLOB order ID or "DRY_RUN" |
+| status | text NOT NULL | pending, submitted, filled, failed |
+| triggered_by | text NOT NULL | term_detection, profit_target, stop_loss, market_close, session_end |
+| detected_term | text | The term that triggered a buy |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+### trading_positions
+Active positions monitored for sell conditions.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| session_id | uuid FK → trading_sessions | ON DELETE CASCADE |
+| market_id | uuid FK → polymarket_markets | |
+| token_id | text | |
+| buy_trade_id | uuid FK → trades | |
+| buy_price | numeric | Entry price |
+| shares | numeric | |
+| current_price | numeric | Last polled price |
+| status | text NOT NULL | open, closed_profit, closed_loss, closed_market, closed_session |
+| sell_trade_id | uuid FK → trades | Set when position closed |
+| profit_loss_pct | numeric | Final P&L percentage |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+### trading_session_log
+Event log for debugging and SSE streaming.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| session_id | uuid FK → trading_sessions | ON DELETE CASCADE |
+| event_type | text NOT NULL | e.g., stream_started, chunk_transcribed, term_detected, buy_executed |
+| payload | jsonb | Event-specific data |
+| created_at | timestamptz | |
+
+**Indexes:** `(session_id, created_at DESC)` on trading_session_log; partial index on trading_sessions for active status.
+
 ## Entity Relationship Summary
 
 ```
@@ -279,11 +356,14 @@ folders ←──── transcripts ←──── transcript_speakers ──�
    │              ↓                           ↓
    │          personas ←── persona_aliases    polymarket_events
    │              │                                │
-   │              ↓                                ↓
-   │     ml_training_jobs               polymarket_markets
-   │                                       │         │
-   │                          market_search_configs   │
-   │                                                  │
+   │              ├─→ ml_training_jobs             ↓
+   │              │                       polymarket_markets
+   │              ├─→ trading_sessions       │         │
+   │              │        │        market_search_configs
+   │              │        ├─→ trades         │
+   │              │        ├─→ trading_positions
+   │              │        └─→ trading_session_log
+   │              │
    └───────── analysis_cache        market_term_results
                                     market_search_results
 ```

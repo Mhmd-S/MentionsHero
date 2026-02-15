@@ -1,6 +1,8 @@
 """FastAPI application entry point."""
 
 import uvicorn
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -14,17 +16,31 @@ from backend.routers import (
     personas,
     playlist,
     polymarket,
+    trading,
     transcripts,
     video,
 )
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown lifecycle for background services."""
+    if settings.channel_monitoring_enabled:
+        from backend.services.channel_monitor_service import start_monitor
+        await start_monitor()
+    yield
+    from backend.services.channel_monitor_service import stop_monitor
+    await stop_monitor()
+
+
 app = FastAPI(
     title="Transcript Analysis API",
     description="Backend API for press briefing transcription and analysis",
     version="2.0.0",
     dependencies=[Depends(require_auth)],
+    lifespan=lifespan,
 )
 
 # CORS middleware for Nuxt frontend
@@ -54,6 +70,7 @@ app.include_router(playlist.router)
 app.include_router(polymarket.router)
 app.include_router(personas.router)
 app.include_router(ml_training.router)
+app.include_router(trading.router)
 
 
 if __name__ == "__main__":

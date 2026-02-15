@@ -61,10 +61,18 @@ async def update_persona(persona_id: str, request: PersonaUpdate) -> Persona:
         raise HTTPException(status_code=400, detail="Persona name cannot be empty")
 
     try:
+        # Use model_fields_set to distinguish "not provided" from "explicitly set to None"
+        kwargs: dict = {}
+        if "name" in request.model_fields_set:
+            kwargs["name"] = request.name
+        if "description" in request.model_fields_set:
+            kwargs["description"] = request.description
+        if "youtube_channel_url" in request.model_fields_set:
+            kwargs["youtube_channel_url"] = request.youtube_channel_url
+
         persona = await persona_service.update_persona(
             persona_id=persona_id,
-            name=request.name,
-            description=request.description
+            **kwargs,
         )
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")

@@ -22,6 +22,7 @@ YouTube transcript analysis platform with prediction market integration and per-
 | [docs/features/05-persona-management.md](docs/features/05-persona-management.md) | Persona CRUD, aliases, market reprocessing |
 | [docs/features/06-polymarket-integration.md](docs/features/06-polymarket-integration.md) | Gamma API, series/events/markets, term analysis |
 | [docs/features/07-ml-training.md](docs/features/07-ml-training.md) | LoRA fine-tuning pipeline, inference |
+| [docs/features/08-trading-bot.md](docs/features/08-trading-bot.md) | Live trading bot, CLOB API, streaming pipeline |
 
 ## Mandatory Documentation Updates
 
@@ -36,6 +37,7 @@ YouTube transcript analysis platform with prediction market integration and per-
 | `app/pages/personas/`, `app/composables/usePersonas.ts`, `backend/routers/personas.py`, `backend/services/persona_service.py` | `docs/features/05-persona-management.md` |
 | `app/pages/events/`, `app/components/TermSection.vue`, `app/composables/usePolymarket.ts`, `backend/routers/polymarket.py`, `backend/services/polymarket_service.py` | `docs/features/06-polymarket-integration.md` |
 | `app/pages/model.vue`, `app/pages/personas/[id]/model.vue`, `app/components/ModelTrainingPanel.vue`, `app/composables/useMLTraining.ts`, `backend/routers/ml_training.py`, `backend/services/ml_training_service.py`, `backend/services/ml_processing_service.py` | `docs/features/07-ml-training.md` |
+| `backend/routers/trading.py`, `backend/services/trading_service.py`, `backend/services/streaming_service.py`, `backend/models/trading.py` | `docs/features/08-trading-bot.md` |
 | `supabase/migrations/`, `utils/db_refrence.sql` | `docs/DATABASE.md` |
 | `backend/main.py`, `backend/config.py`, `backend/core/`, `nuxt.config.ts`, `app/layouts/` | `docs/ARCHITECTURE.md` |
 

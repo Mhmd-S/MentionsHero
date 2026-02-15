@@ -24,6 +24,18 @@ class Settings(BaseSettings):
     # Replicate API
     replicate_api_token: str = ""
 
+    # Polymarket Trading
+    polymarket_api_key: str = ""
+    polymarket_api_secret: str = ""
+    polymarket_private_key: str = ""
+    polymarket_chain_id: int = 137
+    trading_enabled: bool = False
+    trading_dry_run: bool = True
+
+    # Channel monitoring
+    channel_poll_interval_s: int = 45
+    channel_monitoring_enabled: bool = False
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8001

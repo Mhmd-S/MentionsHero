@@ -52,6 +52,17 @@ from backend.models.polymarket import (
     AnalyzeRequest,
     AnalyzeResponse,
 )
+from backend.models.trading import (
+    SessionStatus,
+    TradeStatus,
+    TradeSide,
+    TradeTriggeredBy,
+    PositionStatus,
+    TradingConfig,
+    StartSessionRequest,
+    StartSessionResponse,
+    StopSessionResponse,
+)
 
 __all__ = [
     # Job models
@@ -100,4 +111,14 @@ __all__ = [
     "MarketsResponse",
     "AnalyzeRequest",
     "AnalyzeResponse",
+    # Trading models
+    "SessionStatus",
+    "TradeStatus",
+    "TradeSide",
+    "TradeTriggeredBy",
+    "PositionStatus",
+    "TradingConfig",
+    "StartSessionRequest",
+    "StartSessionResponse",
+    "StopSessionResponse",
 ]

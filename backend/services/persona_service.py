@@ -109,9 +109,10 @@ async def create_persona(
 async def update_persona(
     persona_id: str,
     name: str | None = None,
-    description: str | None = None
+    description: str | None = None,
+    youtube_channel_url: str | None = ...,
 ) -> dict[str, Any] | None:
-    """Update a persona's name and/or description."""
+    """Update a persona's name, description, and/or youtube_channel_url."""
     supabase = get_supabase()
 
     updates: dict[str, Any] = {
@@ -123,6 +124,10 @@ async def update_persona(
 
     if description is not None:
         updates["description"] = description.strip() if description else None
+
+    # Use sentinel (...) so we can distinguish "not provided" from "set to None"
+    if youtube_channel_url is not ...:
+        updates["youtube_channel_url"] = youtube_channel_url.strip() if youtube_channel_url else None
 
     response = (
         supabase.table("personas")

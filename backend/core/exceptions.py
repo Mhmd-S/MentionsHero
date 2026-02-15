@@ -31,3 +31,11 @@ class ValidationError(Exception):
     def __init__(self, message: str = "Validation failed"):
         self.message = message
         super().__init__(self.message)
+
+
+class TradingError(Exception):
+    """Raised when a trading operation fails."""
+
+    def __init__(self, message: str = "Trading operation failed"):
+        self.message = message
+        super().__init__(self.message)

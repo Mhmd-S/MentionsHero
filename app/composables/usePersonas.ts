@@ -6,6 +6,7 @@ export interface Persona {
   id: string;
   name: string;
   description: string | null;
+  youtube_channel_url: string | null;
   aliases: string[];
   has_model?: boolean;
   created_at: string | null;
@@ -90,15 +91,14 @@ export function usePersonas() {
    */
   async function updatePersona(
     id: string,
-    name?: string,
-    description?: string
+    updates: { name?: string; description?: string; youtube_channel_url?: string | null }
   ): Promise<Persona | null> {
     loading.value = true;
     error.value = null;
     try {
       const result = await authFetch<Persona>(`/api/personas/${id}`, {
         method: 'PATCH',
-        body: { name, description }
+        body: updates
       });
       // Refresh list
       await fetchPersonas();

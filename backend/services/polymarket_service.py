@@ -967,17 +967,20 @@ async def get_series_detail(series_id: str) -> dict[str, Any] | None:
     events = supabase.table("polymarket_events").select("*").eq("series_id", series_id).order("end_date", desc=True).execute()
     events_data = events.data or []
 
-    # Get linked persona IDs with folder_id
-    links = supabase.table("persona_polymarket_series").select("persona_id, folder_id").eq("polymarket_series_id", series_id).execute()
+    # Get linked persona IDs with folder_id and auto_trade
+    links = supabase.table("persona_polymarket_series").select("persona_id, folder_id, auto_trade").eq("polymarket_series_id", series_id).execute()
     persona_ids = [r["persona_id"] for r in (links.data or [])]
     # Map persona_id → folder_id for transcript scoping
     persona_folder_map = {r["persona_id"]: r.get("folder_id") for r in (links.data or [])}
+    # Map persona_id → auto_trade flag
+    persona_auto_trade_map = {r["persona_id"]: r.get("auto_trade", False) for r in (links.data or [])}
 
     return {
         "series": series_row.data,
         "events": events_data,
         "persona_ids": persona_ids,
         "persona_folder_map": persona_folder_map,
+        "persona_auto_trade_map": persona_auto_trade_map,
     }
 
 
@@ -990,12 +993,14 @@ async def get_all_series() -> list[dict[str, Any]]:
         sid = s["id"]
         events = supabase.table("polymarket_events").select("id").eq("series_id", sid).execute()
         event_count = len(events.data or [])
-        links = supabase.table("persona_polymarket_series").select("persona_id").eq("polymarket_series_id", sid).execute()
+        links = supabase.table("persona_polymarket_series").select("persona_id, auto_trade").eq("polymarket_series_id", sid).execute()
         persona_ids = [r["persona_id"] for r in (links.data or [])]
+        persona_auto_trade_map = {r["persona_id"]: r.get("auto_trade", False) for r in (links.data or [])}
         result.append({
             **s,
             "event_count": event_count,
             "persona_ids": persona_ids,
+            "persona_auto_trade_map": persona_auto_trade_map,
         })
     return result
 
@@ -1023,13 +1028,16 @@ async def refresh_series(series_id: str) -> dict[str, Any] | None:
     return await get_series_detail(series_id)
 
 
-async def link_persona_to_series(persona_id: str, series_id: str, folder_id: str | None = None) -> bool:
+async def link_persona_to_series(
+    persona_id: str, series_id: str, folder_id: str | None = None, auto_trade: bool = False,
+) -> bool:
     """Link a persona to a series, optionally scoped to a folder."""
     supabase = get_supabase()
     try:
         row = {
             "persona_id": persona_id,
             "polymarket_series_id": series_id,
+            "auto_trade": auto_trade,
         }
         if folder_id:
             row["folder_id"] = folder_id
@@ -1037,6 +1045,19 @@ async def link_persona_to_series(persona_id: str, series_id: str, folder_id: str
         return True
     except Exception:
         return False  # already linked
+
+
+async def set_auto_trade(persona_id: str, series_id: str, enabled: bool) -> bool:
+    """Toggle auto_trade on a persona-series link."""
+    supabase = get_supabase()
+    result = (
+        supabase.table("persona_polymarket_series")
+        .update({"auto_trade": enabled})
+        .eq("persona_id", persona_id)
+        .eq("polymarket_series_id", series_id)
+        .execute()
+    )
+    return bool(result.data)
 
 
 async def unlink_persona_from_series(persona_id: str, series_id: str) -> bool:
@@ -1060,15 +1081,15 @@ async def get_personas_for_series(series_id: str) -> list[str]:
 
 
 async def get_series_for_persona(persona_id: str) -> list[dict[str, Any]]:
-    """Get series records linked to a persona."""
+    """Get series records linked to a persona, including auto_trade flag."""
     supabase = get_supabase()
-    links = supabase.table("persona_polymarket_series").select("polymarket_series_id").eq("persona_id", persona_id).execute()
-    series_ids = [r["polymarket_series_id"] for r in (links.data or [])]
+    links = supabase.table("persona_polymarket_series").select("polymarket_series_id, auto_trade").eq("persona_id", persona_id).execute()
+    link_map = {r["polymarket_series_id"]: r.get("auto_trade", False) for r in (links.data or [])}
     result = []
-    for sid in series_ids:
+    for sid, auto_trade in link_map.items():
         row = supabase.table("polymarket_series").select("*").eq("id", sid).single().execute()
         if row.data:
-            result.append(row.data)
+            result.append({**row.data, "auto_trade": auto_trade})
     return result
 
 

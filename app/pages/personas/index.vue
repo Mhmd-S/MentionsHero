@@ -120,11 +120,10 @@ async function handleCreatePersona() {
 async function handleUpdatePersona() {
   if (!editingPersona.value || !newPersonaName.value.trim()) return
 
-  await updatePersona(
-    editingPersona.value.id,
-    newPersonaName.value.trim(),
-    newPersonaDescription.value.trim() || undefined
-  )
+  await updatePersona(editingPersona.value.id, {
+    name: newPersonaName.value.trim(),
+    description: newPersonaDescription.value.trim() || undefined,
+  })
 
   showEditModal.value = false
   editingPersona.value = null
