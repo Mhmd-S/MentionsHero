@@ -376,8 +376,30 @@ async def run_training_pipeline(
         valid_re = re.compile(r"Iter\s+(\d+).*Val loss\s+([\d.]+)")
         latest_train_loss: float | None = None
         latest_valid_loss: float | None = None
-        recent_lines: collections.deque[str] = collections.deque(maxlen=20)
+        recent_lines: collections.deque[str] = collections.deque(maxlen=500)
         latest_iteration = 0
+        loss_history: list[dict[str, Any]] = []
+        training_stage_start = time.time()
+
+        def _calc_eta() -> float | None:
+            if latest_iteration <= 0:
+                return None
+            elapsed_training = time.time() - training_stage_start
+            remaining = lora_config["iters"] - latest_iteration
+            return (elapsed_training / latest_iteration) * remaining
+
+        def _build_stage_progress() -> dict[str, Any]:
+            return {
+                "stage": "training",
+                "iteration": latest_iteration,
+                "total_iterations": lora_config["iters"],
+                "train_loss": latest_train_loss,
+                "valid_loss": latest_valid_loss,
+                "elapsed_seconds": int(time.time() - start_time),
+                "eta_seconds": round(_calc_eta()) if _calc_eta() is not None else None,
+                "loss_history": loss_history,
+                "output": list(recent_lines),
+            }
 
         assert process.stdout is not None
         async for raw_line in process.stdout:
@@ -392,33 +414,23 @@ async def run_training_pipeline(
             if m_train:
                 latest_iteration = int(m_train.group(1))
                 latest_train_loss = float(m_train.group(2))
-                await update_training_progress(
-                    job_id, TrainingStatus.TRAINING,
-                    stage_progress={
-                        "stage": "training",
-                        "iteration": latest_iteration,
-                        "total_iterations": lora_config["iters"],
-                        "train_loss": latest_train_loss,
-                        "valid_loss": latest_valid_loss,
-                        "elapsed_seconds": int(time.time() - start_time),
-                        "output": list(recent_lines),
-                    },
-                )
+                loss_history.append({
+                    "iter": latest_iteration,
+                    "train_loss": latest_train_loss,
+                    "valid_loss": latest_valid_loss,
+                })
 
             if m_valid:
                 latest_valid_loss = float(m_valid.group(2))
-                await update_training_progress(
-                    job_id, TrainingStatus.TRAINING,
-                    stage_progress={
-                        "stage": "training",
-                        "iteration": latest_iteration,
-                        "total_iterations": lora_config["iters"],
-                        "train_loss": latest_train_loss,
-                        "valid_loss": latest_valid_loss,
-                        "elapsed_seconds": int(time.time() - start_time),
-                        "output": list(recent_lines),
-                    },
-                )
+                # Update the last history entry with valid loss if same iteration
+                if loss_history and loss_history[-1]["iter"] == latest_iteration:
+                    loss_history[-1]["valid_loss"] = latest_valid_loss
+
+            # Push SSE on every line so all output appears in real-time
+            await update_training_progress(
+                job_id, TrainingStatus.TRAINING,
+                stage_progress=_build_stage_progress(),
+            )
 
             # Check cancellation periodically
             if await check_cancellation(job_id):

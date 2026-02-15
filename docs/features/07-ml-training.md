@@ -116,10 +116,31 @@ models/personas/{persona_id}/
     └── [MLX adapter weights]
 ```
 
-**Progress parsing:** Regex matches on subprocess stdout:
-- `Iter\s+(\d+).*Train loss\s+([\d.]+)` → updates train_loss and iteration
-- `Iter\s+(\d+).*Val loss\s+([\d.]+)` → updates valid_loss
-- 20-line output buffer maintained for UI display
+**Progress parsing & streaming:** Every stdout line from the subprocess triggers an SSE push, so model loading messages, tokenizer info, and warnings all appear in the terminal in real-time. Regex matches extract structured data:
+- `Iter\s+(\d+).*Train loss\s+([\d.]+)` → updates train_loss, iteration, appends to loss_history
+- `Iter\s+(\d+).*Val loss\s+([\d.]+)` → updates valid_loss, patches latest loss_history entry
+- 500-line output buffer maintained for terminal display
+- `loss_history` accumulates `{ iter, train_loss, valid_loss }` entries for chart rendering
+- `eta_seconds` computed as `(elapsed / current_iter) * remaining_iters`
+
+**`stage_progress` shape (training stage):**
+```json
+{
+  "stage": "training",
+  "iteration": 100,
+  "total_iterations": 750,
+  "train_loss": 2.45,
+  "valid_loss": 2.68,
+  "elapsed_seconds": 300,
+  "eta_seconds": 1950,
+  "loss_history": [
+    { "iter": 10, "train_loss": 3.2, "valid_loss": null },
+    { "iter": 20, "train_loss": 2.9, "valid_loss": null },
+    { "iter": 100, "train_loss": 2.45, "valid_loss": 2.68 }
+  ],
+  "output": ["Loading model...", "Iter 10: Train loss 3.200...", "..."]
+}
+```
 
 **Cancellation:** Cooperative — checks `cancel_requested` flag between stdout lines. Terminates subprocess on cancellation.
 

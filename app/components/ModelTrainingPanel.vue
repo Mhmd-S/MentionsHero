@@ -36,7 +36,6 @@ const trainMaxTokens = ref<number | undefined>(undefined)
 const showDataSection = ref(false)
 const showTrainingSection = ref(false)
 const showLoraSection = ref(false)
-const showOutputLog = ref(false)
 const showConfigSection = ref(false)
 let stopStream: (() => void) | null = null
 const outputLogEl = ref<HTMLElement | null>(null)
@@ -64,6 +63,8 @@ const trainingProgress = computed(() => {
     validLoss: sp.valid_loss,
     detail: sp.detail || '',
     elapsedSeconds: sp.elapsed_seconds ?? null,
+    etaSeconds: sp.eta_seconds ?? null,
+    lossHistory: sp.loss_history || [],
     output: sp.output || [],
   }
 })
@@ -85,6 +86,40 @@ const progressPercent = computed(() => {
   const p = trainingProgress.value
   if (!p || !p.totalIterations) return 0
   return Math.round((p.iteration / p.totalIterations) * 100)
+})
+
+const lossChartPoints = computed(() => {
+  const history = trainingProgress.value?.lossHistory || []
+  if (history.length < 2) return null
+  const w = 400
+  const h = 120
+  const pad = { top: 10, right: 10, bottom: 20, left: 40 }
+  const plotW = w - pad.left - pad.right
+  const plotH = h - pad.top - pad.bottom
+
+  const allLosses = history.flatMap((p: any) => [p.train_loss, p.valid_loss].filter(Boolean))
+  const maxLoss = Math.max(...allLosses)
+  const minLoss = Math.min(...allLosses)
+  const lossRange = maxLoss - minLoss || 1
+  const maxIter = Math.max(...history.map((p: any) => p.iter))
+  const minIter = Math.min(...history.map((p: any) => p.iter))
+  const iterRange = maxIter - minIter || 1
+
+  const toX = (iter: number) => pad.left + ((iter - minIter) / iterRange) * plotW
+  const toY = (loss: number) => pad.top + (1 - (loss - minLoss) / lossRange) * plotH
+
+  const trainPoints = history.filter((p: any) => p.train_loss != null)
+    .map((p: any) => `${toX(p.iter)},${toY(p.train_loss)}`).join(' ')
+  const validPoints = history.filter((p: any) => p.valid_loss != null)
+    .map((p: any) => `${toX(p.iter)},${toY(p.valid_loss)}`).join(' ')
+
+  // Y-axis labels (3 ticks)
+  const yTicks = [minLoss, (minLoss + maxLoss) / 2, maxLoss].map(v => ({
+    y: toY(v),
+    label: v.toFixed(2),
+  }))
+
+  return { w, h, pad, trainPoints, validPoints: validPoints || null, yTicks }
 })
 
 const isTerminal = computed(() => {
@@ -238,13 +273,11 @@ async function loadForPersona(id: string) {
 }
 
 watch(() => trainingProgress.value?.output, () => {
-  if (showOutputLog.value && outputLogEl.value) {
-    nextTick(() => {
-      if (outputLogEl.value) {
-        outputLogEl.value.scrollTop = outputLogEl.value.scrollHeight
-      }
-    })
-  }
+  nextTick(() => {
+    if (outputLogEl.value) {
+      outputLogEl.value.scrollTop = outputLogEl.value.scrollHeight
+    }
+  })
 })
 
 watch(() => props.personaId, (id) => {
@@ -285,13 +318,22 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-primary" />
             <span class="text-sm font-medium capitalize">{{ trainingProgress?.stage?.replace('_', ' ') }}</span>
-            <span v-if="trainingProgress?.elapsedSeconds != null" class="text-xs text-gray-400">{{ formatDuration(trainingProgress.elapsedSeconds) }}</span>
             <UBadge v-if="shortModelName" variant="subtle" size="xs">{{ shortModelName }}</UBadge>
           </div>
-          <UButton size="xs" color="error" variant="soft" @click="handleCancelTraining">Cancel</UButton>
+          <div class="flex items-center gap-3">
+            <div class="text-xs text-gray-400 text-right">
+              <span v-if="trainingProgress?.elapsedSeconds != null">{{ formatDuration(trainingProgress.elapsedSeconds) }}</span>
+              <span v-if="trainingProgress?.etaSeconds != null" class="ml-2">ETA {{ formatDuration(trainingProgress.etaSeconds) }}</span>
+            </div>
+            <UButton size="xs" color="error" variant="soft" @click="handleCancelTraining">Cancel</UButton>
+          </div>
         </div>
 
-        <div v-if="trainingProgress?.stage === 'training'" class="space-y-2">
+        <div v-if="trainingProgress?.stage === 'preparing_data' && trainingProgress?.detail" class="text-sm text-gray-500 font-medium">
+          {{ trainingProgress.detail }}
+        </div>
+
+        <div v-if="trainingProgress?.stage === 'training'" class="space-y-3">
           <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
               class="bg-primary h-2 rounded-full transition-all duration-300"
@@ -300,32 +342,71 @@ onUnmounted(() => {
           </div>
           <div class="flex justify-between text-xs text-gray-500">
             <span>Iteration {{ trainingProgress?.iteration }} / {{ trainingProgress?.totalIterations }}</span>
-            <span>{{ progressPercent }}%</span>
-          </div>
-          <div v-if="trainingProgress?.trainLoss" class="text-xs text-gray-500">
-            Train loss: {{ trainingProgress.trainLoss.toFixed(4) }}
-            <span v-if="trainingProgress?.validLoss"> | Val loss: {{ trainingProgress.validLoss.toFixed(4) }}</span>
+            <span>
+              <span v-if="trainingProgress?.trainLoss">Loss: {{ trainingProgress.trainLoss.toFixed(4) }}</span>
+              <span v-if="trainingProgress?.validLoss"> | Val: {{ trainingProgress.validLoss.toFixed(4) }}</span>
+              <span class="ml-2">{{ progressPercent }}%</span>
+            </span>
           </div>
 
-          <div v-if="trainingProgress?.output?.length" class="mt-2">
-            <button
-              type="button"
-              class="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              @click="showOutputLog = !showOutputLog"
-            >
-              <UIcon :name="showOutputLog ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="w-3 h-3" />
-              Output Log
-            </button>
-            <pre
-              v-if="showOutputLog"
-              ref="outputLogEl"
-              class="mt-1 text-xs font-mono bg-gray-50 dark:bg-gray-900 border rounded p-2 max-h-48 overflow-y-auto whitespace-pre-wrap"
-            >{{ trainingProgress.output.join('\n') }}</pre>
+          <!-- Loss Chart -->
+          <div v-if="lossChartPoints" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-2">
+            <svg :viewBox="`0 0 ${lossChartPoints.w} ${lossChartPoints.h}`" class="w-full" style="max-height: 140px;">
+              <!-- Y-axis labels -->
+              <text
+                v-for="tick in lossChartPoints.yTicks"
+                :key="tick.label"
+                :x="lossChartPoints.pad.left - 4"
+                :y="tick.y + 3"
+                text-anchor="end"
+                class="fill-gray-400"
+                style="font-size: 8px; font-family: monospace;"
+              >{{ tick.label }}</text>
+              <!-- Grid lines -->
+              <line
+                v-for="tick in lossChartPoints.yTicks"
+                :key="'g' + tick.label"
+                :x1="lossChartPoints.pad.left"
+                :y1="tick.y"
+                :x2="lossChartPoints.w - lossChartPoints.pad.right"
+                :y2="tick.y"
+                stroke="currentColor"
+                class="text-gray-200 dark:text-gray-700"
+                stroke-width="0.5"
+              />
+              <!-- Train loss line -->
+              <polyline
+                :points="lossChartPoints.trainPoints"
+                fill="none"
+                stroke="#3b82f6"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+              />
+              <!-- Valid loss line -->
+              <polyline
+                v-if="lossChartPoints.validPoints"
+                :points="lossChartPoints.validPoints"
+                fill="none"
+                stroke="#f59e0b"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+                stroke-dasharray="4 2"
+              />
+              <!-- Legend -->
+              <line x1="50" y1="6" x2="62" y2="6" stroke="#3b82f6" stroke-width="1.5" />
+              <text x="65" y="9" class="fill-gray-500" style="font-size: 7px;">Train</text>
+              <line x1="90" y1="6" x2="102" y2="6" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 2" />
+              <text x="105" y="9" class="fill-gray-500" style="font-size: 7px;">Valid</text>
+            </svg>
           </div>
         </div>
 
-        <div v-else-if="trainingProgress?.detail" class="text-sm text-gray-500">
-          {{ trainingProgress.detail }}
+        <!-- Terminal Output -->
+        <div v-if="trainingProgress?.output?.length">
+          <pre
+            ref="outputLogEl"
+            class="text-xs font-mono bg-black text-green-400 rounded-lg p-3 max-h-96 overflow-y-auto whitespace-pre-wrap leading-relaxed"
+          >{{ trainingProgress.output.join('\n') }}</pre>
         </div>
       </div>
 

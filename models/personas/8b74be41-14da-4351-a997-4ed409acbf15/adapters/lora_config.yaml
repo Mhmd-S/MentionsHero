@@ -1,10 +1,10 @@
 adapter-path: /Users/moslmn/projects/transcripts_generator/models/personas/8b74be41-14da-4351-a997-4ed409acbf15/adapters
-batch-size: 2
+batch-size: 1
 data: /Users/moslmn/projects/transcripts_generator/models/personas/8b74be41-14da-4351-a997-4ed409acbf15/data
 grad-accumulation-steps: 4
 grad-checkpoint: true
-iters: 400
-learning-rate: 5.0e-05
+iters: 750
+learning-rate: 5e-5
 lora-layers: 18
 lora_parameters:
   dropout: 0.0
