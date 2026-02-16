@@ -14,10 +14,12 @@ from backend.models.trading import (
     SessionStatus,
     StartSessionRequest,
     StartSessionResponse,
+    StartSimulationRequest,
     StopSessionResponse,
 )
 from backend.services import trading_service, polymarket_service
 from backend.services.channel_monitor_service import get_monitor_status
+from backend.services.simulation_service import run_simulation_session
 from backend.services.streaming_service import run_trading_session
 
 router = APIRouter(prefix="/api/trading", tags=["trading"])
@@ -97,9 +99,110 @@ async def get_active_session() -> dict[str, Any]:
 
 @router.get("/history")
 async def get_session_history() -> dict[str, list[dict[str, Any]]]:
-    """List past trading sessions."""
-    sessions = await trading_service.get_session_history()
+    """List past trading sessions (live only)."""
+    sessions = await trading_service.get_session_history(is_simulation=False)
     return {"sessions": sessions}
+
+
+# --- Simulation routes (static, before parameterized) ---
+
+
+@router.post("/simulation/start")
+async def start_simulation(
+    request: StartSimulationRequest,
+    background_tasks: BackgroundTasks,
+) -> StartSessionResponse:
+    """Start a simulation session against a past event. No trading_enabled check needed."""
+    session = await trading_service.create_session(
+        youtube_url=request.youtube_url,
+        persona_id=request.persona_id,
+        series_id=request.series_id,
+        config=request.config,
+        market_ids=request.market_ids or None,
+        video_title=request.video_title,
+        is_simulation=True,
+        event_id=request.event_id,
+    )
+
+    background_tasks.add_task(run_simulation_session, session["id"])
+
+    return StartSessionResponse(
+        session_id=session["id"],
+        status=SessionStatus.PENDING,
+    )
+
+
+@router.get("/simulation/history")
+async def get_simulation_history() -> dict[str, list[dict[str, Any]]]:
+    """List past simulation sessions."""
+    sessions = await trading_service.get_session_history(is_simulation=True)
+    return {"sessions": sessions}
+
+
+@router.get("/simulation/compare")
+async def compare_simulations(
+    session_ids: str = Query(..., description="Comma-separated session IDs"),
+) -> dict[str, Any]:
+    """Compare multiple simulation sessions side by side."""
+    ids = [s.strip() for s in session_ids.split(",") if s.strip()]
+    if len(ids) < 2:
+        raise HTTPException(status_code=400, detail="Provide at least 2 session IDs")
+
+    sessions = []
+    for sid in ids:
+        detail = await trading_service.get_session_detail(sid)
+        if detail and detail.get("session", {}).get("is_simulation"):
+            sessions.append(detail)
+
+    return {"sessions": sessions}
+
+
+@router.get("/simulation/events-for-series")
+async def get_events_for_series(
+    series_id: str = Query(...),
+) -> dict[str, list[dict[str, Any]]]:
+    """Get all events for a series (including resolved), for simulation event selection."""
+    supabase = get_supabase()
+    response = (
+        supabase.table("polymarket_events")
+        .select("*")
+        .eq("series_id", series_id)
+        .order("end_date", desc=True)
+        .execute()
+    )
+    return {"events": response.data or []}
+
+
+@router.get("/simulation/markets-for-event")
+async def get_markets_for_event(
+    event_id: str = Query(...),
+) -> dict[str, Any]:
+    """Get all markets for a specific event (including closed), for simulation market selection."""
+    supabase = get_supabase()
+
+    event = supabase.table("polymarket_events").select("*").eq("id", event_id).single().execute()
+    if not event.data:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    markets_rows = (
+        supabase.table("polymarket_markets")
+        .select("id, condition_id, question, slug, active, closed, outcome_prices, resolved_outcome")
+        .eq("event_id", event_id)
+        .execute()
+    )
+    markets = markets_rows.data or []
+
+    for market in markets:
+        cfg = (
+            supabase.table("market_search_configs")
+            .select("search_terms")
+            .eq("market_id", market["id"])
+            .limit(1)
+            .execute()
+        )
+        market["search_terms"] = (cfg.data[0].get("search_terms") or []) if cfg.data else []
+
+    return {"event": event.data, "markets": markets}
 
 
 @router.post("/start")

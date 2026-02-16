@@ -257,6 +257,83 @@ Single self-contained page with conditional sections:
 | `app/composables/useTrading.ts` | Frontend API + SSE composable |
 | `app/pages/trading.vue` | Trading bot page |
 
+## Simulation / Backtesting
+
+Simulation mode re-processes a YouTube video against a **resolved past event**, looks up historical Polymarket prices, and produces a P&L report with timeline visualization — enabling config tuning without risking real money.
+
+### How It Works
+
+1. User selects Persona, Series, **Past Event** (including resolved), and markets
+2. System downloads YouTube auto-generated subtitles via `yt-dlp --skip-download --write-auto-subs` (real timing measured)
+3. TermDetector runs against the cleaned transcript text
+4. For each detection: looks up **historical price** at the simulated timestamp (baseline + pipeline elapsed time)
+5. Walks the price curve forward to find sell point (profit target / stop loss / end of data)
+6. Builds P&L report with per-market breakdown and timeline
+
+### Key Differences from Live Trading
+
+| Aspect | Live Trading | Simulation |
+|--------|-------------|------------|
+| Session flag | `is_simulation = false` | `is_simulation = true` |
+| Market selection | Active markets only | All markets (including closed/resolved) |
+| Buy execution | CLOB API order | Historical price lookup |
+| Position monitoring | Real-time polling loop | Walk price curve programmatically |
+| Trading enabled check | Required | Not required |
+| Active session check | Only one at a time | No limit |
+
+### Price History
+
+Historical prices are fetched from the CLOB API and cached in `market_price_history`:
+
+1. **Primary:** `GET /prices-history?market={token_id}&startTs=...&endTs=...&fidelity=1`
+2. **Quality check:** If average gap > 12 hours, falls back to trade data
+3. **Fallback:** `GET /data/trades?market={token_id}&startTs=...&endTs=...`
+4. **Cache:** Results stored in `market_price_history` table for reuse
+
+### Simulation API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/simulation/start` | Start simulation (no trading_enabled check) |
+| GET | `/simulation/history` | List past simulations |
+| GET | `/simulation/compare?session_ids=id1,id2` | Compare multiple simulation runs |
+| GET | `/simulation/events-for-series?series_id=...` | All events for a series (including resolved) |
+| GET | `/simulation/markets-for-event?event_id=...` | All markets for an event (including closed) |
+
+### Frontend
+
+The trading page uses `UTabs` with "Live Trading" and "Simulation" tabs.
+
+**Simulation tab sub-views:**
+1. **Setup Form** — persona/series/event/market selection, YouTube URL, config
+2. **Progress** — SSE streaming with pipeline stages
+3. **Results** — `SimulationResults` component with P&L summary, timing bars, per-market table, timeline
+4. **History** — simulation-only history list with checkbox selection for comparison
+
+**Components:**
+- `SimulationResults.vue` — P&L card, pipeline timing bars, per-market results table
+- `SimulationTimeline.vue` — horizontal timeline with phase bars, event dots, hover tooltips
+- `SimulationCompare.vue` — side-by-side comparison table with config diff highlighting
+
+### Database Tables
+
+- `market_price_history` — cached CLOB price data (indexed by token_id + time range)
+- `simulation_timeline_events` — timeline events for visualization (cascade-deleted with session)
+- `trading_sessions.is_simulation` — flag to distinguish simulation from live sessions
+- `trading_sessions.simulation_metadata` — JSONB with P&L, timing, per-market results
+- `trades.simulated_at` — unix timestamp in historical timeline (null for live trades)
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `backend/services/price_history_service.py` | CLOB historical price fetching + caching |
+| `backend/services/simulation_service.py` | Simulation pipeline orchestrator |
+| `app/components/SimulationResults.vue` | P&L report + timing breakdown |
+| `app/components/SimulationTimeline.vue` | Horizontal timeline visualization |
+| `app/components/SimulationCompare.vue` | Side-by-side run comparison |
+| `supabase/migrations/20260216_add_simulation_support.sql` | Schema changes |
+
 ## Edge Cases
 
 | Scenario | Strategy |

@@ -17,6 +17,8 @@ export interface TradingSession {
   ended_at: string | null
   created_at: string | null
   updated_at: string | null
+  is_simulation?: boolean
+  simulation_metadata?: Record<string, any> | null
 }
 
 export interface TradingConfig {
@@ -42,6 +44,7 @@ export interface Trade {
   status: string
   triggered_by: string
   detected_term: string | null
+  simulated_at: number | null
   created_at: string | null
 }
 
@@ -69,11 +72,21 @@ export interface SessionLog {
   created_at: string | null
 }
 
+export interface TimelineEvent {
+  id: string
+  event_type: string
+  simulated_timestamp: number
+  wall_clock_timestamp: string | null
+  market_id: string | null
+  payload: Record<string, any>
+}
+
 export interface SessionDetail {
   session: TradingSession
   trades: Trade[]
   positions: TradingPosition[]
   logs: SessionLog[]
+  timeline_events?: TimelineEvent[]
 }
 
 export interface TradingMarket {
@@ -106,6 +119,25 @@ export interface StartSessionRequest {
   market_ids?: string[]
   video_title?: string
   config?: TradingConfig
+}
+
+export interface StartSimulationRequest {
+  youtube_url: string
+  persona_id: string
+  series_id: string
+  event_id: string
+  market_ids?: string[]
+  video_title?: string
+  config?: TradingConfig
+}
+
+export interface PolymarketEvent {
+  id: string
+  slug: string
+  title: string | null
+  start_date: string | null
+  end_date: string | null
+  series_id: string | null
 }
 
 export function useTrading() {
@@ -233,6 +265,65 @@ export function useTrading() {
     }
   }
 
+  // --- Simulation methods ---
+
+  async function startSimulation(req: StartSimulationRequest): Promise<{ session_id: string; status: string } | null> {
+    try {
+      return await authFetch('/api/trading/simulation/start', {
+        method: 'POST',
+        body: req,
+      })
+    } catch (e) {
+      console.error('Failed to start simulation:', e)
+      return null
+    }
+  }
+
+  async function getSimulationHistory(): Promise<TradingSession[]> {
+    try {
+      const result = await authFetch<{ sessions: TradingSession[] }>('/api/trading/simulation/history')
+      return result?.sessions ?? []
+    } catch (e) {
+      console.error('Failed to get simulation history:', e)
+      return []
+    }
+  }
+
+  async function compareSimulations(sessionIds: string[]): Promise<SessionDetail[]> {
+    try {
+      const result = await authFetch<{ sessions: SessionDetail[] }>('/api/trading/simulation/compare', {
+        query: { session_ids: sessionIds.join(',') },
+      })
+      return result?.sessions ?? []
+    } catch (e) {
+      console.error('Failed to compare simulations:', e)
+      return []
+    }
+  }
+
+  async function getEventsForSeries(seriesId: string): Promise<PolymarketEvent[]> {
+    try {
+      const result = await authFetch<{ events: PolymarketEvent[] }>('/api/trading/simulation/events-for-series', {
+        query: { series_id: seriesId },
+      })
+      return result?.events ?? []
+    } catch (e) {
+      console.error('Failed to get events for series:', e)
+      return []
+    }
+  }
+
+  async function getMarketsForEvent(eventId: string): Promise<MarketsForSeriesResponse | null> {
+    try {
+      return await authFetch<MarketsForSeriesResponse>('/api/trading/simulation/markets-for-event', {
+        query: { event_id: eventId },
+      })
+    } catch (e) {
+      console.error('Failed to get markets for event:', e)
+      return null
+    }
+  }
+
   return {
     getActiveSession,
     getSessionHistory,
@@ -243,5 +334,10 @@ export function useTrading() {
     getMarketsForSeries,
     getChannelMonitorStatus,
     toggleAutoTrade,
+    startSimulation,
+    getSimulationHistory,
+    compareSimulations,
+    getEventsForSeries,
+    getMarketsForEvent,
   }
 }

@@ -78,3 +78,41 @@ class StopSessionResponse(BaseModel):
 
     success: bool
     message: str
+
+
+class StartSimulationRequest(BaseModel):
+    """Request to start a simulation session against a past event."""
+
+    youtube_url: str
+    persona_id: str
+    series_id: str
+    event_id: str
+    market_ids: list[str] = []
+    video_title: str | None = None
+    config: TradingConfig = Field(default_factory=TradingConfig)
+
+
+class SimulationReport(BaseModel):
+    """P&L report for a completed simulation."""
+
+    total_pnl_usd: float = 0.0
+    total_pnl_pct: float = 0.0
+    win_rate: float = 0.0
+    total_positions: int = 0
+    winning_positions: int = 0
+    losing_positions: int = 0
+    pipeline_duration_s: float = 0.0
+    transcript_download_duration_s: float = 0.0
+    analysis_duration_s: float = 0.0
+    per_market: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class TimelineEvent(BaseModel):
+    """A single event in the simulation timeline."""
+
+    id: str | None = None
+    event_type: str
+    simulated_timestamp: int
+    wall_clock_timestamp: str | None = None
+    market_id: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)

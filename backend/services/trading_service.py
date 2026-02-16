@@ -79,16 +79,21 @@ async def create_session(
     config: TradingConfig,
     market_ids: list[str] | None = None,
     video_title: str | None = None,
+    is_simulation: bool = False,
+    simulation_metadata: dict[str, Any] | None = None,
+    event_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new trading session in the database."""
     supabase = get_supabase()
 
-    # Store market_ids alongside trading config in the config JSONB
+    # Store market_ids and event_id alongside trading config in the config JSONB
     config_data = config.model_dump()
     if market_ids:
         config_data["market_ids"] = market_ids
+    if event_id:
+        config_data["event_id"] = event_id
 
-    response = supabase.table("trading_sessions").insert({
+    insert_data = {
         "youtube_url": youtube_url,
         "video_title": video_title,
         "persona_id": persona_id,
@@ -102,7 +107,12 @@ async def create_session(
             "positions_open": 0,
             "transcript_preview": "",
         },
-    }).execute()
+        "is_simulation": is_simulation,
+    }
+    if simulation_metadata is not None:
+        insert_data["simulation_metadata"] = simulation_metadata
+
+    response = supabase.table("trading_sessions").insert(insert_data).execute()
 
     return response.data[0]
 
@@ -115,7 +125,7 @@ async def get_session(session_id: str) -> dict[str, Any] | None:
 
 
 async def get_active_session() -> dict[str, Any] | None:
-    """Get the currently active trading session (if any)."""
+    """Get the currently active trading session (if any). Excludes simulations."""
     supabase = get_supabase()
     active_statuses = (
         f"({SessionStatus.PENDING.value},{SessionStatus.DOWNLOADING.value},"
@@ -125,6 +135,7 @@ async def get_active_session() -> dict[str, Any] | None:
         supabase.table("trading_sessions")
         .select("*")
         .filter("status", "in", active_statuses)
+        .eq("is_simulation", False)
         .order("created_at", desc=True)
         .limit(1)
         .execute()
@@ -132,16 +143,15 @@ async def get_active_session() -> dict[str, Any] | None:
     return response.data[0] if response.data else None
 
 
-async def get_session_history(limit: int = 20) -> list[dict[str, Any]]:
-    """Get past trading sessions."""
+async def get_session_history(
+    limit: int = 20, is_simulation: bool | None = None,
+) -> list[dict[str, Any]]:
+    """Get past trading sessions. Optionally filter by is_simulation."""
     supabase = get_supabase()
-    response = (
-        supabase.table("trading_sessions")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
+    query = supabase.table("trading_sessions").select("*")
+    if is_simulation is not None:
+        query = query.eq("is_simulation", is_simulation)
+    response = query.order("created_at", desc=True).limit(limit).execute()
     return response.data or []
 
 
@@ -616,9 +626,23 @@ async def get_session_detail(session_id: str) -> dict[str, Any] | None:
     positions = await get_session_positions(session_id)
     logs = await get_session_logs(session_id)
 
-    return {
+    result: dict[str, Any] = {
         "session": session,
         "trades": trades,
         "positions": positions,
         "logs": logs,
     }
+
+    # Include timeline events for simulation sessions
+    if session.get("is_simulation"):
+        supabase = get_supabase()
+        timeline = (
+            supabase.table("simulation_timeline_events")
+            .select("*")
+            .eq("session_id", session_id)
+            .order("simulated_timestamp", desc=False)
+            .execute()
+        )
+        result["timeline_events"] = timeline.data or []
+
+    return result

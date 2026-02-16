@@ -272,7 +272,7 @@ LoRA fine-tuning job tracking.
 ## Trading Tables
 
 ### trading_sessions
-One per live streaming + trading session.
+One per live streaming + trading session, or simulation run.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -286,6 +286,8 @@ One per live streaming + trading session.
 | stage_progress | jsonb NOT NULL | `{chunks_processed, terms_detected, trades_placed, positions_open}` |
 | error_message | text | |
 | cancel_requested | boolean NOT NULL | Cooperative cancellation flag |
+| is_simulation | boolean NOT NULL DEFAULT false | True for simulation/backtest sessions |
+| simulation_metadata | jsonb | P&L, timing, per-market results for simulations |
 | started_at | timestamptz | When streaming began |
 | ended_at | timestamptz | When session finished |
 | created_at | timestamptz | |
@@ -309,6 +311,7 @@ Individual buy/sell trade records.
 | status | text NOT NULL | pending, submitted, filled, failed |
 | triggered_by | text NOT NULL | term_detection, profit_target, stop_loss, market_close, session_end |
 | detected_term | text | The term that triggered a buy |
+| simulated_at | bigint | Unix timestamp in historical timeline (null for live trades) |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
@@ -344,6 +347,39 @@ Event log for debugging and SSE streaming.
 
 **Indexes:** `(session_id, created_at DESC)` on trading_session_log; partial index on trading_sessions for active status.
 
+### market_price_history
+Cached historical price data from the CLOB API for simulation backtesting.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| token_id | text NOT NULL | CLOB token/condition ID |
+| source | text NOT NULL | `prices-history` or `trades` |
+| start_ts | bigint NOT NULL | Start of time range (unix) |
+| end_ts | bigint NOT NULL | End of time range (unix) |
+| fidelity | integer | Resolution level for prices-history API |
+| prices | jsonb NOT NULL | `[{t: unix_ts, p: price}, ...]` sorted by time |
+| fetched_at | timestamptz | When data was fetched |
+| created_at | timestamptz | |
+
+**Indexes:** `(token_id, start_ts, end_ts)` for lookups; unique on `(token_id, source, start_ts, end_ts)`.
+
+### simulation_timeline_events
+Timeline events for simulation visualization, recording pipeline phases and trade events.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| session_id | uuid FK → trading_sessions | ON DELETE CASCADE |
+| event_type | text NOT NULL | pipeline_start, transcript_download_start, transcript_download_end, analysis_start, sim_buy, sim_sell, simulation_complete |
+| simulated_timestamp | bigint NOT NULL | Unix timestamp in the historical timeline |
+| wall_clock_timestamp | timestamptz | Actual time the event was recorded |
+| market_id | uuid | Associated market (for buy/sell events) |
+| payload | jsonb | Event-specific data (term, price, pnl_pct, duration_s, etc.) |
+| created_at | timestamptz | |
+
+**Indexes:** `(session_id, simulated_timestamp)` for timeline rendering.
+
 ## Entity Relationship Summary
 
 ```
@@ -362,7 +398,8 @@ folders ←──── transcripts ←──── transcript_speakers ──�
    │              │        │        market_search_configs
    │              │        ├─→ trades         │
    │              │        ├─→ trading_positions
-   │              │        └─→ trading_session_log
+   │              │        ├─→ trading_session_log
+   │              │        └─→ simulation_timeline_events
    │              │
    └───────── analysis_cache        market_term_results
                                     market_search_results

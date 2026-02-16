@@ -205,6 +205,8 @@ CREATE TABLE public.trading_sessions (
   stage_progress jsonb NOT NULL DEFAULT '{}'::jsonb,
   error_message text,
   cancel_requested boolean NOT NULL DEFAULT false,
+  is_simulation boolean NOT NULL DEFAULT false,
+  simulation_metadata jsonb,
   started_at timestamp with time zone,
   ended_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
@@ -227,6 +229,7 @@ CREATE TABLE public.trades (
   status text NOT NULL DEFAULT 'pending',
   triggered_by text NOT NULL,
   detected_term text,
+  simulated_at bigint,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT trades_pkey PRIMARY KEY (id),
@@ -261,4 +264,29 @@ CREATE TABLE public.trading_session_log (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT trading_session_log_pkey PRIMARY KEY (id),
   CONSTRAINT trading_session_log_session_fkey FOREIGN KEY (session_id) REFERENCES public.trading_sessions(id) ON DELETE CASCADE
+);
+CREATE TABLE public.market_price_history (
+  id uuid DEFAULT gen_random_uuid(),
+  token_id text NOT NULL,
+  source text NOT NULL DEFAULT 'prices-history',
+  start_ts bigint NOT NULL,
+  end_ts bigint NOT NULL,
+  fidelity integer,
+  prices jsonb NOT NULL DEFAULT '[]'::jsonb,
+  fetched_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT market_price_history_pkey PRIMARY KEY (id),
+  CONSTRAINT uq_price_history UNIQUE (token_id, source, start_ts, end_ts)
+);
+CREATE TABLE public.simulation_timeline_events (
+  id uuid DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL,
+  event_type text NOT NULL,
+  simulated_timestamp bigint NOT NULL,
+  wall_clock_timestamp timestamp with time zone DEFAULT now(),
+  market_id uuid,
+  payload jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT simulation_timeline_events_pkey PRIMARY KEY (id),
+  CONSTRAINT simulation_timeline_events_session_fkey FOREIGN KEY (session_id) REFERENCES public.trading_sessions(id) ON DELETE CASCADE
 );
