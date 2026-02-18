@@ -67,9 +67,6 @@ async def update_persona(persona_id: str, request: PersonaUpdate) -> Persona:
             kwargs["name"] = request.name
         if "description" in request.model_fields_set:
             kwargs["description"] = request.description
-        if "youtube_channel_url" in request.model_fields_set:
-            kwargs["youtube_channel_url"] = request.youtube_channel_url
-
         persona = await persona_service.update_persona(
             persona_id=persona_id,
             **kwargs,

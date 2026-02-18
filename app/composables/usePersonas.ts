@@ -6,7 +6,6 @@ export interface Persona {
   id: string;
   name: string;
   description: string | null;
-  youtube_channel_url: string | null;
   aliases: string[];
   has_model?: boolean;
   created_at: string | null;
@@ -91,7 +90,7 @@ export function usePersonas() {
    */
   async function updatePersona(
     id: string,
-    updates: { name?: string; description?: string; youtube_channel_url?: string | null }
+    updates: { name?: string; description?: string }
   ): Promise<Persona | null> {
     loading.value = true;
     error.value = null;

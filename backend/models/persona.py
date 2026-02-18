@@ -21,7 +21,6 @@ class Persona(BaseModel):
     id: str
     name: str
     description: str | None = None
-    youtube_channel_url: str | None = None
     aliases: list[str] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -41,7 +40,6 @@ class PersonaUpdate(BaseModel):
     """Request model for updating a persona."""
     name: str | None = None
     description: str | None = None
-    youtube_channel_url: str | None = None
 
 
 class AddAliasesRequest(BaseModel):

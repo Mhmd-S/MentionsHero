@@ -62,9 +62,9 @@ personas/[id].vue
 | `backend/models/persona.py` | Persona, PersonaCreate, PersonaUpdate, AddAliasesRequest, RemoveAliasesRequest |
 
 ## Database Tables
-- **personas** — id, name, description, youtube_channel_url, has_model, last_trained_at
+- **personas** — id, name, description, has_model, last_trained_at
 - **persona_aliases** — persona_id (FK), alias (UNIQUE). Alias changes trigger market reprocessing.
-- **persona_polymarket_series** — links personas to Polymarket series with optional folder_id scope and auto_trade flag
+- **persona_polymarket_series** — links personas to Polymarket series with optional folder_id scope
 
 ## Key Implementation Details
 
@@ -75,7 +75,3 @@ personas/[id].vue
 **Transcript matching:** `get_transcripts_for_persona()` fetches all persona aliases, then searches transcript text for case-insensitive substring matches. Optionally scoped to a folder tree via `get_folder_ids_in_tree()`.
 
 **Bulk alias from speakers:** The UI allows selecting speakers from a folder and adding them as aliases in bulk, streamlining the process of mapping speaker names across transcripts.
-
-**YouTube Channel URL:** Each persona can have a `youtube_channel_url` field. This is used by the trading bot's channel monitor to auto-detect new video uploads. Set via the persona detail page (`/personas/:id`). The channel monitor polls these URLs every ~45 seconds and auto-starts trading sessions when new videos are detected (requires `auto_trade` enabled on a linked series).
-
-**Auto-Trade per Series:** The `persona_polymarket_series` junction table has an `auto_trade` boolean flag. When enabled, the channel monitor will auto-start trading sessions for new videos from the persona's YouTube channel, using markets from the newest event in that series. Toggle via the persona detail page or the `/api/trading/channel-monitor/auto-trade` endpoint.

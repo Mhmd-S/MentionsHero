@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { usePersonas } from '~/composables/usePersonas'
 import { usePolymarket, type PolymarketSeries } from '~/composables/usePolymarket'
-import { useTrading } from '~/composables/useTrading'
 import { useFileTree } from '~/composables/useFileTree'
 
 const route = useRoute()
@@ -9,18 +8,13 @@ const personaId = route.params.id as string
 
 const { getPersona, updatePersona } = usePersonas()
 const { fetchAllSeries, linkPersonaToSeries, unlinkPersonaFromSeries } = usePolymarket()
-const { toggleAutoTrade } = useTrading()
 const { folders, fetchFolders } = useFileTree()
 
 const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
 
-// YouTube channel URL
-const channelUrl = ref('')
-const savingChannel = ref(false)
-
 // Series linking
-const linkedSeries = ref<(PolymarketSeries & { auto_trade?: boolean })[]>([])
+const linkedSeries = ref<PolymarketSeries[]>([])
 const allSeries = ref<PolymarketSeries[]>([])
 const loadingSeries = ref(false)
 const showLinkSeriesModal = ref(false)
@@ -39,10 +33,6 @@ async function loadLinkedSeries() {
     allSeries.value = all
     linkedSeries.value = all
       .filter(s => s.persona_ids?.includes(personaId))
-      .map(s => ({
-        ...s,
-        auto_trade: (s as any).persona_auto_trade_map?.[personaId] ?? false,
-      }))
   } finally {
     loadingSeries.value = false
   }
@@ -72,36 +62,10 @@ async function handleUnlinkSeries(seriesId: string) {
   await loadLinkedSeries()
 }
 
-async function handleSaveChannel() {
-  savingChannel.value = true
-  try {
-    const result = await updatePersona(personaId, {
-      youtube_channel_url: channelUrl.value.trim() || null,
-    })
-    if (result) {
-      persona.value = result
-    }
-  } finally {
-    savingChannel.value = false
-  }
-}
-
-async function handleToggleAutoTrade(seriesId: string, currentState: boolean) {
-  const success = await toggleAutoTrade(personaId, seriesId, !currentState)
-  if (success) {
-    // Update local state
-    const series = linkedSeries.value.find(s => s.id === seriesId)
-    if (series) series.auto_trade = !currentState
-  }
-}
-
 onMounted(async () => {
   loadingPersona.value = true
   try {
     persona.value = await getPersona(personaId)
-    if (persona.value) {
-      channelUrl.value = persona.value.youtube_channel_url || ''
-    }
   } finally {
     loadingPersona.value = false
   }
@@ -141,28 +105,6 @@ onMounted(async () => {
     </div>
 
     <template v-if="persona">
-      <!-- YouTube Channel URL -->
-      <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-3">YouTube Channel</h2>
-        <div class="flex items-end gap-3">
-          <div class="flex-1 space-y-1">
-            <UInput
-              v-model="channelUrl"
-              placeholder="https://www.youtube.com/@channel or channel URL"
-              class="w-full"
-            />
-            <p class="text-xs text-gray-400">Used by the trading bot channel monitor to auto-detect new uploads.</p>
-          </div>
-          <UButton
-            :loading="savingChannel"
-            size="sm"
-            @click="handleSaveChannel"
-          >
-            Save
-          </UButton>
-        </div>
-      </div>
-
       <!-- Linked Series -->
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-xl font-semibold">Linked Series</h2>
@@ -191,16 +133,6 @@ onMounted(async () => {
             <span class="text-sm font-medium">{{ s.title || s.slug }}</span>
           </NuxtLink>
           <UBadge v-if="s.recurrence" color="primary" variant="subtle" size="xs">{{ s.recurrence }}</UBadge>
-          <button
-            type="button"
-            class="text-xs px-2 py-0.5 rounded-full transition-colors"
-            :class="s.auto_trade
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200'
-              : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'"
-            @click="handleToggleAutoTrade(s.id, !!s.auto_trade)"
-          >
-            Auto-Trade {{ s.auto_trade ? 'ON' : 'OFF' }}
-          </button>
           <UIcon
             name="i-heroicons-x-mark"
             class="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer"
