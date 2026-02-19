@@ -812,6 +812,8 @@ async def _fetch_gamma_events(
     closed: bool | None = None,
     tag_slug: str | None = None,
     limit: int = 200,
+    order: str | None = None,
+    ascending: bool | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch raw events from Gamma events API."""
     try:
@@ -822,6 +824,10 @@ async def _fetch_gamma_events(
             params["closed"] = str(closed).lower()
         if tag_slug:
             params["tag_slug"] = tag_slug
+        if order:
+            params["order"] = order
+        if ascending is not None:
+            params["ascending"] = str(ascending).lower()
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(f"{GAMMA_API_BASE}/events", params=params)
             response.raise_for_status()
@@ -870,6 +876,7 @@ async def discover_series() -> list[dict[str, Any]]:
     """
     events = await _fetch_gamma_events(
         closed=False, tag_slug="mention-markets", limit=50,
+        order="startDate", ascending=False,
     )
     result = []
     for ev in events:
@@ -964,7 +971,7 @@ async def get_series_detail(series_id: str) -> dict[str, Any] | None:
     if not series_row.data:
         return None
 
-    events = supabase.table("polymarket_events").select("*").eq("series_id", series_id).order("end_date", desc=True).execute()
+    events = supabase.table("polymarket_events").select("*").eq("series_id", series_id).order("start_date", desc=True).execute()
     events_data = events.data or []
 
     # Get linked persona IDs with folder_id
@@ -1075,12 +1082,12 @@ async def get_series_for_persona(persona_id: str) -> list[dict[str, Any]]:
 async def get_active_event_for_series(series_id: str) -> dict[str, Any] | None:
     """Get the most recent active event for a series, fallback to most recent closed."""
     supabase = get_supabase()
-    # Try active events first (most recent by end_date)
+    # Try active events first (most recent by start_date)
     active = (
         supabase.table("polymarket_events")
         .select("*")
         .eq("series_id", series_id)
-        .order("end_date", desc=True)
+        .order("start_date", desc=True)
         .limit(10)
         .execute()
     )

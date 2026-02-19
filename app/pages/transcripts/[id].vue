@@ -200,7 +200,7 @@ async function refresh() {
 }
 
 watch(searchQuery, () => refresh())
-await refresh()
+onMounted(() => refresh())
 
 const availableSpeakers = computed(() => transcript.value?.availableSpeakers || [])
 const hasHighlights = computed(() => transcript.value?.hasHighlights || false)

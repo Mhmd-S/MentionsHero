@@ -8,8 +8,6 @@
     @dragstart="onDragStart"
     tabindex="0"
   >
-    <UIcon name="i-heroicons-document-text" class="size-4 text-gray-500 shrink-0" />
-
     <NuxtLink
       :to="`/transcripts/${transcript.id}`"
       class="flex-1 truncate"
