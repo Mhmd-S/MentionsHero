@@ -1137,7 +1137,21 @@ async def refresh_single_event(event_id: str) -> dict[str, Any] | None:
     gamma = await fetch_event_by_slug(slug)
     if not gamma:
         return await get_event_markets(event_id)
-    _upsert_event_and_markets(gamma, series_id=series_id)
+    _, market_ids = _upsert_event_and_markets(gamma, series_id=series_id)
+
+    # Re-parse search configs for all markets
+    now = datetime.now(timezone.utc).isoformat()
+    for market_id in market_ids:
+        row = supabase.table("polymarket_markets").select("question").eq("id", market_id).single().execute()
+        question = (row.data or {}).get("question") or ""
+        criteria = parse_market_criteria(question)
+        supabase.table("market_search_configs").upsert({
+            "market_id": market_id,
+            "search_terms": criteria.get("search_terms") or [],
+            "min_count": int(criteria.get("min_count", 0)),
+            "logic": criteria.get("logic") or "at_least",
+            "updated_at": now,
+        }, on_conflict="market_id").execute()
 
     # Re-run analysis for all personas linked to this event's series
     if series_id:
@@ -1309,12 +1323,12 @@ async def fetch_past_events_for_series(series_id: str) -> dict[str, Any]:
         if not event_id:
             continue
 
-        # Parse market_search_configs for new markets
+        # Parse market_search_configs (skip only if config already has search_terms)
         now = datetime.now(timezone.utc).isoformat()
         for market_id in market_ids:
-            existing_cfg = supabase.table("market_search_configs").select("id").eq("market_id", market_id).limit(1).execute()
-            if existing_cfg.data and len(existing_cfg.data) > 0:
-                continue  # already has config
+            existing_cfg = supabase.table("market_search_configs").select("id, search_terms").eq("market_id", market_id).limit(1).execute()
+            if existing_cfg.data and len(existing_cfg.data) > 0 and (existing_cfg.data[0].get("search_terms") or []):
+                continue  # already has config with terms
             row = supabase.table("polymarket_markets").select("question").eq("id", market_id).single().execute()
             question = (row.data or {}).get("question") or ""
             criteria = parse_market_criteria(question)

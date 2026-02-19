@@ -27,13 +27,14 @@
       "WebFetch(domain:docs.polymarket.com)",
       "WebFetch(domain:gamma-api.polymarket.com)",
       "Bash(python3:*)",
-      "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/pip install:*)"
+      "Bash(/Users/moslmn/projects/transcripts_generator/backend/venv/bin/pip install:*)",
+      "Bash(source:*)"
     ],
-     "deny": [
-        "**/.env*",
-        "**/*.pem",
-        "**/*.key",
-        "**/secrets/**"
-      ]
+    "deny": [
+      "**/.env*",
+      "**/*.pem",
+      "**/*.key",
+      "**/secrets/**"
+    ]
   }
 }
