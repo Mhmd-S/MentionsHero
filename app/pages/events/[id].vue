@@ -48,6 +48,8 @@ async function loadDetail() {
     detail.value = await getSeriesDetail(seriesId)
     if (detail.value?.events.length && !selectedEventId.value) {
       const now = new Date()
+      // Events are sorted by start_date DESC from backend.
+      // Pick the first active (not yet ended) event — which is the newest active one.
       const activeEvent = detail.value.events.find(e => {
         if (!e.end_date) return true
         return new Date(e.end_date) > now
@@ -159,8 +161,9 @@ const eventOptions = computed(() => {
     const bActive = !b.end_date || new Date(b.end_date) > now
     if (aActive && !bActive) return -1
     if (!aActive && bActive) return 1
-    const aDate = a.end_date ? new Date(a.end_date).getTime() : 0
-    const bDate = b.end_date ? new Date(b.end_date).getTime() : 0
+    // Within same status group, sort by start_date DESC (newest first)
+    const aDate = a.start_date ? new Date(a.start_date).getTime() : 0
+    const bDate = b.start_date ? new Date(b.start_date).getTime() : 0
     return bDate - aDate
   })
 
