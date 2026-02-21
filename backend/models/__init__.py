@@ -44,11 +44,9 @@ from backend.models.video import (
     PlaylistInfo,
     PlaylistInfoRequest,
 )
-from backend.models.polymarket import (
-    PolymarketMarket,
-    PolymarketEvent,
-    PolymarketTag,
-    MarketsResponse,
+from backend.models.kalshi import (
+    AddSeriesRequest,
+    LinkPersonaToSeriesRequest,
     AnalyzeRequest,
     AnalyzeResponse,
 )
@@ -93,11 +91,9 @@ __all__ = [
     "PlaylistVideo",
     "PlaylistInfo",
     "PlaylistInfoRequest",
-    # Polymarket models
-    "PolymarketMarket",
-    "PolymarketEvent",
-    "PolymarketTag",
-    "MarketsResponse",
+    # Kalshi models
+    "AddSeriesRequest",
+    "LinkPersonaToSeriesRequest",
     "AnalyzeRequest",
     "AnalyzeResponse",
 ]

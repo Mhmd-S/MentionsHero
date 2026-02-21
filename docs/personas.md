@@ -7,20 +7,20 @@ A persona is a unified speaker identity that groups name variations (aliases) to
 - **Persona**: Has a name, optional description, and list of aliases
 - **Aliases**: Unique text strings mapped to a persona. Used for transcript matching
 - **Transcript matching**: Finds transcripts containing ANY of the persona's aliases via case-insensitive text search
-- **Series linking**: Personas can be linked to Polymarket series for market analysis (see `docs/events.md`)
+- **Series linking**: Personas can be linked to Kalshi series for market analysis (see `docs/markets.md`)
 
 ## Data Flow
 
 ```
 Create persona with aliases
   → persona + persona_aliases rows in DB
-  → Link to Polymarket series (optional, with folder scoping)
+  → Link to Kalshi series (optional, with folder scoping)
   → View persona's transcripts (alias-matched)
   → Market analysis uses persona's aliases as speaker filter
 ```
 
 ### Alias Changes Trigger Reprocessing
-When aliases are added/removed, `polymarket_service.reprocess_persona_markets()` runs as a background task. This recalculates term frequencies in all linked market analyses for the affected persona.
+When aliases are added/removed, `kalshi_service.reprocess_persona_markets()` runs as a background task. This recalculates term frequencies in all linked market analyses for the affected persona.
 
 ## API Endpoints
 
@@ -65,10 +65,6 @@ When aliases are added/removed, `polymarket_service.reprocess_persona_markets()`
 **persona_aliases**
 - `id` (uuid PK), `persona_id` (uuid FK → personas CASCADE), `alias` (text UNIQUE), `created_at`
 
-**persona_polymarket_series** (junction — see `docs/events.md`)
-- `persona_id` (uuid FK → personas CASCADE), `polymarket_series_id` (uuid FK), `folder_id` (uuid FK → folders SET NULL)
-- UNIQUE(persona_id, polymarket_series_id)
-
-**persona_polymarket_events** (legacy junction — backward compat)
-- `persona_id` (uuid FK → personas CASCADE), `polymarket_event_id` (uuid FK)
-- UNIQUE(persona_id, polymarket_event_id)
+**persona_kalshi_series** (junction — see `docs/markets.md`)
+- `persona_id` (uuid FK → personas CASCADE), `kalshi_series_id` (uuid FK), `folder_id` (uuid FK → folders SET NULL)
+- UNIQUE(persona_id, kalshi_series_id)

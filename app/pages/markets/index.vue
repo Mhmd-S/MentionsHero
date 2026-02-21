@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { usePolymarket, type PolymarketSeries, type DiscoveredSeries } from '~/composables/usePolymarket'
+import { useKalshi, type KalshiSeries, type DiscoveredSeries } from '~/composables/useKalshi'
 import { usePersonas } from '~/composables/usePersonas'
 
-const { fetchAllSeries, addSeriesBySlug, deleteSeries, discoverSeries } = usePolymarket()
+const { fetchAllSeries, addSeriesByTicker, deleteSeries, discoverSeries } = useKalshi()
 const { personas, fetchPersonas } = usePersonas()
 
-const seriesList = ref<PolymarketSeries[]>([])
+const seriesList = ref<KalshiSeries[]>([])
 const loading = ref(true)
 
 // Add Series modal
@@ -15,15 +15,24 @@ const discovered = ref<DiscoveredSeries[]>([])
 const loadingDiscovery = ref(false)
 const filterText = ref('')
 
-const addedSlugs = computed(() => new Set(seriesList.value.map(s => s.slug)))
+// Tag filtering (Mentions sub-tags: Politicians, Earnings, Sports)
+const selectedTag = ref<string | null>(null)
+const tagOptions = [
+  { label: 'All', value: '' },
+  { label: 'Politicians', value: 'Politicians' },
+  { label: 'Earnings', value: 'Earnings' },
+  { label: 'Sports', value: 'Sports' },
+]
+
+const addedTickers = computed(() => new Set(seriesList.value.map(s => s.ticker)))
 
 const filteredDiscovered = computed(() => {
   const q = filterText.value.toLowerCase().trim()
-  const list = discovered.value.filter(d => !addedSlugs.value.has(d.slug))
+  const list = discovered.value.filter(d => !addedTickers.value.has(d.ticker))
   if (!q) return list
   return list.filter(d =>
     (d.title || '').toLowerCase().includes(q) ||
-    d.slug.toLowerCase().includes(q)
+    d.ticker.toLowerCase().includes(q)
   )
 })
 
@@ -40,20 +49,25 @@ async function openAddModal() {
   showAddModal.value = true
   filterText.value = ''
   if (discovered.value.length === 0) {
-    loadingDiscovery.value = true
-    try {
-      discovered.value = await discoverSeries()
-    } finally {
-      loadingDiscovery.value = false
-    }
+    await loadDiscovery()
+  }
+}
+
+async function loadDiscovery() {
+  loadingDiscovery.value = true
+  try {
+    const tags = selectedTag.value ? [selectedTag.value] : undefined
+    discovered.value = await discoverSeries(tags)
+  } finally {
+    loadingDiscovery.value = false
   }
 }
 
 async function handleSelectSeries(item: DiscoveredSeries) {
-  if (addedSlugs.value.has(item.slug) || adding.value) return
-  adding.value = item.slug
+  if (addedTickers.value.has(item.ticker) || adding.value) return
+  adding.value = item.ticker
   try {
-    const result = await addSeriesBySlug(item.slug)
+    const result = await addSeriesByTicker(item.ticker)
     if (result) {
       showAddModal.value = false
       await loadSeries()
@@ -76,6 +90,16 @@ function getPersonaName(id: string): string {
   return p?.name || id.slice(0, 8)
 }
 
+function statusColor(status: string) {
+  if (status === 'active') return 'success'
+  if (['closed', 'determined', 'finalized'].includes(status)) return 'error'
+  return 'neutral'
+}
+
+watch(selectedTag, () => {
+  loadDiscovery()
+})
+
 onMounted(async () => {
   await Promise.all([loadSeries(), fetchPersonas()])
 })
@@ -86,8 +110,8 @@ onMounted(async () => {
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-3xl font-bold mb-1">Events</h1>
-        <p class="text-gray-500 text-base">Polymarket series, events, and markets</p>
+        <h1 class="text-3xl font-bold mb-1">Markets</h1>
+        <p class="text-gray-500 text-base">Kalshi mentions series and markets</p>
       </div>
       <UButton icon="i-heroicons-plus" @click="openAddModal">Add Series</UButton>
     </div>
@@ -107,17 +131,15 @@ onMounted(async () => {
       <NuxtLink
         v-for="s in seriesList"
         :key="s.id"
-        :to="`/events/${s.id}`"
+        :to="`/markets/${s.id}`"
         class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
       >
         <div class="flex items-start gap-3">
-          <img v-if="s.image" :src="s.image" :alt="s.title || ''" class="w-12 h-12 rounded object-cover shrink-0" />
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-              <span class="font-semibold truncate">{{ s.title || s.slug }}</span>
-              <UBadge v-if="s.recurrence" color="primary" variant="subtle" size="xs">{{ s.recurrence }}</UBadge>
-              <UBadge v-if="s.closed" color="error" variant="subtle" size="xs">Closed</UBadge>
-              <UBadge v-else-if="s.active" color="success" variant="subtle" size="xs">Active</UBadge>
+              <span class="font-semibold truncate">{{ s.title || s.ticker }}</span>
+              <UBadge v-if="s.frequency" color="primary" variant="subtle" size="xs">{{ s.frequency }}</UBadge>
+              <UBadge :color="statusColor(s.status)" variant="subtle" size="xs">{{ s.status }}</UBadge>
             </div>
             <div class="flex items-center gap-3 text-xs text-gray-500">
               <span>{{ s.event_count || 0 }} event{{ (s.event_count || 0) !== 1 ? 's' : '' }}</span>
@@ -147,10 +169,21 @@ onMounted(async () => {
     <UModal v-model:open="showAddModal">
       <template #content>
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">Add Polymarket Series</h3>
+          <h3 class="text-lg font-semibold mb-4">Add Mentions Series</h3>
           <p class="text-base text-gray-500 mb-3">
-            Active series discovered from Polymarket events.
+            Discover Kalshi mentions series.
           </p>
+
+          <!-- Tag filter -->
+          <div class="flex gap-2 mb-3">
+            <USelectMenu
+              v-model="selectedTag"
+              :items="tagOptions"
+              placeholder="Filter by tag..."
+              class="w-48"
+              value-key="value"
+            />
+          </div>
 
           <!-- Filter -->
           <UInput
@@ -174,22 +207,21 @@ onMounted(async () => {
           <div v-else-if="filteredDiscovered.length > 0" class="max-h-80 overflow-y-auto space-y-1 border rounded-lg">
             <div
               v-for="d in filteredDiscovered"
-              :key="d.slug"
+              :key="d.ticker"
               class="flex items-center gap-2 p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors"
               @click="handleSelectSeries(d)"
             >
-              <img v-if="d.image" :src="d.image" class="w-9 h-9 rounded object-cover shrink-0" />
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium truncate">{{ d.title || d.slug }}</div>
+                <div class="text-sm font-medium truncate">{{ d.title || d.ticker }}</div>
                 <div class="text-xs text-gray-500">
-                  {{ d.market_count }} market{{ d.market_count !== 1 ? 's' : '' }}
+                  {{ d.ticker }}
                 </div>
               </div>
               <UButton
                 size="xs"
                 icon="i-heroicons-plus"
-                :loading="adding === d.slug"
-                :disabled="adding !== null && adding !== d.slug"
+                :loading="adding === d.ticker"
+                :disabled="adding !== null && adding !== d.ticker"
                 @click.stop="handleSelectSeries(d)"
               >Add</UButton>
             </div>

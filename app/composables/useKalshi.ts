@@ -1,5 +1,5 @@
 /**
- * Composable for Polymarket series/event API interactions
+ * Composable for Kalshi series/event API interactions
  */
 
 export interface TermResult {
@@ -19,84 +19,84 @@ export interface TermResult {
 export interface PersonaEventMarket {
   market: {
     id: string
+    ticker: string
     question: string | null
-    outcome_prices: string[] | null
-    closed?: boolean
-    resolved_outcome?: string | null
-    closed_time?: string | null
+    last_price: number | null
+    yes_bid: number | null
+    yes_ask: number | null
+    status: string
+    result: string | null
+    close_time: string | null
   }
   search_config: { search_terms: string[]; min_count: number } | null
   term_results: TermResult[]
 }
 
-export interface PolymarketSeries {
+export interface KalshiSeries {
   id: string
-  polymarket_id: string
-  slug: string
+  ticker: string
   title: string | null
-  description: string | null
-  image: string | null
-  icon: string | null
-  series_type: string | null
-  recurrence: string | null
-  active: boolean
-  closed: boolean
+  frequency: string | null
+  category: string | null
+  tags: string[]
+  status: string
   event_count?: number
   persona_ids?: string[]
   created_at: string | null
   updated_at: string | null
 }
 
-export interface PolymarketEvent {
+export interface KalshiEvent {
   id: string
-  slug: string
-  title: string | null
-  image: string | null
-  start_date: string | null
-  end_date: string | null
+  event_ticker: string
+  series_ticker: string | null
   series_id: string | null
-  polymarket_id: string | null
+  title: string | null
+  sub_title: string | null
+  status: string
+  strike_date: string | null
+  strike_period: string | null
 }
 
 export interface SeriesDetail {
-  series: PolymarketSeries
-  events: PolymarketEvent[]
+  series: KalshiSeries
+  events: KalshiEvent[]
   persona_ids: string[]
+  persona_folder_map?: Record<string, string | null>
 }
 
 export interface DiscoveredSeries {
-  slug: string
+  ticker: string
   title: string | null
-  image: string | null
-  market_count: number
-  active: boolean
-  closed: boolean
+  category: string | null
+  tags: string[]
+  frequency: string | null
+  status: string
 }
 
 export interface LoadPastEventsResult {
   added: number
   total_matching: number
-  base_slug: string | null
   detail: SeriesDetail | null
 }
 
-export function usePolymarket() {
+export function useKalshi() {
   const { authFetch } = useAuthFetch();
 
-  async function fetchAllSeries(): Promise<PolymarketSeries[]> {
+  async function fetchAllSeries(): Promise<KalshiSeries[]> {
     try {
-      return await authFetch<PolymarketSeries[]>('/api/polymarket/series')
+      return await authFetch<KalshiSeries[]>('/api/kalshi/series')
     } catch (e) {
       console.error('Failed to fetch series:', e)
       return []
     }
   }
 
-  async function addSeriesBySlug(slug: string): Promise<SeriesDetail | null> {
+  async function addSeriesByTicker(ticker: string): Promise<SeriesDetail | null> {
     try {
-      return await authFetch<SeriesDetail>('/api/polymarket/series', {
+      return await authFetch<SeriesDetail>('/api/kalshi/series', {
         method: 'POST',
-        body: { slug },
+        body: { ticker },
       })
     } catch (e) {
       console.error('Failed to add series:', e)
@@ -106,7 +106,7 @@ export function usePolymarket() {
 
   async function getSeriesDetail(id: string): Promise<SeriesDetail | null> {
     try {
-      return await authFetch<SeriesDetail>(`/api/polymarket/series/${id}`)
+      return await authFetch<SeriesDetail>(`/api/kalshi/series/${id}`)
     } catch (e) {
       console.error('Failed to get series detail:', e)
       return null
@@ -115,7 +115,7 @@ export function usePolymarket() {
 
   async function refreshSeries(id: string): Promise<SeriesDetail | null> {
     try {
-      return await authFetch<SeriesDetail>(`/api/polymarket/series/${id}/refresh`, {
+      return await authFetch<SeriesDetail>(`/api/kalshi/series/${id}/refresh`, {
         method: 'POST',
       })
     } catch (e) {
@@ -126,7 +126,7 @@ export function usePolymarket() {
 
   async function deleteSeries(id: string): Promise<boolean> {
     try {
-      await authFetch(`/api/polymarket/series/${id}`, { method: 'DELETE' })
+      await authFetch(`/api/kalshi/series/${id}`, { method: 'DELETE' })
       return true
     } catch (e) {
       console.error('Failed to delete series:', e)
@@ -134,9 +134,11 @@ export function usePolymarket() {
     }
   }
 
-  async function discoverSeries(): Promise<DiscoveredSeries[]> {
+  async function discoverSeries(tags?: string[]): Promise<DiscoveredSeries[]> {
     try {
-      return await authFetch<DiscoveredSeries[]>('/api/polymarket/series/discover')
+      const query: Record<string, string> = {}
+      if (tags?.length) query.tags = tags.join(',')
+      return await authFetch<DiscoveredSeries[]>('/api/kalshi/series/discover', { query })
     } catch (e) {
       console.error('Failed to discover series:', e)
       return []
@@ -145,7 +147,7 @@ export function usePolymarket() {
 
   async function linkPersonaToSeries(seriesId: string, personaId: string, folderId?: string | null): Promise<boolean> {
     try {
-      await authFetch(`/api/polymarket/series/${seriesId}/personas`, {
+      await authFetch(`/api/kalshi/series/${seriesId}/personas`, {
         method: 'POST',
         body: { persona_id: personaId, folder_id: folderId || null },
       })
@@ -158,7 +160,7 @@ export function usePolymarket() {
 
   async function unlinkPersonaFromSeries(seriesId: string, personaId: string): Promise<boolean> {
     try {
-      await authFetch(`/api/polymarket/series/${seriesId}/personas/${personaId}`, {
+      await authFetch(`/api/kalshi/series/${seriesId}/personas/${personaId}`, {
         method: 'DELETE',
       })
       return true
@@ -172,9 +174,9 @@ export function usePolymarket() {
     seriesId: string,
     eventId: string,
     personaId?: string,
-  ): Promise<{ event: PolymarketEvent; markets: PersonaEventMarket[] | any[] } | null> {
+  ): Promise<{ event: KalshiEvent; markets: PersonaEventMarket[] | any[] } | null> {
     try {
-      return await authFetch(`/api/polymarket/series/${seriesId}/events/${eventId}`, {
+      return await authFetch(`/api/kalshi/series/${seriesId}/events/${eventId}`, {
         query: personaId ? { persona_id: personaId } : undefined,
       })
     } catch (e) {
@@ -185,7 +187,7 @@ export function usePolymarket() {
 
   async function refreshEvent(seriesId: string, eventId: string): Promise<any> {
     try {
-      return await authFetch(`/api/polymarket/series/${seriesId}/events/${eventId}/refresh`, {
+      return await authFetch(`/api/kalshi/series/${seriesId}/events/${eventId}/refresh`, {
         method: 'POST',
       })
     } catch (e) {
@@ -194,20 +196,9 @@ export function usePolymarket() {
     }
   }
 
-  async function getSeriesForPersona(personaId: string): Promise<PolymarketSeries[]> {
-    try {
-      // Use the persona events endpoint to find linked series
-      const events = await authFetch<any[]>(`/api/polymarket/events/${personaId}`)
-      // This returns persona events; for series we'll fetch separately
-      return []
-    } catch {
-      return []
-    }
-  }
-
   async function loadPastEvents(seriesId: string): Promise<LoadPastEventsResult | null> {
     try {
-      return await authFetch<LoadPastEventsResult>(`/api/polymarket/series/${seriesId}/load-past-events`, {
+      return await authFetch<LoadPastEventsResult>(`/api/kalshi/series/${seriesId}/load-past-events`, {
         method: 'POST',
       })
     } catch (e) {
@@ -216,14 +207,14 @@ export function usePolymarket() {
     }
   }
 
-  function extractSlugFromInput(input: string): string {
+  function extractTickerFromInput(input: string): string {
     const trimmed = input.trim()
     if (!trimmed) return ''
     try {
       const url = new URL(trimmed)
       const path = url.pathname
-      // Match /event/slug, /market/slug, or /series/slug patterns
-      const match = path.match(/\/(?:event|market|series)\/([^/]+)/)
+      // Match /markets/TICKER or /event/TICKER patterns from Kalshi URLs
+      const match = path.match(/\/(?:markets|event|series)\/([^/]+)/)
       if (match && match[1]) return match[1]
     } catch {
       // not a URL
@@ -233,7 +224,7 @@ export function usePolymarket() {
 
   return {
     fetchAllSeries,
-    addSeriesBySlug,
+    addSeriesByTicker,
     getSeriesDetail,
     refreshSeries,
     deleteSeries,
@@ -242,8 +233,7 @@ export function usePolymarket() {
     unlinkPersonaFromSeries,
     getEventWithAnalysis,
     refreshEvent,
-    getSeriesForPersona,
-    extractSlugFromInput,
+    extractTickerFromInput,
     loadPastEvents,
   }
 }

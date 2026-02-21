@@ -48,7 +48,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         @submit="onSubmit"
       >
         <template v-if="error" #validation>
-          <UAlert color="error" icon="i-lucide-info" :title="error" />
+          <UAlert color="error" icon="i-heroicons-information-circle" :title="error" />
         </template>
       </UAuthForm>
     </UPageCard>

@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { usePersonas } from '~/composables/usePersonas'
-import { usePolymarket, type PolymarketSeries } from '~/composables/usePolymarket'
+import { useKalshi, type KalshiSeries } from '~/composables/useKalshi'
 import { useFileTree } from '~/composables/useFileTree'
 
 const route = useRoute()
 const personaId = route.params.id as string
 
 const { getPersona } = usePersonas()
-const { fetchAllSeries, linkPersonaToSeries, unlinkPersonaFromSeries } = usePolymarket()
+const { fetchAllSeries, linkPersonaToSeries, unlinkPersonaFromSeries } = useKalshi()
 const { folders, fetchFolders } = useFileTree()
 
 const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
 
 // Series linking
-const linkedSeries = ref<PolymarketSeries[]>([])
-const allSeries = ref<PolymarketSeries[]>([])
+const linkedSeries = ref<KalshiSeries[]>([])
+const allSeries = ref<KalshiSeries[]>([])
 const loadingSeries = ref(false)
 const showLinkSeriesModal = ref(false)
 const linking = ref(false)
@@ -115,19 +115,18 @@ onMounted(async () => {
       </div>
 
       <div v-else-if="linkedSeries.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
-        No series linked. Click "Link to Series" to associate this persona with a Polymarket series.
+        No series linked. Click "Link to Series" to associate this persona with a Kalshi series.
       </div>
 
       <div v-else class="flex flex-wrap gap-2">
         <NuxtLink
           v-for="s in linkedSeries"
           :key="s.id"
-          :to="`/events/${s.id}`"
+          :to="`/markets/${s.id}`"
           class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg hover:border-primary-500 transition-colors"
         >
-          <img v-if="s.image" :src="s.image" class="w-6 h-6 rounded object-cover" />
-          <span class="text-sm font-medium">{{ s.title || s.slug }}</span>
-          <UBadge v-if="s.recurrence" color="primary" variant="subtle" size="xs">{{ s.recurrence }}</UBadge>
+          <span class="text-sm font-medium">{{ s.title || s.ticker }}</span>
+          <UBadge v-if="s.frequency" color="primary" variant="subtle" size="xs">{{ s.frequency }}</UBadge>
           <UIcon
             name="i-heroicons-x-mark"
             class="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer"
@@ -144,7 +143,7 @@ onMounted(async () => {
           <h3 class="text-lg font-semibold mb-4">Link to Series</h3>
 
           <div v-if="availableSeries.length === 0" class="text-gray-500 text-sm">
-            No available series to link. Add series from the Events page first.
+            No available series to link. Add series from the Markets page first.
           </div>
           <div v-else class="space-y-4">
             <div class="space-y-2 max-h-64 overflow-y-auto">
@@ -156,9 +155,8 @@ onMounted(async () => {
                 :class="{ 'ring-2 ring-primary': selectedSeriesId === s.id }"
                 @click="selectedSeriesId = s.id"
               >
-                <img v-if="s.image" :src="s.image" class="w-8 h-8 rounded object-cover shrink-0" />
                 <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium truncate">{{ s.title || s.slug }}</div>
+                  <div class="text-sm font-medium truncate">{{ s.title || s.ticker }}</div>
                   <div class="text-xs text-gray-500">{{ s.event_count || 0 }} events</div>
                 </div>
               </div>

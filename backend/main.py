@@ -10,9 +10,9 @@ from backend.routers import (
     analysis,
     folders,
     jobs,
+    kalshi,
     personas,
     playlist,
-    polymarket,
     transcripts,
     video,
 )
@@ -50,7 +50,7 @@ app.include_router(folders.router)
 app.include_router(analysis.router)
 app.include_router(video.router)
 app.include_router(playlist.router)
-app.include_router(polymarket.router)
+app.include_router(kalshi.router)
 app.include_router(personas.router)
 
 

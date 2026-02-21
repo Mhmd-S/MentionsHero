@@ -10,7 +10,7 @@ from backend.models.persona import (
     AddAliasesRequest,
     RemoveAliasesRequest,
 )
-from backend.services import persona_service, polymarket_service
+from backend.services import persona_service, kalshi_service
 
 router = APIRouter(prefix="/api/personas", tags=["personas"])
 
@@ -92,7 +92,7 @@ async def add_aliases(persona_id: str, request: AddAliasesRequest, background_ta
         persona = await persona_service.add_aliases(persona_id, request.aliases)
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")
-        background_tasks.add_task(polymarket_service.reprocess_persona_markets, persona_id)
+        background_tasks.add_task(kalshi_service.reprocess_persona_markets, persona_id)
         return persona
     except APIError as e:
         error_info = e.args[0] if e.args else {}
@@ -113,7 +113,7 @@ async def remove_aliases(persona_id: str, request: RemoveAliasesRequest, backgro
     persona = await persona_service.remove_aliases(persona_id, request.aliases)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona not found")
-    background_tasks.add_task(polymarket_service.reprocess_persona_markets, persona_id)
+    background_tasks.add_task(kalshi_service.reprocess_persona_markets, persona_id)
     return persona
 
 

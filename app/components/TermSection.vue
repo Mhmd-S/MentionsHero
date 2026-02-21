@@ -18,17 +18,17 @@ interface Props {
   question: string | null
   searchTerm: string
   termResult: TermResult | null
-  outcomePrice: string | null
+  lastPrice: number | null
   personaId: string
-  resolvedOutcome?: string | null
-  closedTime?: string | null
+  result?: string | null
+  closeTime?: string | null
 }
 
 const props = defineProps<Props>()
 
 const yesPrice = computed(() => {
-  if (!props.outcomePrice) return null
-  return (parseFloat(props.outcomePrice) * 100).toFixed(0)
+  if (props.lastPrice == null) return null
+  return (props.lastPrice * 100).toFixed(0)
 })
 const totalMentions = computed(() => props.termResult?.total_mentions ?? null)
 const briefings = computed(() => props.termResult?.briefings_with_term ?? null)
@@ -89,13 +89,13 @@ function highlightTerm(text: string): string {
     <div class="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
       <span class="text-sm font-medium truncate flex-1">{{ question || '—' }}</span>
       <div class="flex items-center gap-2 shrink-0">
-        <UBadge v-if="resolvedOutcome" :color="resolvedOutcome === 'YES' ? 'success' : 'error'" variant="subtle" size="xs">
-          {{ resolvedOutcome }}
+        <UBadge v-if="result" :color="result === 'yes' ? 'success' : 'error'" variant="subtle" size="xs">
+          {{ result.toUpperCase() }}
         </UBadge>
         <UBadge v-if="searchTerm" color="primary" variant="subtle" size="xs">
           "{{ searchTerm }}"
         </UBadge>
-        <span v-if="yesPrice && !resolvedOutcome" class="text-sm font-semibold text-primary">
+        <span v-if="yesPrice && !result" class="text-sm font-semibold text-primary">
           {{ yesPrice }}%
         </span>
       </div>

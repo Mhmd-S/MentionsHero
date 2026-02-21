@@ -1,6 +1,6 @@
 # Transcript Analysis Platform
 
-A tool for transcribing YouTube videos (primarily press briefings), analyzing term frequency across transcripts, and tracking Polymarket prediction markets tied to speaker mentions.
+A tool for transcribing YouTube videos (primarily press briefings), analyzing term frequency across transcripts, and tracking Kalshi prediction markets tied to speaker mentions.
 
 ## Tech Stack
 
@@ -22,18 +22,19 @@ app/                          # Nuxt 3 frontend
     term-search.vue           # Term Search
     transcripts/              # Transcript listing & detail
     personas/                 # Persona listing & detail
-    events/                   # Polymarket events listing & detail
+    markets/                  # Kalshi markets listing & detail
   composables/                # API interaction layer
     useAuthFetch.ts           # Authenticated fetch wrapper
     useJobProgress.ts         # SSE job streaming
     useAnalysis.ts            # Term search & analysis API
     usePersonas.ts            # Persona CRUD API
-    usePolymarket.ts          # Polymarket API
+    useKalshi.ts              # Kalshi API
     useFileTree.ts            # Folder/transcript management
     useAuth.ts                # Authentication state
   components/                 # Reusable components
     FileTree/                 # Sidebar file tree (FileTree.vue, FileTreeFolder.vue, FileTreeItem.vue)
     TermSearch.vue            # Term search interface
+    TermSection.vue           # Per-market term analysis display
     SpeakerSelector.vue       # Multi-select speaker picker
   layouts/
     default.vue               # Main layout with fixed sidebar
@@ -54,7 +55,7 @@ backend/                      # FastAPI backend
     analysis.py               # /api/analysis/* - Term search, n-grams, speakers
     video.py                  # /api/video/* - YouTube metadata
     playlist.py               # /api/playlist/* - Playlist metadata
-    polymarket.py             # /api/polymarket/* - Series, events, markets
+    kalshi.py                 # /api/kalshi/* - Series, events, markets
     personas.py               # /api/personas/* - Persona CRUD, aliases
   services/                   # Business logic
     job_service.py            # Job lifecycle, SSE events
@@ -64,11 +65,11 @@ backend/                      # FastAPI backend
     speaker_service.py        # Speaker extraction & storage
     folder_service.py         # Folder hierarchy operations
     persona_service.py        # Persona DB operations
-    polymarket_service.py     # Gamma API client, market analysis (largest file ~1300 lines)
+    kalshi_service.py         # Kalshi API client, market analysis
     youtube_service.py        # YouTube metadata via yt-dlp
   models/                     # Pydantic request/response models
     job.py, transcript.py, folder.py, analysis.py,
-    speaker.py, persona.py, polymarket.py, video.py
+    speaker.py, persona.py, kalshi.py, video.py
   utils/
     nlp.py                    # Term frequency, n-grams, text cleaning, context search
     transcript_filter.py      # Transcript parsing, highlighting, speaker extraction
@@ -90,8 +91,8 @@ Each feature has detailed documentation in `docs/`. Read the relevant file befor
 |---------|----------|-------------|
 | Transcript Generation | `docs/transcripts.md` | YouTube → yt-dlp → Gemini → DB pipeline with SSE progress |
 | Term Search | `docs/term-search.md` | Frequency analysis, context search, n-grams across transcripts |
-| Personas | `docs/personas.md` | Speaker identity management with aliases, Polymarket links |
-| Events (Polymarket) | `docs/events.md` | Series → Events → Markets hierarchy, Gamma API, market analysis |
+| Personas | `docs/personas.md` | Speaker identity management with aliases, Kalshi links |
+| Markets (Kalshi) | `docs/markets.md` | Mentions markets: Series → Events → Markets, custom_strike.Word, analysis |
 | Sidebar & Directory | `docs/sidebar.md` | FileTree component, folder hierarchy, drag-and-drop |
 
 ## Mandatory: Update Documentation on Feature Changes
@@ -101,7 +102,7 @@ When you edit code that belongs to a feature, you MUST also update the correspon
 - Transcript generation changes → update `docs/transcripts.md`
 - Term search changes → update `docs/term-search.md`
 - Persona changes → update `docs/personas.md`
-- Events/Polymarket changes → update `docs/events.md`
+- Markets/Kalshi changes → update `docs/markets.md`
 - Sidebar/FileTree/folder changes → update `docs/sidebar.md`
 - Database schema changes → update the relevant feature doc AND the Database section below
 - New features → create a new `docs/<feature>.md` and add it to the table above
@@ -132,17 +133,16 @@ What to update:
 | `personas` | Speaker identities (name, description) |
 | `persona_aliases` | Aliases for a persona (unique alias text, FK → personas CASCADE) |
 
-### Polymarket Tables
+### Kalshi Tables
 
 | Table | Purpose |
 |-------|---------|
-| `polymarket_series` | Series wrapper (polymarket_id, slug, title, active, closed) |
-| `polymarket_events` | Events within a series (slug, title, start/end dates) |
-| `polymarket_markets` | Markets within events (question, outcome_prices, resolved_outcome) |
-| `persona_polymarket_series` | Junction: persona ↔ series with optional folder_id scoping |
+| `kalshi_series` | Series wrapper (ticker UNIQUE, title, category, tags, frequency, status) |
+| `kalshi_events` | Events within a series (event_ticker UNIQUE, status, strike_date) |
+| `kalshi_markets` | Markets within events (ticker UNIQUE, question, last_price, result) |
+| `persona_kalshi_series` | Junction: persona ↔ series with optional folder_id scoping |
 | `market_search_configs` | Auto-extracted search terms from market questions |
 | `market_term_results` | Per-persona, per-term analysis results (mentions, trend, context) |
-| `persona_polymarket_events` | Legacy junction table (backward compat, prefer series) |
 
 ### Key Relationships
 
@@ -151,11 +151,11 @@ folders (parent_id) → folders           # Recursive hierarchy
 transcripts.folder_id → folders
 transcript_speakers → transcripts + speakers
 persona_aliases → personas (CASCADE)
-polymarket_events.series_id → polymarket_series
-polymarket_markets.event_id → polymarket_events (CASCADE)
-persona_polymarket_series → personas + polymarket_series + folders
-market_search_configs.market_id → polymarket_markets (CASCADE)
-market_term_results → polymarket_markets + personas
+kalshi_events.series_id → kalshi_series
+kalshi_markets.event_id → kalshi_events (CASCADE)
+persona_kalshi_series → personas + kalshi_series + folders
+market_search_configs.market_id → kalshi_markets (CASCADE)
+market_term_results → kalshi_markets + personas
 ```
 
 ## API Overview
@@ -170,7 +170,7 @@ All routes require Supabase JWT auth (`Authorization: Bearer <token>`).
 | `/api/analysis` | `analysis.py` | Term frequency, n-grams, context search, speakers |
 | `/api/video` | `video.py` | YouTube video metadata |
 | `/api/playlist` | `playlist.py` | YouTube playlist metadata |
-| `/api/polymarket` | `polymarket.py` | Series/events/markets CRUD, analysis |
+| `/api/kalshi` | `kalshi.py` | Series/events/markets CRUD, analysis |
 | `/api/personas` | `personas.py` | Persona CRUD, alias management |
 
 ## Key Conventions & Gotchas
@@ -181,10 +181,11 @@ All routes require Supabase JWT auth (`Authorization: Bearer <token>`).
 - **Auth**: All endpoints use `require_auth` dependency (global in main.py). SSE streams accept `?token=` query param
 - **Nuxt UI**: Use Nuxt UI components (UButton, UBadge, UModal, etc.), not raw HTML elements
 - **Composables pattern**: All API calls go through composables in `app/composables/`, never direct fetch from pages
-- **Gamma API quirk**: Series endpoint returns events WITHOUT nested markets — must fetch each event individually via `/events/{slug}` to get markets
-- **Market resolution**: closed market with `outcome_prices[0] >= 0.95` → YES, `[1] >= 0.95` → NO
+- **Kalshi API**: Base URL `https://api.elections.kalshi.com/trade-api/v2`, unauthenticated read-only. Scoped to `category=Mentions` only. Supports `with_nested_markets=true` for events, cursor-based pagination
+- **Market resolution**: Kalshi provides explicit `result` field ("yes"/"no"/"") — no price-threshold heuristic needed
+- **Search term extraction**: Uses `custom_strike.Word` from Kalshi API (e.g., `{"Word": "Shutdown / Shut Down"}`). Compound terms split on " / ". Falls back to `parse_market_criteria()` regex
 - **Speaker regex**: Pattern `^([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$` — supports "Name:", "SPEAKER_00:", etc.
-- **Idempotent upserts**: Polymarket events/markets use slug or condition_id as unique keys
+- **Idempotent upserts**: Kalshi events/markets use `event_ticker`/`ticker` as unique keys
 
 ## Development
 

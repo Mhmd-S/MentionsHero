@@ -23,7 +23,7 @@ from backend.models.job import (
     BulkCancelResponse,
     CancelResponse,
 )
-from backend.services import job_service, speaker_service, polymarket_service
+from backend.services import job_service, speaker_service, kalshi_service
 from backend.utils.nlp import parse_transcript_segments
 from backend.services.download_service import download_audio, cleanup_audio_file
 from backend.services.transcription_service import transcribe_audio
@@ -154,9 +154,9 @@ async def process_job(
             try:
                 segments = parse_transcript_segments(transcript)
                 speaker_names = list({s['speaker'] for s in segments if s.get('speaker')})
-                affected_ids = await polymarket_service.find_affected_persona_ids(speaker_names)
+                affected_ids = await kalshi_service.find_affected_persona_ids(speaker_names)
                 for pid in affected_ids:
-                    await polymarket_service.reprocess_persona_markets(pid)
+                    await kalshi_service.reprocess_persona_markets(pid)
             except Exception:
                 pass  # Never fail the job for market reprocessing
 
