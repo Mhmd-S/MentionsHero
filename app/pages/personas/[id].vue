@@ -119,11 +119,10 @@ onMounted(async () => {
       </div>
 
       <div v-else class="flex flex-wrap gap-2">
-        <NuxtLink
+        <div
           v-for="s in linkedSeries"
           :key="s.id"
-          :to="`/markets/${s.id}`"
-          class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg hover:border-primary-500 transition-colors"
+          class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg"
         >
           <span class="text-sm font-medium">{{ s.title || s.ticker }}</span>
           <UBadge v-if="s.frequency" color="primary" variant="subtle" size="xs">{{ s.frequency }}</UBadge>
@@ -132,7 +131,7 @@ onMounted(async () => {
             class="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer"
             @click.prevent="handleUnlinkSeries(s.id)"
           />
-        </NuxtLink>
+        </div>
       </div>
     </template>
 
@@ -143,7 +142,7 @@ onMounted(async () => {
           <h3 class="text-lg font-semibold mb-4">Link to Series</h3>
 
           <div v-if="availableSeries.length === 0" class="text-gray-500 text-sm">
-            No available series to link. Add series from the Markets page first.
+            No available series to link.
           </div>
           <div v-else class="space-y-4">
             <div class="space-y-2 max-h-64 overflow-y-auto">

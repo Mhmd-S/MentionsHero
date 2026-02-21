@@ -54,6 +54,33 @@ async def discover_series_endpoint(
     return await kalshi_service.discover_series(tags=tag_list)
 
 
+@router.get("/series/browse")
+async def browse_events():
+    """Browse all open Mentions events from Kalshi, grouped by tag."""
+    return await kalshi_service.browse_events()
+
+
+@router.get("/series/by-ticker/{ticker}")
+async def get_series_by_ticker(ticker: str):
+    """Get series detail by ticker, auto-creating in DB if needed."""
+    result = await kalshi_service.get_series_detail_by_ticker(ticker)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Series not found: {ticker}")
+    return result
+
+
+@router.get("/events/by-ticker/{event_ticker}")
+async def get_event_by_ticker(
+    event_ticker: str,
+    persona_id: str | None = Query(None, description="Optional persona ID for analysis"),
+):
+    """Get event detail by event_ticker, auto-creating in DB if needed."""
+    result = await kalshi_service.get_event_detail_by_ticker(event_ticker, persona_id=persona_id)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Event not found: {event_ticker}")
+    return result
+
+
 @router.post("/series/{series_id}/load-past-events")
 async def load_past_events(series_id: str):
     """Fetch + store closed events for a series from Kalshi."""
@@ -91,11 +118,20 @@ async def delete_series(series_id: str):
 
 @router.post("/series/{series_id}/personas")
 async def link_persona_to_series(series_id: str, request: LinkPersonaToSeriesRequest):
-    """Link a persona to a series."""
+    """Link a persona to a series. series_id can be a UUID or a ticker."""
     persona = await persona_service.get_persona_by_id(request.persona_id)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona not found")
-    linked = await kalshi_service.link_persona_to_series(request.persona_id, series_id, folder_id=request.folder_id)
+    # If series_id is not a UUID, treat it as a ticker and ensure it exists in DB
+    resolved_id = series_id
+    try:
+        import uuid
+        uuid.UUID(series_id)
+    except ValueError:
+        resolved_id = await kalshi_service.ensure_series(series_id)
+        if not resolved_id:
+            raise HTTPException(status_code=404, detail=f"Series not found: {series_id}")
+    linked = await kalshi_service.link_persona_to_series(request.persona_id, resolved_id, folder_id=request.folder_id)
     if not linked:
         raise HTTPException(status_code=409, detail="Already linked")
     return {"ok": True}

@@ -5,9 +5,9 @@ Tracks Kalshi **Mentions** prediction markets — binary contracts that resolve 
 ## Hierarchy
 
 ```
-KalshiSeries (e.g., "Sec Press mentions" — KXSECPRESSMENTION)
-  └─ KalshiEvent (e.g., "What will Karoline Leavitt say?" — KXSECPRESSMENTION-26MAR15)
-       ├─ KalshiMarket ("Shutdown / Shut Down" — custom_strike.Word)
+KalshiSeries (e.g., "What will Trump say?" — KXTRUMPMENTION)
+  └─ KalshiEvent (e.g., "Governors Dinner" — KXTRUMPMENTION-26FEB22)
+       ├─ KalshiMarket ("Democrat" — custom_strike.Word)
        ├─ KalshiMarket ("Tariffs" — custom_strike.Word)
        └─ ...
 ```
@@ -16,41 +16,38 @@ KalshiSeries (e.g., "Sec Press mentions" — KXSECPRESSMENTION)
 - **Events**: Individual occurrences within a series (e.g., a single briefing date)
 - **Markets**: Binary contracts for specific words/phrases. Each market has a `custom_strike.Word` field containing the tracked term
 
-## Mentions-Only Scope
+## Browsing & Lazy Storage
 
-The integration is scoped exclusively to Kalshi's **Mentions** category:
-- Discovery always queries `category=Mentions` with optional tag filters (Politicians, Earnings, Sports)
-- Search terms are extracted from `custom_strike.Word` (e.g., `{"Word": "Shutdown / Shut Down"}`) — not parsed from question text
-- Compound terms like "Shutdown / Shut Down" are split on " / " into separate search terms
+The markets listing page fetches ALL open Mentions events directly from the Kalshi v1 search API, grouped by tag category: **Politicians**, **Earnings**, **Sports**. No manual add/delete workflow.
+
+### Data Flow
+1. **Listing page** calls `GET /api/kalshi/series/browse` → backend calls Kalshi v1 search API (`/v1/search/series?category=Mentions&tag={tag}`) for each tag, returns events grouped by tag with nested market previews
+2. **Detail page** uses event_ticker routing (`/markets/{event_ticker}`). Calls `GET /api/kalshi/events/by-ticker/{event_ticker}` which lazily upserts the series + event + markets into DB via `ensure_event(event_ticker)` on first access
+3. **Persona linking** happens at the series level — personas are linked to series, and analysis runs across all events in that series
+
+### Key Functions (kalshi_service.py)
+- `_search_events_by_tag(tag)` → Fetches open events for a tag from Kalshi v1 search API
+- `browse_events()` → Fetches all tags, returns events grouped by tag with market previews
+- `ensure_event(event_ticker)` → Ensures event is in DB; if not, fetches event's series_ticker via v2 API, then calls `ensure_series()` which upserts series + all events + markets
+- `ensure_series(ticker)` → Ensures series is in DB; if not, fetches from API and upserts
+- `get_event_detail_by_ticker(event_ticker, persona_id)` → Ensures event, returns event + markets + series info + persona analysis
 
 ## Kalshi API Integration
 
-**Base URL**: `https://api.elections.kalshi.com/trade-api/v2` (unauthenticated, read-only)
+### v1 Search API (for browsing)
+**Base URL**: `https://api.elections.kalshi.com/v1/search`
+- `GET /series?category=Mentions&tag={tag}&status=open,unopened` → Returns events with nested markets
+- Each item includes: `series_ticker`, `event_ticker`, `event_title`, `markets[]` with `custom_strike.Word`, prices, etc.
 
-### Key Features
+### v2 Trade API (for CRUD operations)
+**Base URL**: `https://api.elections.kalshi.com/trade-api/v2` (unauthenticated, read-only)
 - **Tickers** as identifiers (series, events, markets all use ticker strings)
 - **Nested markets**: Event queries support `with_nested_markets=true`
 - **Explicit resolution**: `result` field ("yes"/"no"/"")
 - **Cursor-based pagination**
 - **`custom_strike`**: JSONB field on markets containing `{"Word": "tracked term"}`
 
-### Key API Calls (in kalshi_service.py)
-
-- `fetch_series(ticker)` → Single series by ticker
-- `fetch_events(series_ticker, status, cursor, limit, with_nested_markets)` → Events with cursor pagination
-- `fetch_all_events(...)` → Auto-paginating cursor wrapper
-- `fetch_event(event_ticker)` → Single event
-- `fetch_markets(event_ticker, series_ticker, tickers, status)` → Markets with filters
-- `discover_series(tags)` → Discover Mentions series, optionally filtered by tags
-
 ## Core Operations
-
-### Adding a Series
-1. User discovers via tag filtering (Politicians/Earnings/Sports) or provides ticker directly
-2. Backend fetches series from Kalshi API by ticker
-3. Creates `kalshi_series` record
-4. Fetches events with nested markets via `fetch_all_events(with_nested_markets=True)`
-5. Upserts events + markets via `_upsert_event_and_markets()`, storing `custom_strike` JSONB
 
 ### Search Term Extraction (`_extract_search_terms()`)
 1. Check `custom_strike.Word` — if present, split on " / " and use as search terms
@@ -61,6 +58,7 @@ The integration is scoped exclusively to Kalshi's **Mentions** category:
 - Markets: matched by `ticker`
 - Stores `custom_strike` JSONB from API
 - For Mentions markets, derives `question` from `custom_strike.Word` (the tracked term)
+- Automatically creates `market_search_configs` for each market during upsert (extracts search terms from `custom_strike.Word`), so terms are available from first load
 
 ### Market Resolution
 Kalshi provides explicit resolution via the `result` field:
@@ -88,14 +86,17 @@ When analysis runs (on link, refresh, or alias change):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/kalshi/series` | List all series with event counts and persona links |
-| `POST` | `/api/kalshi/series` | Add series by ticker |
+| `GET` | `/api/kalshi/series/browse` | Browse open Mentions events grouped by tag (Politicians, Earnings, Sports) |
+| `GET` | `/api/kalshi/events/by-ticker/{event_ticker}` | Get event detail by ticker (lazy upserts on first access) |
+| `GET` | `/api/kalshi/series/by-ticker/{ticker}` | Get series detail by ticker (lazy upserts on first access) |
 | `GET` | `/api/kalshi/series/discover` | Discover Mentions series (optional `?tags=` filter) |
+| `GET` | `/api/kalshi/series` | List stored series with event counts and persona links |
+| `POST` | `/api/kalshi/series` | Add series by ticker (legacy) |
 | `GET` | `/api/kalshi/series/{id}` | Series detail with events and persona IDs |
 | `POST` | `/api/kalshi/series/{id}/refresh` | Re-fetch from Kalshi |
 | `DELETE` | `/api/kalshi/series/{id}` | Delete series (cascades) |
 | `POST` | `/api/kalshi/series/{id}/load-past-events` | Fetch closed events by series_ticker |
-| `POST` | `/api/kalshi/series/{id}/personas` | Link persona to series |
+| `POST` | `/api/kalshi/series/{id}/personas` | Link persona to series (accepts ticker or UUID) |
 | `DELETE` | `/api/kalshi/series/{id}/personas/{pid}` | Unlink persona |
 | `GET` | `/api/kalshi/series/{id}/personas` | Get linked personas |
 | `GET` | `/api/kalshi/series/{id}/events/{eid}` | Event with market analysis |
@@ -106,12 +107,12 @@ When analysis runs (on link, refresh, or alias change):
 
 | Layer | File | Purpose |
 |-------|------|---------|
-| Page | `app/pages/markets/index.vue` | Series listing with event counts and personas |
-| Page | `app/pages/markets/[id].vue` | Series detail: events, markets, persona analysis |
-| Composable | `app/composables/useKalshi.ts` | All Kalshi API calls |
+| Page | `app/pages/markets/index.vue` | Event listing grouped by tag (Politicians, Earnings, Sports), auto-fetched from Kalshi v1 search API |
+| Page | `app/pages/markets/[id].vue` | Event detail by event_ticker: markets with persona analysis |
+| Composable | `app/composables/useKalshi.ts` | All Kalshi API calls (`browseEvents`, `getEventDetailByTicker`, etc.) |
 | Component | `app/components/TermSection.vue` | Per-market term analysis display |
 | Router | `backend/routers/kalshi.py` | All `/api/kalshi/*` endpoints |
-| Service | `backend/services/kalshi_service.py` | Kalshi API client, upsert logic, market analysis |
+| Service | `backend/services/kalshi_service.py` | Kalshi API client, browse/ensure/upsert logic, market analysis |
 | Model | `backend/models/kalshi.py` | Kalshi API models, DB record models, analysis result models |
 
 ## Database Tables
