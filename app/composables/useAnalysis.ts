@@ -53,33 +53,6 @@ export interface SearchResult {
   matches: SearchMatch[];
 }
 
-export interface PolymarketMarket {
-  id: string;
-  question: string;
-  slug: string;
-  description: string;
-  outcomes: string[];
-  outcomePrices: string[];
-  volume: string;
-  liquidity: string;
-  endDate: string;
-  active: boolean;
-  closed: boolean;
-  category: string;
-}
-
-export interface MarketAnalysis {
-  market_id: string;
-  market_question: string;
-  term: string;
-  historical_percentage: number;
-  market_yes_price: number;
-  recommendation: "yes" | "no" | "skip";
-  confidence: "high" | "medium" | "low";
-  reason: string;
-  expected_value: number;
-}
-
 export interface SpeakerInfo {
   name: string;
   segment_count: number;
@@ -316,55 +289,6 @@ export function useAnalysis() {
   }
 
 
-  /**
-   * Get Polymarket markets
-   */
-  async function getPolymarkets(
-    type: "all" | "mentions" | "leavitt" = "all"
-  ): Promise<PolymarketMarket[]> {
-    loading.value = true;
-    error.value = null;
-
-    try {
-      const result = await authFetch<{ markets: PolymarketMarket[] }>(
-        "/api/polymarket/markets",
-        {
-          query: { type },
-        }
-      );
-      return result.markets;
-    } catch (e: any) {
-      error.value = e.message || "Failed to fetch Polymarket markets";
-      return [];
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  /**
-   * Analyze a market opportunity
-   */
-  async function analyzeMarket(
-    market: PolymarketMarket,
-    term: string
-  ): Promise<MarketAnalysis | null> {
-    loading.value = true;
-    error.value = null;
-
-    try {
-      const result = await authFetch<MarketAnalysis>("/api/polymarket/analyze", {
-        method: "POST",
-        body: { market, term },
-      });
-      return result;
-    } catch (e: any) {
-      error.value = e.message || "Failed to analyze market";
-      return null;
-    } finally {
-      loading.value = false;
-    }
-  }
-
   return {
     loading: readonly(loading),
     error: readonly(error),
@@ -379,7 +303,5 @@ export function useAnalysis() {
     getAllTerms,
     getNgrams,
     searchTerm,
-    getPolymarkets,
-    analyzeMarket,
   };
 }

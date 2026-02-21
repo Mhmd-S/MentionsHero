@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { usePolymarket, type SeriesDetail, type PolymarketEvent, type PersonaEventMarket } from '~/composables/usePolymarket'
+import { useKalshi, type SeriesDetail, type KalshiEvent, type PersonaEventMarket } from '~/composables/useKalshi'
 import { usePersonas } from '~/composables/usePersonas'
 import { useFileTree } from '~/composables/useFileTree'
 
@@ -10,7 +10,7 @@ const {
   getSeriesDetail, refreshSeries, refreshEvent,
   linkPersonaToSeries, unlinkPersonaFromSeries,
   getEventWithAnalysis, loadPastEvents,
-} = usePolymarket()
+} = useKalshi()
 const { personas, fetchPersonas } = usePersonas()
 const { folders, fetchFolders } = useFileTree()
 const toast = useToast()
@@ -22,7 +22,7 @@ const refreshingEvent = ref(false)
 
 // Event selection
 const selectedEventId = ref<string | null>(null)
-const eventData = ref<{ event: PolymarketEvent; markets: PersonaEventMarket[] | any[] } | null>(null)
+const eventData = ref<{ event: KalshiEvent; markets: PersonaEventMarket[] | any[] } | null>(null)
 const loadingEvent = ref(false)
 
 // Persona selection
@@ -47,13 +47,8 @@ async function loadDetail() {
   try {
     detail.value = await getSeriesDetail(seriesId)
     if (detail.value?.events.length && !selectedEventId.value) {
-      const now = new Date()
-      // Events are sorted by start_date DESC from backend.
-      // Pick the first active (not yet ended) event — which is the newest active one.
-      const activeEvent = detail.value.events.find(e => {
-        if (!e.end_date) return true
-        return new Date(e.end_date) > now
-      })
+      // Pick the first active event (status === 'active')
+      const activeEvent = detail.value.events.find(e => e.status === 'active')
       selectedEventId.value = activeEvent?.id || detail.value.events[0]?.id || null
     }
     if (detail.value?.persona_ids.length && !selectedPersonaId.value) {
@@ -151,28 +146,32 @@ const availablePersonas = computed(() => {
   return personas.value.filter(p => !linkedIds.has(p.id))
 })
 
-// Event select options: show date for closed, title for active. Active first, then closed by end_date desc.
+function statusColor(status: string) {
+  if (status === 'active') return 'success'
+  if (['closed', 'determined', 'finalized'].includes(status)) return 'error'
+  return 'neutral'
+}
+
+// Event select options: active first, then closed by strike_date desc.
 const eventOptions = computed(() => {
   const events = detail.value?.events || []
-  const now = new Date()
 
   const sorted = [...events].sort((a, b) => {
-    const aActive = !a.end_date || new Date(a.end_date) > now
-    const bActive = !b.end_date || new Date(b.end_date) > now
+    const aActive = a.status === 'active'
+    const bActive = b.status === 'active'
     if (aActive && !bActive) return -1
     if (!aActive && bActive) return 1
-    // Within same status group, sort by start_date DESC (newest first)
-    const aDate = a.start_date ? new Date(a.start_date).getTime() : 0
-    const bDate = b.start_date ? new Date(b.start_date).getTime() : 0
+    // Within same status group, sort by strike_date DESC (newest first)
+    const aDate = a.strike_date ? new Date(a.strike_date).getTime() : 0
+    const bDate = b.strike_date ? new Date(b.strike_date).getTime() : 0
     return bDate - aDate
   })
 
   return sorted.map(e => {
-    const isActive = !e.end_date || new Date(e.end_date) > now
-    if (isActive) {
-      return { label: e.title || e.slug, value: e.id }
+    if (e.status === 'active') {
+      return { label: e.title || e.event_ticker, value: e.id }
     }
-    const dateStr = e.end_date ? new Date(e.end_date).toLocaleDateString() : 'closed'
+    const dateStr = e.strike_date ? new Date(e.strike_date).toLocaleDateString() : e.status
     return { label: dateStr, value: e.id }
   })
 })
@@ -185,7 +184,7 @@ watch([selectedEventId, selectedPersonaId], () => {
 onMounted(async () => {
   await Promise.all([fetchPersonas(), fetchFolders()])
   await loadDetail()
-  // Automatically backfill past events from Gamma (re-associates orphaned events too)
+  // Automatically load past events from Kalshi
   handleLoadPastEvents()
 })
 </script>
@@ -193,10 +192,10 @@ onMounted(async () => {
 <template>
   <div class="max-w-6xl mx-auto">
     <!-- Back button -->
-    <NuxtLink to="/events"
+    <NuxtLink to="/markets"
       class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4">
       <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
-      <span class="text-base">Events</span>
+      <span class="text-base">Markets</span>
     </NuxtLink>
 
     <!-- Loading -->
@@ -211,16 +210,12 @@ onMounted(async () => {
     <template v-else>
       <!-- Series header -->
       <div class="flex items-start gap-4 mb-6">
-        <img v-if="detail.series.image" :src="detail.series.image" :alt="detail.series.title || ''"
-          class="w-16 h-16 rounded-lg object-cover shrink-0" />
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
-            <h1 class="text-3xl font-bold truncate">{{ detail.series.title || detail.series.slug }}</h1>
-            <UBadge v-if="detail.series.recurrence" color="primary" variant="subtle">{{ detail.series.recurrence }}</UBadge>
-            <UBadge v-if="detail.series.closed" color="error" variant="subtle">Closed</UBadge>
-            <UBadge v-else-if="detail.series.active" color="success" variant="subtle">Active</UBadge>
+            <h1 class="text-3xl font-bold truncate">{{ detail.series.title || detail.series.ticker }}</h1>
+            <UBadge v-if="detail.series.frequency" color="primary" variant="subtle">{{ detail.series.frequency }}</UBadge>
+            <UBadge :color="statusColor(detail.series.status)" variant="subtle">{{ detail.series.status }}</UBadge>
           </div>
-          <p v-if="detail.series.description" class="text-gray-500 text-sm line-clamp-2">{{ detail.series.description }}</p>
         </div>
       </div>
 
@@ -291,10 +286,10 @@ onMounted(async () => {
               :question="m.market.question"
               :search-term="term"
               :term-result="m.term_results?.find((tr: any) => tr.search_term === term) || null"
-              :outcome-price="m.market.outcome_prices?.[0] || null"
+              :last-price="m.market.last_price"
               :persona-id="selectedPersonaId || ''"
-              :resolved-outcome="m.market.resolved_outcome"
-              :closed-time="m.market.closed_time"
+              :result="m.market.result"
+              :close-time="m.market.close_time"
             />
           </template>
           <!-- Without persona analysis (raw market data) -->
@@ -302,11 +297,11 @@ onMounted(async () => {
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
               <span class="text-sm font-medium truncate flex-1">{{ m.question || m.market?.question || '-' }}</span>
               <div class="flex items-center gap-2 shrink-0">
-                <UBadge v-if="m.resolved_outcome || m.market?.resolved_outcome" :color="(m.resolved_outcome || m.market?.resolved_outcome) === 'YES' ? 'success' : 'error'" variant="subtle" size="xs">
-                  {{ m.resolved_outcome || m.market?.resolved_outcome }}
+                <UBadge v-if="m.result || m.market?.result" :color="(m.result || m.market?.result) === 'yes' ? 'success' : 'error'" variant="subtle" size="xs">
+                  {{ (m.result || m.market?.result).toUpperCase() }}
                 </UBadge>
-                <span v-if="m.outcome_prices?.[0] || m.market?.outcome_prices?.[0]" class="text-sm font-semibold text-primary">
-                  {{ (parseFloat(m.outcome_prices?.[0] || m.market?.outcome_prices?.[0]) * 100).toFixed(0) }}%
+                <span v-if="m.last_price != null || m.market?.last_price != null" class="text-sm font-semibold text-primary">
+                  {{ ((m.last_price ?? m.market?.last_price) * 100).toFixed(0) }}%
                 </span>
               </div>
             </div>
