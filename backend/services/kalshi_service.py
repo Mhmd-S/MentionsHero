@@ -622,6 +622,7 @@ async def browse_events() -> dict[str, list[dict[str, Any]]]:
                 "active_market_count": item.get("active_market_count") or 0,
                 "markets": markets,
                 "tag": tag,
+                "strike_date": item.get("strike_date") or None,
             })
         results[tag] = events
 

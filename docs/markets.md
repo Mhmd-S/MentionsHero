@@ -107,7 +107,7 @@ When analysis runs (on link, refresh, or alias change):
 
 | Layer | File | Purpose |
 |-------|------|---------|
-| Page | `app/pages/markets/index.vue` | Event listing grouped by tag (Politicians, Earnings, Sports), auto-fetched from Kalshi v1 search API |
+| Page | `app/pages/markets/index.vue` | Event listing grouped by tag (Politicians, Earnings, Sports), auto-fetched from Kalshi v1 search API. Client-side search across event titles, subtitles, series titles, and market words. Sorted by `strike_date` (most recent first) |
 | Page | `app/pages/markets/[id].vue` | Event detail by event_ticker: markets with persona analysis |
 | Composable | `app/composables/useKalshi.ts` | All Kalshi API calls (`browseEvents`, `getEventDetailByTicker`, etc.) |
 | Component | `app/components/TermSection.vue` | Per-market term analysis display |

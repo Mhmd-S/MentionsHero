@@ -95,6 +95,7 @@ export interface BrowsedEvent {
   active_market_count: number
   markets: BrowsedMarket[]
   tag: string
+  strike_date: string | null
 }
 
 export interface EventDetail {
