@@ -115,10 +115,9 @@ async def transcribe_with_gemini(
     prompt = """Process the audio file and generate a detailed transcription with speaker diarization.
 
 Requirements:
-1. Identify distinct speakers (e.g., Speaker 1, Speaker 2, or use SPEAKER_00, SPEAKER_01 format if names are not available).
-2. Provide accurate timestamps for each segment (Format: MM:SS).
-3. Transcribe the speech accurately, preserving the natural flow of conversation.
-4. Group consecutive segments from the same speaker together."""
+1. Identify distinct speakers (e.g., Speaker 1, Speaker 2 format if names are not available).
+2. Transcribe the speech accurately, preserving the natural flow of conversation.
+3. Group consecutive segments from the same speaker together."""
 
     if speaker_hint:
         hint = speaker_hint.strip()[:SPEAKER_HINT_MAX_LENGTH]
