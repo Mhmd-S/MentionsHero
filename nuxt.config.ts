@@ -22,7 +22,7 @@ export default defineNuxtConfig({
     serverBundle: false,
   },
   ui: {
-    colorMode: true
+    colorMode: false
   },
     css: ['~/assets/css/main.css'],
   modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui'],
