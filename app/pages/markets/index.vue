@@ -5,10 +5,34 @@ const { browseEvents } = useKalshi()
 
 const grouped = ref<Record<string, BrowsedEvent[]>>({})
 const loading = ref(true)
+const search = ref('')
 
 const categories = ['Politicians', 'Earnings', 'Sports'] as const
+
+function matchesSearch(ev: BrowsedEvent, q: string): boolean {
+  if (!q) return true
+  const lower = q.toLowerCase()
+  return (
+    (ev.event_title || '').toLowerCase().includes(lower) ||
+    (ev.series_title || '').toLowerCase().includes(lower) ||
+    (ev.event_subtitle || '').toLowerCase().includes(lower) ||
+    ev.markets.some(m => m.word.toLowerCase().includes(lower))
+  )
+}
+
+const filtered = computed(() => {
+  const q = search.value.trim()
+  const result: Record<string, BrowsedEvent[]> = {}
+  for (const cat of categories) {
+    const events = grouped.value[cat] ?? []
+    const matched = events.filter(ev => matchesSearch(ev, q))
+    if (matched.length) result[cat] = matched
+  }
+  return result
+})
+
 const activeCategories = computed(() =>
-  categories.filter(cat => (grouped.value[cat]?.length ?? 0) > 0)
+  categories.filter(cat => (filtered.value[cat]?.length ?? 0) > 0)
 )
 
 async function load() {
@@ -24,15 +48,28 @@ const totalEvents = computed(() =>
   Object.values(grouped.value).reduce((sum, arr) => sum + arr.length, 0)
 )
 
+const filteredEventCount = computed(() =>
+  Object.values(filtered.value).reduce((sum, arr) => sum + arr.length, 0)
+)
+
 onMounted(load)
 </script>
 
 <template>
   <div class="max-w-7xl mx-auto">
     <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold mb-1">Markets</h1>
-      <p class="text-gray-500 text-base">Kalshi mentions markets</p>
+    <div class="mb-6 flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold mb-1">Markets</h1>
+        <p class="text-gray-500 text-base">Kalshi mentions markets</p>
+      </div>
+      <UInput
+        v-model="search"
+        icon="i-heroicons-magnifying-glass"
+        placeholder="Search events & markets..."
+        class="w-72"
+        :disabled="loading"
+      />
     </div>
 
     <!-- Loading -->
@@ -40,9 +77,14 @@ onMounted(load)
       <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
     </div>
 
-    <!-- Empty state -->
+    <!-- Empty state (no data at all) -->
     <div v-else-if="totalEvents === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
       No open mentions events available.
+    </div>
+
+    <!-- No search results -->
+    <div v-else-if="filteredEventCount === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
+      No events matching "{{ search.trim() }}".
     </div>
 
     <!-- Events grouped by category -->
@@ -51,7 +93,7 @@ onMounted(load)
         <h2 class="text-lg font-semibold mb-3">{{ cat }}</h2>
         <div class="space-y-3">
           <NuxtLink
-            v-for="ev in grouped[cat]"
+            v-for="ev in filtered[cat]"
             :key="ev.event_ticker"
             :to="`/markets/${ev.event_ticker}`"
             class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
