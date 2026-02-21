@@ -20,12 +20,20 @@ function matchesSearch(ev: BrowsedEvent, q: string): boolean {
   )
 }
 
+function sortByStrikeDate(events: BrowsedEvent[]): BrowsedEvent[] {
+  return [...events].sort((a, b) => {
+    const da = a.strike_date ? new Date(a.strike_date).getTime() : 0
+    const db = b.strike_date ? new Date(b.strike_date).getTime() : 0
+    return db - da // most recent first
+  })
+}
+
 const filtered = computed(() => {
   const q = search.value.trim()
   const result: Record<string, BrowsedEvent[]> = {}
   for (const cat of categories) {
     const events = grouped.value[cat] ?? []
-    const matched = events.filter(ev => matchesSearch(ev, q))
+    const matched = sortByStrikeDate(events.filter(ev => matchesSearch(ev, q)))
     if (matched.length) result[cat] = matched
   }
   return result
@@ -104,6 +112,7 @@ onMounted(load)
                   <span class="font-semibold truncate">{{ ev.event_title || ev.series_title }}</span>
                 </div>
                 <div class="flex items-center gap-3 text-xs text-gray-500">
+                  <span v-if="ev.strike_date">{{ new Date(ev.strike_date).toLocaleDateString() }}</span>
                   <span v-if="ev.event_subtitle">{{ ev.event_subtitle }}</span>
                   <span>{{ ev.active_market_count }} market{{ ev.active_market_count !== 1 ? 's' : '' }}</span>
                 </div>
