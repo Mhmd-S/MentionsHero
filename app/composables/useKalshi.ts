@@ -74,6 +74,36 @@ export interface DiscoveredSeries {
   status: string
 }
 
+export interface BrowsedMarket {
+  ticker: string
+  word: string
+  yes_bid: number | null
+  yes_ask: number | null
+  last_price: number | null
+  result: string
+  volume: number | null
+  close_ts: string | null
+}
+
+export interface BrowsedEvent {
+  series_ticker: string
+  event_ticker: string
+  event_title: string
+  event_subtitle: string
+  series_title: string
+  total_market_count: number
+  active_market_count: number
+  markets: BrowsedMarket[]
+  tag: string
+}
+
+export interface EventDetail {
+  event: KalshiEvent
+  markets: PersonaEventMarket[] | any[]
+  series: KalshiSeries | null
+  persona_ids: string[]
+}
+
 export interface LoadPastEventsResult {
   added: number
   total_matching: number
@@ -89,6 +119,35 @@ export function useKalshi() {
     } catch (e) {
       console.error('Failed to fetch series:', e)
       return []
+    }
+  }
+
+  async function browseEvents(): Promise<Record<string, BrowsedEvent[]>> {
+    try {
+      return await authFetch<Record<string, BrowsedEvent[]>>('/api/kalshi/series/browse')
+    } catch (e) {
+      console.error('Failed to browse events:', e)
+      return {}
+    }
+  }
+
+  async function getSeriesDetailByTicker(ticker: string): Promise<SeriesDetail | null> {
+    try {
+      return await authFetch<SeriesDetail>(`/api/kalshi/series/by-ticker/${ticker}`)
+    } catch (e) {
+      console.error('Failed to get series by ticker:', e)
+      return null
+    }
+  }
+
+  async function getEventDetailByTicker(eventTicker: string, personaId?: string): Promise<EventDetail | null> {
+    try {
+      return await authFetch<EventDetail>(`/api/kalshi/events/by-ticker/${eventTicker}`, {
+        query: personaId ? { persona_id: personaId } : undefined,
+      })
+    } catch (e) {
+      console.error('Failed to get event by ticker:', e)
+      return null
     }
   }
 
@@ -224,8 +283,11 @@ export function useKalshi() {
 
   return {
     fetchAllSeries,
+    browseEvents,
     addSeriesByTicker,
     getSeriesDetail,
+    getSeriesDetailByTicker,
+    getEventDetailByTicker,
     refreshSeries,
     deleteSeries,
     discoverSeries,

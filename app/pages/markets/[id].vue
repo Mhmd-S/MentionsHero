@@ -1,29 +1,25 @@
 <script setup lang="ts">
-import { useKalshi, type SeriesDetail, type KalshiEvent, type PersonaEventMarket } from '~/composables/useKalshi'
+import { useKalshi, type EventDetail, type PersonaEventMarket } from '~/composables/useKalshi'
 import { usePersonas } from '~/composables/usePersonas'
 import { useFileTree } from '~/composables/useFileTree'
 
 const route = useRoute()
-const seriesId = route.params.id as string
+const eventTicker = route.params.id as string
 
 const {
-  getSeriesDetail, refreshSeries, refreshEvent,
+  getEventDetailByTicker, refreshEvent,
   linkPersonaToSeries, unlinkPersonaFromSeries,
-  getEventWithAnalysis, loadPastEvents,
 } = useKalshi()
 const { personas, fetchPersonas } = usePersonas()
 const { folders, fetchFolders } = useFileTree()
-const toast = useToast()
 
-const detail = ref<SeriesDetail | null>(null)
+const detail = ref<EventDetail | null>(null)
 const loading = ref(true)
 const refreshing = ref(false)
-const refreshingEvent = ref(false)
 
-// Event selection
-const selectedEventId = ref<string | null>(null)
-const eventData = ref<{ event: KalshiEvent; markets: PersonaEventMarket[] | any[] } | null>(null)
-const loadingEvent = ref(false)
+// DB IDs derived from loaded detail
+const seriesId = computed(() => detail.value?.series?.id || '')
+const eventId = computed(() => detail.value?.event?.id || '')
 
 // Persona selection
 const selectedPersonaId = ref<string | null>(null)
@@ -34,24 +30,15 @@ const linkPersonaId = ref<string | null>(null)
 const linkFolderId = ref<string | undefined>(undefined)
 const linking = ref(false)
 
-// Folder options for the link modal (top-level folders)
 const folderOptions = computed(() =>
   folders.value.filter(f => !f.parent_id).map(f => ({ label: f.name, value: f.id }))
 )
 
-// Load past events state
-const loadingPastEvents = ref(false)
-
 async function loadDetail() {
   loading.value = true
   try {
-    detail.value = await getSeriesDetail(seriesId)
-    if (detail.value?.events.length && !selectedEventId.value) {
-      // Pick the first active event (status === 'active')
-      const activeEvent = detail.value.events.find(e => e.status === 'active')
-      selectedEventId.value = activeEvent?.id || detail.value.events[0]?.id || null
-    }
-    if (detail.value?.persona_ids.length && !selectedPersonaId.value) {
+    detail.value = await getEventDetailByTicker(eventTicker, selectedPersonaId.value || undefined)
+    if (detail.value?.persona_ids?.length && !selectedPersonaId.value) {
       selectedPersonaId.value = detail.value.persona_ids[0] ?? null
     }
   } finally {
@@ -59,80 +46,47 @@ async function loadDetail() {
   }
 }
 
-async function loadEventData() {
-  if (!selectedEventId.value) {
-    eventData.value = null
-    return
-  }
-  loadingEvent.value = true
+async function reloadWithPersona() {
+  loading.value = true
   try {
-    eventData.value = await getEventWithAnalysis(
-      seriesId,
-      selectedEventId.value,
-      selectedPersonaId.value || undefined,
-    )
+    detail.value = await getEventDetailByTicker(eventTicker, selectedPersonaId.value || undefined)
   } finally {
-    loadingEvent.value = false
+    loading.value = false
   }
 }
 
-async function handleRefreshSeries() {
+async function handleRefresh() {
+  if (!eventId.value || !seriesId.value) return
   refreshing.value = true
   try {
-    detail.value = await refreshSeries(seriesId)
+    await refreshEvent(seriesId.value, eventId.value)
+    await reloadWithPersona()
   } finally {
     refreshing.value = false
   }
 }
 
-async function handleRefreshEvent() {
-  if (!selectedEventId.value) return
-  refreshingEvent.value = true
-  try {
-    await refreshEvent(seriesId, selectedEventId.value)
-    await loadEventData()
-  } finally {
-    refreshingEvent.value = false
-  }
-}
-
 async function handleLinkPersona() {
-  if (!linkPersonaId.value) return
+  if (!linkPersonaId.value || !seriesId.value) return
   linking.value = true
   try {
-    await linkPersonaToSeries(seriesId, linkPersonaId.value, linkFolderId.value)
+    await linkPersonaToSeries(seriesId.value, linkPersonaId.value, linkFolderId.value)
     showLinkModal.value = false
     linkPersonaId.value = null
     linkFolderId.value = undefined
-    await loadDetail()
+    await reloadWithPersona()
   } finally {
     linking.value = false
   }
 }
 
 async function handleUnlinkPersona(personaId: string) {
-  await unlinkPersonaFromSeries(seriesId, personaId)
+  if (!seriesId.value) return
+  await unlinkPersonaFromSeries(seriesId.value, personaId)
   if (selectedPersonaId.value === personaId) {
     selectedPersonaId.value = null
   }
-  await loadDetail()
-}
-
-async function handleLoadPastEvents() {
-  loadingPastEvents.value = true
-  try {
-    const result = await loadPastEvents(seriesId)
-    if (result) {
-      toast.add({ title: `Added ${result.added} past events`, description: `${result.total_matching} matching`, color: 'info' })
-      if (result.detail) {
-        detail.value = result.detail
-      } else {
-        await loadDetail()
-      }
-    }
-  } finally {
-    loadingPastEvents.value = false
-  }
+  await reloadWithPersona()
 }
 
 function getPersonaName(id: string): string {
@@ -140,52 +94,18 @@ function getPersonaName(id: string): string {
   return p?.name || id.slice(0, 8)
 }
 
-// Available personas for linking (not already linked)
 const availablePersonas = computed(() => {
   const linkedIds = new Set(detail.value?.persona_ids || [])
   return personas.value.filter(p => !linkedIds.has(p.id))
 })
 
-function statusColor(status: string) {
-  if (status === 'active') return 'success'
-  if (['closed', 'determined', 'finalized'].includes(status)) return 'error'
-  return 'neutral'
-}
-
-// Event select options: active first, then closed by strike_date desc.
-const eventOptions = computed(() => {
-  const events = detail.value?.events || []
-
-  const sorted = [...events].sort((a, b) => {
-    const aActive = a.status === 'active'
-    const bActive = b.status === 'active'
-    if (aActive && !bActive) return -1
-    if (!aActive && bActive) return 1
-    // Within same status group, sort by strike_date DESC (newest first)
-    const aDate = a.strike_date ? new Date(a.strike_date).getTime() : 0
-    const bDate = b.strike_date ? new Date(b.strike_date).getTime() : 0
-    return bDate - aDate
-  })
-
-  return sorted.map(e => {
-    if (e.status === 'active') {
-      return { label: e.title || e.event_ticker, value: e.id }
-    }
-    const dateStr = e.strike_date ? new Date(e.strike_date).toLocaleDateString() : e.status
-    return { label: dateStr, value: e.id }
-  })
-})
-
-// Watch for event/persona changes to reload
-watch([selectedEventId, selectedPersonaId], () => {
-  loadEventData()
+watch(selectedPersonaId, () => {
+  if (detail.value) reloadWithPersona()
 })
 
 onMounted(async () => {
   await Promise.all([fetchPersonas(), fetchFolders()])
   await loadDetail()
-  // Automatically load past events from Kalshi
-  handleLoadPastEvents()
 })
 </script>
 
@@ -204,19 +124,23 @@ onMounted(async () => {
     </div>
 
     <div v-else-if="!detail" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
-      Series not found.
+      Event not found.
     </div>
 
     <template v-else>
-      <!-- Series header -->
+      <!-- Event header -->
       <div class="flex items-start gap-4 mb-6">
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <h1 class="text-3xl font-bold truncate">{{ detail.series.title || detail.series.ticker }}</h1>
-            <UBadge v-if="detail.series.frequency" color="primary" variant="subtle">{{ detail.series.frequency }}</UBadge>
-            <UBadge :color="statusColor(detail.series.status)" variant="subtle">{{ detail.series.status }}</UBadge>
-          </div>
+          <h1 class="text-3xl font-bold truncate mb-1">{{ detail.event.title || eventTicker }}</h1>
+          <p v-if="detail.series" class="text-gray-500 text-sm">{{ detail.series.title }}</p>
         </div>
+        <UButton
+          size="xs"
+          variant="ghost"
+          icon="i-heroicons-arrow-path"
+          :loading="refreshing"
+          @click="handleRefresh"
+        />
       </div>
 
       <!-- Persona selector -->
@@ -242,42 +166,14 @@ onMounted(async () => {
         <UButton size="xs" variant="ghost" icon="i-heroicons-plus" @click="showLinkModal = true">Link Persona</UButton>
       </div>
 
-      <!-- Event selector -->
-      <div class="flex items-center gap-3 mb-4">
-        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Event:</span>
-        <USelectMenu
-          v-if="eventOptions.length > 0"
-          :model-value="selectedEventId ?? undefined"
-          :items="eventOptions"
-          placeholder="Select event..."
-          class="w-64"
-          value-key="value"
-          label-key="label"
-          @update:model-value="selectedEventId = $event ?? null"
-        />
-        <span v-else class="text-sm text-gray-500">No events</span>
-        <UButton
-          v-if="selectedEventId"
-          size="xs"
-          variant="ghost"
-          icon="i-heroicons-arrow-path"
-          :loading="refreshingEvent"
-          @click="handleRefreshEvent"
-        />
-      </div>
-
-      <!-- Markets section -->
-      <div v-if="loadingEvent" class="flex items-center justify-center p-8">
-        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
-      </div>
-
-      <div v-else-if="!eventData || !eventData.markets?.length" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
-        {{ selectedEventId ? 'No markets for this event.' : 'Select an event to view markets.' }}
+      <!-- Markets -->
+      <div v-if="!detail.markets?.length" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
+        No markets for this event.
       </div>
 
       <div v-else class="space-y-3">
-        <template v-for="m in eventData.markets" :key="m.market?.id">
-          <!-- With persona analysis (has term_results) -->
+        <template v-for="m in detail.markets" :key="m.market?.id">
+          <!-- With persona analysis -->
           <template v-if="m.term_results">
             <TermSection
               v-for="term in (m.search_config?.search_terms || []).length ? (m.search_config?.search_terms || []) : ['']"
@@ -292,7 +188,7 @@ onMounted(async () => {
               :close-time="m.market.close_time"
             />
           </template>
-          <!-- Without persona analysis (raw market data) -->
+          <!-- Without persona analysis -->
           <div v-else class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
               <span class="text-sm font-medium truncate flex-1">{{ m.question || m.market?.question || '-' }}</span>
@@ -301,7 +197,7 @@ onMounted(async () => {
                   {{ (m.result || m.market?.result).toUpperCase() }}
                 </UBadge>
                 <span v-if="m.last_price != null || m.market?.last_price != null" class="text-sm font-semibold text-primary">
-                  {{ ((m.last_price ?? m.market?.last_price) * 100).toFixed(0) }}%
+                  {{ ((m.last_price ?? m.market?.last_price)).toFixed(0) }}%
                 </span>
               </div>
             </div>

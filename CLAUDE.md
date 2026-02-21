@@ -181,11 +181,13 @@ All routes require Supabase JWT auth (`Authorization: Bearer <token>`).
 - **Auth**: All endpoints use `require_auth` dependency (global in main.py). SSE streams accept `?token=` query param
 - **Nuxt UI**: Use Nuxt UI components (UButton, UBadge, UModal, etc.), not raw HTML elements
 - **Composables pattern**: All API calls go through composables in `app/composables/`, never direct fetch from pages
-- **Kalshi API**: Base URL `https://api.elections.kalshi.com/trade-api/v2`, unauthenticated read-only. Scoped to `category=Mentions` only. Supports `with_nested_markets=true` for events, cursor-based pagination
+- **Kalshi API**: Two base URLs — v2 (`https://api.elections.kalshi.com/trade-api/v2`) for series/events/markets CRUD, v1 search (`https://api.elections.kalshi.com/v1/search`) for browsing open events by tag. Unauthenticated read-only. Scoped to `category=Mentions` only
 - **Market resolution**: Kalshi provides explicit `result` field ("yes"/"no"/"") — no price-threshold heuristic needed
 - **Search term extraction**: Uses `custom_strike.Word` from Kalshi API (e.g., `{"Word": "Shutdown / Shut Down"}`). Compound terms split on " / ". Falls back to `parse_market_criteria()` regex
 - **Speaker regex**: Pattern `^([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$` — supports "Name:", "SPEAKER_00:", etc.
 - **Idempotent upserts**: Kalshi events/markets use `event_ticker`/`ticker` as unique keys
+- **Kalshi event browsing**: Markets listing page fetches open Mentions events from Kalshi v1 search API (`/api/kalshi/series/browse`), grouped by tag (Politicians, Earnings, Sports). No manual add/delete. Events are lazily upserted into DB on first detail page visit via `ensure_event(event_ticker)`. Detail pages use event_ticker routing (`/markets/{event_ticker}`)
+- **Mandatory CLAUDE.md updates**: Any code change that affects project structure, conventions, API endpoints, database schema, key files, or development workflow MUST be reflected in this CLAUDE.md file
 
 ## Development
 

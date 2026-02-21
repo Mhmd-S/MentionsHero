@@ -11,10 +11,15 @@ export default defineNuxtConfig({
     }
   },
   routeRules: {
-    '/api/_nuxt_icon/**': {},
     '/api/**': {
       proxy: 'http://localhost:8001/api/**'
     }
+  },
+  icon: {
+    clientBundle: {
+      scan: true,
+    },
+    serverBundle: false,
   },
   ui: {
     colorMode: true

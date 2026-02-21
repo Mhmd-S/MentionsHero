@@ -28,7 +28,7 @@ const props = defineProps<Props>()
 
 const yesPrice = computed(() => {
   if (props.lastPrice == null) return null
-  return (props.lastPrice * 100).toFixed(0)
+  return (props.lastPrice).toFixed(0)
 })
 const totalMentions = computed(() => props.termResult?.total_mentions ?? null)
 const briefings = computed(() => props.termResult?.briefings_with_term ?? null)

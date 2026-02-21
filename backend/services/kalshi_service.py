@@ -11,6 +11,7 @@ from backend.utils.nlp import calculate_term_frequency, search_term_in_context
 
 
 KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
+KALSHI_SEARCH_BASE = "https://api.elections.kalshi.com/v1/search"
 
 
 # ----- Helpers -----
@@ -466,6 +467,17 @@ def _upsert_event_and_markets(
             market_id = refetch_m.data[0]["id"]
         market_ids.append(market_id)
 
+        # Build search config so terms are available on first load
+        search_terms = _extract_search_terms({"custom_strike": custom_strike, "question": question})
+        if search_terms:
+            supabase.table("market_search_configs").upsert({
+                "market_id": market_id,
+                "search_terms": search_terms,
+                "min_count": 0,
+                "logic": "any",
+                "updated_at": now,
+            }, on_conflict="market_id").execute()
+
     return event_id, market_ids
 
 
@@ -549,6 +561,161 @@ async def delete_series(series_id: str) -> bool:
     supabase = get_supabase()
     result = supabase.table("kalshi_series").delete().eq("id", series_id).execute()
     return bool(result.data)
+
+
+async def _search_events_by_tag(tag: str) -> list[dict[str, Any]]:
+    """
+    Fetch open/unopened Mentions events for a single tag via the v1 search API.
+    Returns raw items from the API (each is an event with nested markets).
+    """
+    try:
+        params: dict[str, Any] = {
+            "category": "Mentions",
+            "tag": tag,
+            "status": "open,unopened",
+            "order_by": "closing",
+            "reverse": "false",
+            "page_size": 50,
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(f"{KALSHI_SEARCH_BASE}/series", params=params)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("current_page") or []
+    except Exception as e:
+        print(f"Failed to search events for tag {tag}: {e}")
+        return []
+
+
+async def browse_events() -> dict[str, list[dict[str, Any]]]:
+    """
+    Browse all open Mentions events from Kalshi v1 search API,
+    grouped by tag (Politicians, Earnings, Sports).
+    Each item is an event with nested markets.
+    """
+    tags = ["Politicians", "Earnings", "Sports"]
+    results: dict[str, list[dict[str, Any]]] = {}
+
+    for tag in tags:
+        raw_items = await _search_events_by_tag(tag)
+        events = []
+        for item in raw_items:
+            markets = []
+            for m in (item.get("markets") or []):
+                markets.append({
+                    "ticker": m.get("ticker") or "",
+                    "word": (m.get("custom_strike") or {}).get("Word") or m.get("yes_subtitle") or "",
+                    "yes_bid": m.get("yes_bid"),
+                    "yes_ask": m.get("yes_ask"),
+                    "last_price": m.get("last_price"),
+                    "result": m.get("result") or "",
+                    "volume": m.get("volume"),
+                    "close_ts": m.get("close_ts"),
+                })
+            events.append({
+                "series_ticker": item.get("series_ticker") or "",
+                "event_ticker": item.get("event_ticker") or "",
+                "event_title": item.get("event_title") or "",
+                "event_subtitle": item.get("event_subtitle") or "",
+                "series_title": item.get("series_title") or "",
+                "total_market_count": item.get("total_market_count") or 0,
+                "active_market_count": item.get("active_market_count") or 0,
+                "markets": markets,
+                "tag": tag,
+            })
+        results[tag] = events
+
+    return results
+
+
+async def ensure_series(ticker: str) -> str | None:
+    """
+    Ensure a series exists in the DB by ticker.
+    If not stored, fetch from Kalshi API and upsert series + events + markets.
+    Returns the DB UUID.
+    """
+    supabase = get_supabase()
+    existing = supabase.table("kalshi_series").select("id").eq("ticker", ticker).limit(1).execute()
+    if existing.data and len(existing.data) > 0:
+        return existing.data[0]["id"]
+
+    api_series = await fetch_series(ticker)
+    if not api_series:
+        return None
+    series_id = _upsert_series(api_series)
+    if not series_id:
+        return None
+
+    events = await fetch_all_events(series_ticker=ticker, with_nested_markets=True)
+    for ev in events:
+        _upsert_event_and_markets(ev, series_id=series_id)
+
+    return series_id
+
+
+async def get_series_detail_by_ticker(ticker: str) -> dict[str, Any] | None:
+    """Get series detail by ticker, auto-creating in DB if needed."""
+    series_id = await ensure_series(ticker)
+    if not series_id:
+        return None
+    return await get_series_detail(series_id)
+
+
+async def ensure_event(event_ticker: str) -> str | None:
+    """
+    Ensure an event exists in the DB by event_ticker.
+    If not stored, derives the series_ticker, ensures the series
+    (which fetches all events+markets), then returns the event's DB UUID.
+    """
+    supabase = get_supabase()
+    existing = supabase.table("kalshi_events").select("id").eq("event_ticker", event_ticker).limit(1).execute()
+    if existing.data and len(existing.data) > 0:
+        return existing.data[0]["id"]
+
+    # Derive series_ticker: event tickers are like KXTRUMPMENTION-26FEB22
+    # The series ticker is the part before the last dash-separated date segment
+    # Use the v2 event API to get the series_ticker
+    api_event = await fetch_event(event_ticker)
+    if not api_event:
+        return None
+    series_ticker = api_event.get("series_ticker") or ""
+    if not series_ticker:
+        return None
+
+    # Ensure the series (fetches all events + markets)
+    await ensure_series(series_ticker)
+
+    # Now the event should be in DB
+    refetch = supabase.table("kalshi_events").select("id").eq("event_ticker", event_ticker).limit(1).execute()
+    if refetch.data and len(refetch.data) > 0:
+        return refetch.data[0]["id"]
+    return None
+
+
+async def get_event_detail_by_ticker(
+    event_ticker: str, persona_id: str | None = None
+) -> dict[str, Any] | None:
+    """Get event detail by event_ticker, auto-creating in DB if needed."""
+    event_id = await ensure_event(event_ticker)
+    if not event_id:
+        return None
+    result = await get_event_with_analysis(event_id, persona_id=persona_id)
+    if not result:
+        return None
+    # Also include series info for the header
+    supabase = get_supabase()
+    event_row = result.get("event") or {}
+    series_id = event_row.get("series_id")
+    series_data = None
+    persona_ids: list[str] = []
+    if series_id:
+        series_row = supabase.table("kalshi_series").select("*").eq("id", series_id).limit(1).execute()
+        series_data = series_row.data[0] if series_row.data else None
+        links = supabase.table("persona_kalshi_series").select("persona_id").eq("kalshi_series_id", series_id).execute()
+        persona_ids = [r["persona_id"] for r in (links.data or [])]
+    result["series"] = series_data
+    result["persona_ids"] = persona_ids
+    return result
 
 
 async def refresh_series(series_id: str) -> dict[str, Any] | None:
