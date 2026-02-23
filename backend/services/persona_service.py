@@ -68,7 +68,9 @@ async def get_persona_by_id(persona_id: str) -> dict[str, Any] | None:
 async def create_persona(
     name: str,
     description: str | None = None,
-    aliases: list[str] | None = None
+    aliases: list[str] | None = None,
+    slug: str | None = None,
+    image_url: str | None = None,
 ) -> dict[str, Any]:
     """Create a new persona with optional aliases."""
     supabase = get_supabase()
@@ -79,6 +81,10 @@ async def create_persona(
     }
     if description and description.strip():
         insert_data["description"] = description.strip()
+    if slug and slug.strip():
+        insert_data["slug"] = slug.strip()
+    if image_url and image_url.strip():
+        insert_data["image_url"] = image_url.strip()
 
     persona_response = (
         supabase.table("personas")
@@ -109,9 +115,11 @@ async def create_persona(
 async def update_persona(
     persona_id: str,
     name: str | None = None,
-    description: str | None = None
+    description: str | None = None,
+    slug: str | None = None,
+    image_url: str | None = None,
 ) -> dict[str, Any] | None:
-    """Update a persona's name and/or description."""
+    """Update a persona's fields."""
     supabase = get_supabase()
 
     updates: dict[str, Any] = {
@@ -123,6 +131,12 @@ async def update_persona(
 
     if description is not None:
         updates["description"] = description.strip() if description else None
+
+    if slug is not None:
+        updates["slug"] = slug.strip() if slug else None
+
+    if image_url is not None:
+        updates["image_url"] = image_url.strip() if image_url else None
 
     response = (
         supabase.table("personas")
@@ -222,6 +236,53 @@ async def get_all_aliases() -> dict[str, str]:
     return {a["alias"]: a["persona_id"] for a in aliases}
 
 
+async def build_alias_to_persona_map() -> dict[str, str]:
+    """Build a mapping of {alias_lower: canonical_persona_name} for speaker resolution."""
+    supabase = get_supabase()
+
+    # Fetch all aliases with their persona names
+    aliases_response = supabase.table("persona_aliases").select("alias, persona_id").execute()
+    aliases = aliases_response.data or []
+
+    if not aliases:
+        return {}
+
+    # Get all persona names
+    persona_ids = list({a["persona_id"] for a in aliases})
+    personas_response = supabase.table("personas").select("id, name").in_("id", persona_ids).execute()
+    persona_name_map = {p["id"]: p["name"] for p in (personas_response.data or [])}
+
+    # Build alias_lower -> canonical_name mapping
+    return {
+        a["alias"].strip().lower(): persona_name_map[a["persona_id"]]
+        for a in aliases
+        if a["persona_id"] in persona_name_map
+    }
+
+
+def resolve_transcript_speakers(
+    raw_speakers: list[str],
+    alias_map: dict[str, str],
+) -> dict[str, str]:
+    """Map raw speaker labels to canonical persona names via bidirectional substring matching.
+
+    Uses the same matching logic as find_affected_persona_ids() in kalshi_service.py:
+    sl == alias_lower or alias_lower in sl or sl in alias_lower
+
+    Returns {raw_label: canonical_name_or_raw_if_unresolved}.
+    """
+    result: dict[str, str] = {}
+    for raw in raw_speakers:
+        sl = raw.strip().lower()
+        matched_name: str | None = None
+        for alias_lower, canonical in alias_map.items():
+            if sl == alias_lower or alias_lower in sl or sl in alias_lower:
+                matched_name = canonical
+                break
+        result[raw] = matched_name if matched_name else raw
+    return result
+
+
 async def get_transcripts_for_persona(
     persona_id: str,
     folder_id: str | None = None
@@ -273,3 +334,107 @@ async def get_transcripts_for_persona(
 
     print(f"[get_transcripts_for_persona] Matching transcripts: {len(matching)}")
     return matching
+
+
+async def _find_speaker_ids_for_persona(persona_id: str) -> list[str]:
+    """Find speaker IDs that match any alias of the given persona."""
+    supabase = get_supabase()
+
+    aliases_resp = (
+        supabase.table("persona_aliases")
+        .select("alias")
+        .eq("persona_id", persona_id)
+        .execute()
+    )
+    aliases = [a["alias"] for a in (aliases_resp.data or [])]
+    if not aliases:
+        return []
+
+    speaker_ids: list[str] = []
+    for alias in aliases:
+        speaker_resp = (
+            supabase.table("speakers")
+            .select("id")
+            .ilike("name", f"%{alias}%")
+            .execute()
+        )
+        speaker_ids.extend([s["id"] for s in (speaker_resp.data or [])])
+
+    return list(set(speaker_ids))
+
+
+async def _count_transcripts_for_persona(persona_id: str) -> int:
+    """Count distinct transcripts for a persona using speaker junction tables."""
+    speaker_ids = await _find_speaker_ids_for_persona(persona_id)
+    if not speaker_ids:
+        return 0
+
+    supabase = get_supabase()
+    ts_resp = (
+        supabase.table("transcript_speakers")
+        .select("transcript_id")
+        .in_("speaker_id", speaker_ids)
+        .execute()
+    )
+    return len({row["transcript_id"] for row in (ts_resp.data or [])})
+
+
+async def get_public_personas() -> list[dict[str, Any]]:
+    """Fetch all published personas (with slug) for the public directory."""
+    supabase = get_supabase()
+
+    personas_response = (
+        supabase.table("personas")
+        .select("id, name, slug, image_url, description")
+        .not_.is_("slug", "null")
+        .order("name")
+        .execute()
+    )
+    personas = personas_response.data or []
+
+    for persona in personas:
+        persona["transcript_count"] = await _count_transcripts_for_persona(persona["id"])
+
+    return personas
+
+
+async def get_persona_by_slug(slug: str) -> dict[str, Any] | None:
+    """Fetch a single persona by its slug."""
+    supabase = get_supabase()
+
+    resp = (
+        supabase.table("personas")
+        .select("id, name, slug, image_url, description")
+        .eq("slug", slug)
+        .single()
+        .execute()
+    )
+    return resp.data
+
+
+async def get_public_transcripts_for_persona(persona_id: str) -> list[dict[str, Any]]:
+    """Get transcript metadata (no full text) for a persona, using speaker junction tables."""
+    speaker_ids = await _find_speaker_ids_for_persona(persona_id)
+    if not speaker_ids:
+        return []
+
+    supabase = get_supabase()
+
+    ts_resp = (
+        supabase.table("transcript_speakers")
+        .select("transcript_id")
+        .in_("speaker_id", speaker_ids)
+        .execute()
+    )
+    transcript_ids = list({row["transcript_id"] for row in (ts_resp.data or [])})
+    if not transcript_ids:
+        return []
+
+    t_resp = (
+        supabase.table("transcripts")
+        .select("id, name, youtube_url, upload_date, created_at")
+        .in_("id", transcript_ids)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return t_resp.data or []

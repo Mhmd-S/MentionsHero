@@ -4,6 +4,9 @@ import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 
 definePageMeta({ layout: false });
 
+useHead({ title: 'Sign In' })
+useServerSeoMeta({ robots: 'noindex, nofollow' })
+
 const { login, error, loading } = useAuth();
 
 const fields: AuthFormField[] = [{
@@ -30,7 +33,8 @@ type Schema = z.output<typeof schema>
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   const success = await login(payload.data.email, payload.data.password);
   if (success) {
-    navigateTo("/");
+    const { role } = useAuth();
+    navigateTo(role.value === 'admin' ? '/admin' : '/');
   }
 }
 </script>
@@ -49,6 +53,13 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
       >
         <template v-if="error" #validation>
           <UAlert color="error" icon="i-heroicons-information-circle" :title="error" />
+        </template>
+
+        <template #footer>
+          <p class="text-center text-sm text-gray-500">
+            Don't have an account?
+            <NuxtLink to="/signup" class="text-primary hover:underline">Sign up free</NuxtLink>
+          </p>
         </template>
       </UAuthForm>
     </UPageCard>

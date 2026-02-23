@@ -41,7 +41,9 @@ async def create_persona(request: PersonaCreate) -> Persona:
         persona = await persona_service.create_persona(
             name=request.name,
             description=request.description,
-            aliases=request.aliases
+            aliases=request.aliases,
+            slug=request.slug,
+            image_url=request.image_url,
         )
         return persona
     except APIError as e:
@@ -64,7 +66,9 @@ async def update_persona(persona_id: str, request: PersonaUpdate) -> Persona:
         persona = await persona_service.update_persona(
             persona_id=persona_id,
             name=request.name,
-            description=request.description
+            description=request.description,
+            slug=request.slug,
+            image_url=request.image_url,
         )
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")
