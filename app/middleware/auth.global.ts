@@ -1,27 +1,34 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  // Skip auth check for login page
+  // Public routes — no auth needed
   if (to.path === "/login") return;
+  if (to.path === "/signup") return;
+  if (to.path.startsWith("/view/")) return;
+  if (to.path === "/" || to.path.startsWith("/p/")) return;
 
   // Skip on server side
   if (import.meta.server) return;
 
-  const { session, loading } = useAuth();
+  const { session, loading, role } = useAuth();
 
   // While the plugin is still initializing, don't redirect
   if (loading.value) return;
 
-  // If useState session is available, allow through
-  if (session.value) return;
-
-  // Fallback: check Supabase directly (session may not be synced to useState yet)
-  const supabase = useSupabaseClient();
-  const { data } = await supabase.auth.getSession();
-  if (data.session) {
-    // Sync back to useState
-    const auth = useAuth();
-    await auth.init();
-    return;
+  // If no session in useState, try Supabase directly
+  if (!session.value) {
+    const supabase = useSupabaseClient();
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      const auth = useAuth();
+      await auth.init();
+    } else {
+      return navigateTo("/login");
+    }
   }
 
-  return navigateTo("/login");
+  // Admin routes: require admin role from profiles table
+  if (to.path.startsWith("/admin")) {
+    if (role.value !== "admin") {
+      return navigateTo("/");
+    }
+  }
 });

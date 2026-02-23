@@ -2,7 +2,7 @@
   <div>
     <div class="mb-8">
       <UButton
-        to="/transcripts"
+        to="/admin/transcripts"
         variant="ghost"
         icon="i-heroicons-arrow-left"
         size="sm"
@@ -10,7 +10,7 @@
       >
         Back to all transcripts
       </UButton>
-      <h1 class="text-2xl font-bold">Transcript</h1>
+      <h1 class="text-2xl font-bold">{{ transcript?.name || 'Transcript' }}</h1>
     </div>
 
     <div v-if="pending && !transcript" class="flex justify-center py-8">
@@ -33,8 +33,11 @@
             <UIcon name="i-heroicons-arrow-top-right-on-square" class="size-3" />
           </a>
         </div>
-        <div class="text-xs text-gray-400">
-          {{ formatDate(transcript.created_at) }}
+        <div class="text-xs text-gray-400 text-right space-y-0.5">
+          <div v-if="transcript.upload_date">
+            Uploaded {{ formatUploadDate(transcript.upload_date) }}
+          </div>
+          <div>Added {{ formatDate(transcript.created_at) }}</div>
         </div>
       </div>
 
@@ -140,9 +143,11 @@ interface SpeakerFrequency {
 
 interface Transcript {
   id: string
+  name: string | null
   youtube_url: string
   transcript: string
   created_at: string
+  upload_date: string | null
   availableSpeakers?: string[]
   hasHighlights?: boolean
   matchCount?: number
@@ -240,6 +245,17 @@ function formatDate(dateString: string) {
   })
 }
 
+function formatUploadDate(dateStr: string) {
+  const year = dateStr.slice(0, 4)
+  const month = dateStr.slice(4, 6)
+  const day = dateStr.slice(6, 8)
+  return new Date(`${year}-${month}-${day}`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  })
+}
+
 async function copyTranscript() {
   if (!transcript.value) return
   // Strip HTML tags when copying
@@ -261,7 +277,7 @@ async function deleteTranscript() {
     await authFetch(`/api/transcripts/${route.params.id}`, {
       method: 'DELETE'
     })
-    router.push('/transcripts')
+    router.push('/admin/transcripts')
   } catch (err) {
     console.error('Failed to delete transcript')
   } finally {

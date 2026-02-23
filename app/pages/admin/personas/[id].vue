@@ -76,7 +76,7 @@ onMounted(async () => {
   <div class="max-w-7xl mx-auto">
     <!-- Header with back button -->
     <div class="mb-6">
-      <NuxtLink to="/personas"
+      <NuxtLink to="/admin/personas"
         class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4">
         <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
         <span class="text-base">Personas</span>
