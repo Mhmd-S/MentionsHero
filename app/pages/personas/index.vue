@@ -10,8 +10,6 @@ type ReadonlyPersona = {
   readonly id: string
   readonly name: string
   readonly description: string | null
-  readonly slug: string | null
-  readonly image_url: string | null
   readonly aliases: readonly string[]
   readonly created_at: string | null
   readonly updated_at: string | null
@@ -24,14 +22,8 @@ const showAddAliasModal = ref(false)
 const newPersonaName = ref('')
 const newPersonaDescription = ref('')
 const newPersonaAliases = ref('')
-const newPersonaSlug = ref('')
-const newPersonaImageUrl = ref('')
 const editingPersona = ref<ReadonlyPersona | null>(null)
 const aliasToAdd = ref('')
-
-function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-}
 
 // Speaker search state
 const availableSpeakers = ref<import('~/composables/useAnalysis').SpeakerInfo[]>([])
@@ -115,17 +107,13 @@ async function handleCreatePersona() {
   await createPersona(
     newPersonaName.value.trim(),
     newPersonaDescription.value.trim() || undefined,
-    aliases,
-    newPersonaSlug.value.trim() || undefined,
-    newPersonaImageUrl.value.trim() || undefined
+    aliases
   )
 
   showCreateModal.value = false
   newPersonaName.value = ''
   newPersonaDescription.value = ''
   newPersonaAliases.value = ''
-  newPersonaSlug.value = ''
-  newPersonaImageUrl.value = ''
 }
 
 // Update persona
@@ -135,17 +123,13 @@ async function handleUpdatePersona() {
   await updatePersona(
     editingPersona.value.id,
     newPersonaName.value.trim(),
-    newPersonaDescription.value.trim() || undefined,
-    newPersonaSlug.value.trim() || undefined,
-    newPersonaImageUrl.value.trim() || undefined
+    newPersonaDescription.value.trim() || undefined
   )
 
   showEditModal.value = false
   editingPersona.value = null
   newPersonaName.value = ''
   newPersonaDescription.value = ''
-  newPersonaSlug.value = ''
-  newPersonaImageUrl.value = ''
 }
 
 // Delete persona
@@ -159,8 +143,6 @@ function openEditModal(persona: ReadonlyPersona) {
   editingPersona.value = persona
   newPersonaName.value = persona.name
   newPersonaDescription.value = persona.description || ''
-  newPersonaSlug.value = persona.slug || ''
-  newPersonaImageUrl.value = persona.image_url || ''
   showEditModal.value = true
 }
 
@@ -249,15 +231,12 @@ onMounted(async () => {
         <NuxtLink
           v-for="persona in personas"
           :key="persona.id"
-          :to="`/admin/personas/${persona.id}`"
+          :to="`/personas/${persona.id}`"
           class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
         >
           <div class="flex items-start justify-between mb-2">
             <div>
-              <div class="flex items-center gap-2">
-                <span class="font-semibold">{{ persona.name }}</span>
-                <UBadge v-if="persona.slug" color="success" variant="subtle" size="xs">Published</UBadge>
-              </div>
+              <div class="font-semibold">{{ persona.name }}</div>
               <div v-if="persona.description" class="text-base text-gray-500 mt-1">
                 {{ persona.description }}
               </div>
@@ -309,17 +288,6 @@ onMounted(async () => {
             <UFormField label="Aliases" description="Comma-separated list of name variations">
               <UInput v-model="newPersonaAliases" placeholder="e.g., J. Smith, John S., Mr. Smith" class="w-full" />
             </UFormField>
-
-            <UFormField label="Slug" description="URL-friendly identifier for public page. Leave empty to keep persona unpublished.">
-              <div class="flex gap-2">
-                <UInput v-model="newPersonaSlug" placeholder="e.g., john-smith" class="w-full flex-1" />
-                <UButton size="xs" variant="ghost" @click="newPersonaSlug = slugify(newPersonaName)">Auto</UButton>
-              </div>
-            </UFormField>
-
-            <UFormField label="Image URL" description="Avatar image for public profile">
-              <UInput v-model="newPersonaImageUrl" placeholder="https://..." class="w-full" />
-            </UFormField>
           </div>
 
           <div class="flex justify-end gap-2 mt-6">
@@ -343,17 +311,6 @@ onMounted(async () => {
 
             <UFormField label="Description">
               <UTextarea v-model="newPersonaDescription" placeholder="Optional description..." :rows="2" class="w-full" />
-            </UFormField>
-
-            <UFormField label="Slug" description="URL-friendly identifier for public page. Leave empty to unpublish.">
-              <div class="flex gap-2">
-                <UInput v-model="newPersonaSlug" placeholder="e.g., john-smith" class="w-full flex-1" />
-                <UButton size="xs" variant="ghost" @click="newPersonaSlug = slugify(newPersonaName)">Auto</UButton>
-              </div>
-            </UFormField>
-
-            <UFormField label="Image URL" description="Avatar image for public profile">
-              <UInput v-model="newPersonaImageUrl" placeholder="https://..." class="w-full" />
             </UFormField>
           </div>
 

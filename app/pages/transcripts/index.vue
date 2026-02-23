@@ -34,7 +34,7 @@
     <div v-else-if="!transcripts?.length" class="py-8 text-center text-gray-500">
       <UIcon name="i-heroicons-document-text" class="size-12 mx-auto mb-4 opacity-50" />
       <p>No transcripts yet</p>
-      <UButton to="/admin" variant="link" class="mt-2">Create your first transcript</UButton>
+      <UButton to="/" variant="link" class="mt-2">Create your first transcript</UButton>
     </div>
 
     <div v-else-if="!filtered.length" class="py-8 text-center text-gray-500">
@@ -55,7 +55,7 @@
             v-for="item in group.items"
             :key="item.id"
             class="flex items-start gap-3 py-3 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors group"
-            @click="navigateTo(`/admin/transcripts/${item.id}`)"
+            @click="navigateTo(`/transcripts/${item.id}`)"
           >
             <UIcon name="i-heroicons-document-text" class="size-5 text-gray-400 shrink-0 mt-0.5" />
 
@@ -83,7 +83,7 @@
                 variant="ghost"
                 color="gray"
                 icon="i-heroicons-arrow-top-right-on-square-20-solid"
-                :to="`/admin/transcripts/${item.id}`"
+                :to="`/transcripts/${item.id}`"
                 @click.stop
               />
             </div>

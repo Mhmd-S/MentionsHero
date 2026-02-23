@@ -12,7 +12,6 @@ export interface Transcript {
   folder_id: string | null
   youtube_url: string
   created_at: string
-  upload_date: string | null
 }
 
 export function useFileTree() {

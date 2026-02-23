@@ -154,31 +154,13 @@ CREATE TABLE public.persona_kalshi_series (
   CONSTRAINT persona_kalshi_series_folder_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id) ON DELETE SET NULL,
   CONSTRAINT persona_kalshi_series_unique UNIQUE (persona_id, kalshi_series_id)
 );
-CREATE TABLE public.profiles (
-  id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role text NOT NULL DEFAULT 'client' CHECK (role IN ('admin', 'client')),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT profiles_pkey PRIMARY KEY (id)
-);
 CREATE TABLE public.personas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
   description text,
-  slug text UNIQUE,
-  image_url text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT personas_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.transcript_reads (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  transcript_id uuid NOT NULL,
-  read_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT transcript_reads_pkey PRIMARY KEY (id),
-  CONSTRAINT transcript_reads_unique UNIQUE (user_id, transcript_id),
-  CONSTRAINT transcript_reads_transcript_fkey FOREIGN KEY (transcript_id) REFERENCES public.transcripts(id) ON DELETE CASCADE
 );
 CREATE TABLE public.speakers (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
