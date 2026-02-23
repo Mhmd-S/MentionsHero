@@ -13,7 +13,6 @@ from backend.routers import (
     kalshi,
     personas,
     playlist,
-    public,
     transcripts,
     video,
 )
@@ -24,6 +23,7 @@ app = FastAPI(
     title="Transcript Analysis API",
     description="Backend API for press briefing transcription and analysis",
     version="2.0.0",
+    dependencies=[Depends(require_auth)],
 )
 
 # CORS middleware for Nuxt frontend
@@ -43,19 +43,15 @@ async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
 
 
-# Authenticated routers
-auth_dep = [Depends(require_auth)]
-app.include_router(jobs.router, dependencies=auth_dep)
-app.include_router(transcripts.router, dependencies=auth_dep)
-app.include_router(folders.router, dependencies=auth_dep)
-app.include_router(analysis.router, dependencies=auth_dep)
-app.include_router(video.router, dependencies=auth_dep)
-app.include_router(playlist.router, dependencies=auth_dep)
-app.include_router(kalshi.router, dependencies=auth_dep)
-app.include_router(personas.router, dependencies=auth_dep)
-
-# Public routers (no auth)
-app.include_router(public.router)
+# Include all routers
+app.include_router(jobs.router)
+app.include_router(transcripts.router)
+app.include_router(folders.router)
+app.include_router(analysis.router)
+app.include_router(video.router)
+app.include_router(playlist.router)
+app.include_router(kalshi.router)
+app.include_router(personas.router)
 
 
 if __name__ == "__main__":

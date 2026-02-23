@@ -6,8 +6,6 @@ export interface Persona {
   id: string;
   name: string;
   description: string | null;
-  slug: string | null;
-  image_url: string | null;
   aliases: string[];
   created_at: string | null;
   updated_at: string | null;
@@ -65,16 +63,14 @@ export function usePersonas() {
   async function createPersona(
     name: string,
     description?: string,
-    aliases?: string[],
-    slug?: string,
-    image_url?: string
+    aliases?: string[]
   ): Promise<Persona | null> {
     loading.value = true;
     error.value = null;
     try {
       const result = await authFetch<Persona>('/api/personas', {
         method: 'POST',
-        body: { name, description, aliases: aliases || [], slug, image_url }
+        body: { name, description, aliases: aliases || [] }
       });
       // Refresh list
       await fetchPersonas();
@@ -94,16 +90,14 @@ export function usePersonas() {
   async function updatePersona(
     id: string,
     name?: string,
-    description?: string,
-    slug?: string,
-    image_url?: string
+    description?: string
   ): Promise<Persona | null> {
     loading.value = true;
     error.value = null;
     try {
       const result = await authFetch<Persona>(`/api/personas/${id}`, {
         method: 'PATCH',
-        body: { name, description, slug, image_url }
+        body: { name, description }
       });
       // Refresh list
       await fetchPersonas();

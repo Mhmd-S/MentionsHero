@@ -13,7 +13,7 @@ User enters YouTube URL(s)
     3. SAVING: Insert transcript + extract speakers + trigger market reprocessing
   → SSE stream: GET /api/jobs/{job_id}/stream
   → Frontend polls progress via useJobProgress composable
-  → On completion: navigate to /admin/transcripts/{transcript_id}
+  → On completion: navigate to /transcripts/{transcript_id}
 ```
 
 ## Job Lifecycle
@@ -87,9 +87,9 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 
 | Layer | File | Purpose |
 |-------|------|---------|
-| Page | `app/pages/admin/index.vue` | URL input, video preview, job creation UI |
-| Page | `app/pages/admin/transcripts/[id].vue` | Transcript viewer with search/speaker filtering |
-| Page | `app/pages/admin/transcripts/index.vue` | Transcript listing grouped by date |
+| Page | `app/pages/index.vue` | URL input, video preview, job creation UI |
+| Page | `app/pages/transcripts/[id].vue` | Transcript viewer with search/speaker filtering |
+| Page | `app/pages/transcripts/index.vue` | Transcript listing grouped by date |
 | Composable | `app/composables/useJobProgress.ts` | SSE streaming, progress state |
 | Composable | `app/composables/useAuthFetch.ts` | Authenticated API calls |
 | Router | `backend/routers/jobs.py` | Job endpoints + `process_job()` background task |
@@ -106,80 +106,6 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 | Util | `backend/utils/nlp.py` | `parse_transcript_segments()`, `extract_speakers()` |
 | Util | `backend/utils/transcript_filter.py` | Highlighting, speaker frequency |
 
-## Public Viewer
-
-A read-only, unauthenticated transcript viewer at `/view/{transcript_id}` with display-time speaker name normalization.
-
-### Speaker Normalization
-
-Raw Gemini speaker labels (e.g., "SPEAKER_00", "Caroline", "Press Secretary") are resolved to canonical persona names at request time using persona aliases. The raw transcript text in the DB is never modified.
-
-**Resolution logic** (in `persona_service.resolve_transcript_speakers()`):
-- Bidirectional case-insensitive substring matching: `sl == alias or alias in sl or sl in alias`
-- Same matching strategy as `find_affected_persona_ids()` in `kalshi_service.py`
-- Unresolved speakers (no persona alias match) are shown with their raw label in neutral gray
-
-**Data flow:**
-```
-GET /api/public/transcripts/{id}  (no auth)
-  → fetch transcript from DB
-  → parse_transcript() → segments
-  → build_alias_to_persona_map() → {alias_lower: persona_name}
-  → resolve_transcript_speakers() → {raw_label: display_name}
-  → return PublicTranscriptResponse with normalized segments
-```
-
-### Public API Endpoint
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/public/transcripts/{id}` | None | Returns normalized transcript with resolved speaker names |
-
-Response includes: `segments[]` (with `speaker`, `speaker_raw`, `resolved`, `content`), `speaker_map`, `speakers` (ordered by first appearance), `segment_counts`.
-
-### Read Metering (Free Tier)
-
-Public transcript viewing is metered for client users. Each unique transcript read counts against a monthly limit.
-
-**How it works:**
-1. On mount, the viewer calls `POST /api/public/reads/record` with the transcript ID + Bearer token (if logged in)
-2. Backend checks `transcript_reads` table: if `UNIQUE(user_id, transcript_id)` row exists, it's a re-read (doesn't count)
-3. Counts unique reads this calendar month against `FREE_TIER_LIMIT = 5`
-4. Returns `{ allowed, reads_this_month, limit }`
-
-**Frontend behavior:**
-- `allowed: true` → show full transcript
-- `allowed: false` + no session → prompt to sign in/sign up
-- `allowed: false` + session → show paywall with usage count
-- Anonymous users (no token) → `allowed: false` with sign-up prompt
-
-**API endpoint:**
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/public/reads/record` | Optional Bearer | Record a read, returns metering status |
-
-Request body: `{ "transcript_id": "uuid" }`
-Response: `{ "allowed": true, "reads_this_month": 3, "limit": 5 }`
-
-### Frontend
-
-- **Page:** `app/pages/view/[id].vue` — uses `public` layout (no sidebar), includes read metering gate
-- **Layout:** `app/layouts/public.vue` — minimal wrapper, no auth
-- **Auth exemption:** `/view/` prefix is skipped in `app/middleware/auth.global.ts`
-- **Features:** Speaker color badges, client-side search/highlight, speaker filter, segment counts sidebar, read metering paywall
-
-### File Map (Public Viewer)
-
-| Layer | File | Purpose |
-|-------|------|---------|
-| Page | `app/pages/view/[id].vue` | Public transcript viewer with metering gate |
-| Layout | `app/layouts/public.vue` | Minimal public layout |
-| Composable | `app/composables/useReads.ts` | `checkAndRecordRead()`, `FREE_TIER_LIMIT` |
-| Router | `backend/routers/public.py` | Unauthenticated `/api/public/transcripts/{id}` + `/api/public/reads/record` |
-| Service | `backend/services/persona_service.py` | `build_alias_to_persona_map()`, `resolve_transcript_speakers()` |
-| Model | `backend/models/transcript.py` | `PublicSegment`, `PublicTranscriptResponse`, `RecordReadRequest`, `ReadStatusResponse` |
-
 ## Database Tables
 
 **transcripts**
@@ -193,8 +119,3 @@ Response: `{ "allowed": true, "reads_this_month": 3, "limit": 5 }`
 
 **transcript_speakers**
 - `id` (uuid PK), `transcript_id` (uuid FK), `speaker_id` (uuid FK), `segment_count` (int), `created_at`
-
-**transcript_reads**
-- `id` (uuid PK), `user_id` (uuid NOT NULL), `transcript_id` (uuid FK → transcripts CASCADE), `read_at` (timestamptz)
-- UNIQUE(user_id, transcript_id) — re-reads don't count against the monthly limit
-- Index: `idx_transcript_reads_user_month` on (user_id, read_at DESC)

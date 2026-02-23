@@ -14,7 +14,6 @@
     "@nuxt/eslint": "1.13.0",
     "@nuxt/hints": "1.0.0-alpha.5",
     "@nuxt/ui": "4.4.0",
-    "@nuxtjs/seo": "^3.4.0",
     "@supabase/supabase-js": "^2.91.1",
     "eslint": "^9.39.2",
     "nuxt": "^4.3.0",

@@ -36,8 +36,7 @@
       "Bash(# Get a specific press briefing mentions event with nested markets to see full structure curl -s \"\"https://api.elections.kalshi.com/trade-api/v2/events?series_ticker=KXSECPRESSMENTION&with_nested_markets=true&status=open&limit=1\"\" | python3 -m json.tool)",
       "Bash(# Get a settled/closed event to see resolution data curl -s \"\"https://api.elections.kalshi.com/trade-api/v2/events?series_ticker=KXSECPRESSMENTION&with_nested_markets=true&status=settled&limit=1\"\" | python3 -m json.tool)",
       "Bash(ls:*)",
-      "WebFetch(domain:api.elections.kalshi.com)",
-      "WebFetch(domain:nuxtseo.com)"
+      "WebFetch(domain:api.elections.kalshi.com)"
     ],
     "deny": [
       "**/.env*",
