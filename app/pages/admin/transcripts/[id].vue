@@ -63,14 +63,8 @@ definePageMeta({ layout: 'admin' })
         </UButton>
 
         <div class="ml-auto flex items-center gap-3">
-          <label class="flex items-center gap-2 text-sm">
-            <UToggle v-model="isPublic" @update:model-value="updateVisibility" />
-            Public
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <UToggle v-model="isPremium" :disabled="!isPublic" @update:model-value="updateVisibility" />
-            Premium
-          </label>
+          <USwitch v-model="isPublic" label="Public" @update:model-value="updateVisibility" />
+          <USwitch v-model="isPremium" label="Premium" @update:model-value="updateVisibility" />
         </div>
       </div>
 
@@ -237,7 +231,11 @@ watch(transcript, (newTranscript) => {
 
 async function updateVisibility() {
   if (!transcript.value) return
-  // If not public, premium should be false
+  // Premium requires public — auto-enable public when premium is turned on
+  if (isPremium.value && !isPublic.value) {
+    isPublic.value = true
+  }
+  // Turning off public also turns off premium
   if (!isPublic.value) {
     isPremium.value = false
   }

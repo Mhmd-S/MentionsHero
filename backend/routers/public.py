@@ -7,7 +7,6 @@ from backend.core.auth import optional_auth
 from backend.services import public_service
 from backend.utils.transcript_filter import (
     highlight_transcript,
-    extract_speakers,
     calculate_speaker_frequencies,
 )
 

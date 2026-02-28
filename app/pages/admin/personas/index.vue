@@ -5,6 +5,7 @@ definePageMeta({ layout: 'admin' })
 <script setup lang="ts">
 import { usePersonas, type Persona } from '~/composables/usePersonas'
 
+const NuxtLink = resolveComponent('NuxtLink')
 const { personas, loading, fetchPersonas, createPersona, updatePersona, deletePersona, addAliases, removeAliases } = usePersonas()
 const { fetchFolders, getSpeakers } = useAnalysis()
 const { folders: fileTreeFolders, fetchFolders: fetchFileTreeFolders } = useFileTree()
@@ -19,10 +20,66 @@ type ReadonlyPersona = {
   readonly updated_at: string | null
 }
 
+// Selection / mass edit state
+const selectMode = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
+const bulkDeleting = ref(false)
+
+const allSelected = computed(() =>
+  personas.value.length > 0 && selectedIds.value.size === personas.value.length
+)
+
+function toggleSelect(id: string) {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+function toggleSelectAll() {
+  if (allSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(personas.value.map(p => p.id))
+  }
+}
+
+function exitSelectMode() {
+  selectMode.value = false
+  selectedIds.value = new Set()
+}
+
+async function bulkDelete() {
+  const count = selectedIds.value.size
+  if (!count) return
+  if (!confirm(`Delete ${count} persona${count !== 1 ? 's' : ''} and all their aliases?`)) return
+
+  bulkDeleting.value = true
+  try {
+    for (const id of selectedIds.value) {
+      await deletePersona(id)
+    }
+    selectedIds.value = new Set()
+    selectMode.value = false
+  } finally {
+    bulkDeleting.value = false
+  }
+}
+
+function bulkAddAliases() {
+  // Open add alias modal targeting all selected personas
+  editingPersona.value = null
+  bulkTargetIds.value = [...selectedIds.value]
+  aliasToAdd.value = ''
+  selectedSpeakersToAdd.value = []
+  showAddAliasModal.value = true
+}
+
 // Modal state
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showAddAliasModal = ref(false)
+const bulkTargetIds = ref<string[]>([])
 const newPersonaName = ref('')
 const newPersonaDescription = ref('')
 const newPersonaAliases = ref('')
@@ -87,7 +144,16 @@ watch(showAddAliasModal, (isOpen) => {
 
 // Speaker options for select menu
 const speakerOptions = computed(() => {
-  const existingAliases = new Set(editingPersona.value?.aliases || [])
+  // Collect aliases from all targeted personas (single or bulk)
+  const existingAliases = new Set<string>()
+  if (bulkTargetIds.value.length > 0) {
+    for (const id of bulkTargetIds.value) {
+      const p = personas.value.find(p => p.id === id)
+      p?.aliases.forEach(a => existingAliases.add(a))
+    }
+  } else if (editingPersona.value) {
+    editingPersona.value.aliases.forEach(a => existingAliases.add(a))
+  }
   return availableSpeakers.value.map(s => {
     const isAssigned = existingAliases.has(s.name)
     return {
@@ -153,15 +219,14 @@ function openEditModal(persona: ReadonlyPersona) {
 // Open add alias modal
 function openAddAliasModal(persona: ReadonlyPersona) {
   editingPersona.value = persona
+  bulkTargetIds.value = []
   aliasToAdd.value = ''
   selectedSpeakersToAdd.value = []
   showAddAliasModal.value = true
 }
 
-// Add alias to persona
+// Add alias to persona(s) — supports single and bulk
 async function handleAddAlias() {
-  if (!editingPersona.value) return
-
   const aliasesToAdd = new Set<string>()
 
   // Add selected speakers
@@ -174,12 +239,22 @@ async function handleAddAlias() {
 
   if (aliasesToAdd.size === 0) return
 
-  await addAliases(editingPersona.value.id, Array.from(aliasesToAdd))
+  const aliasList = Array.from(aliasesToAdd)
+
+  // Bulk mode: add aliases to all selected personas
+  if (bulkTargetIds.value.length > 0) {
+    for (const id of bulkTargetIds.value) {
+      await addAliases(id, aliasList)
+    }
+  } else if (editingPersona.value) {
+    await addAliases(editingPersona.value.id, aliasList)
+  }
 
   showAddAliasModal.value = false
   aliasToAdd.value = ''
   selectedSpeakersToAdd.value = []
   editingPersona.value = null
+  bulkTargetIds.value = []
 }
 
 // Remove alias from persona
@@ -208,8 +283,39 @@ onMounted(async () => {
             Group speaker name variations into unified personas
           </p>
         </div>
-        <UButton @click="showCreateModal = true" icon="i-heroicons-plus">
-          New Persona
+        <div class="flex items-center gap-2">
+          <UButton
+            v-if="personas.length > 0"
+            :variant="selectMode ? 'solid' : 'outline'"
+            :color="selectMode ? 'neutral' : undefined"
+            size="sm"
+            icon="i-heroicons-check-circle"
+            @click="selectMode ? exitSelectMode() : (selectMode = true)"
+          >
+            {{ selectMode ? 'Cancel' : 'Select' }}
+          </UButton>
+          <UButton @click="showCreateModal = true" icon="i-heroicons-plus">
+            New Persona
+          </UButton>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk action bar -->
+    <div
+      v-if="selectMode && selectedIds.size > 0"
+      class="mb-4 flex items-center gap-3 p-3 bg-primary-50 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800 rounded-lg"
+    >
+      <span class="text-sm font-medium">{{ selectedIds.size }} selected</span>
+      <UButton size="xs" variant="outline" @click="toggleSelectAll">
+        {{ allSelected ? 'Deselect all' : 'Select all' }}
+      </UButton>
+      <div class="ml-auto flex items-center gap-2">
+        <UButton size="xs" variant="outline" icon="i-heroicons-plus" @click="bulkAddAliases">
+          Add Aliases
+        </UButton>
+        <UButton size="xs" variant="outline" color="error" icon="i-heroicons-trash" :loading="bulkDeleting" @click="bulkDelete">
+          Delete
         </UButton>
       </div>
     </div>
@@ -232,20 +338,36 @@ onMounted(async () => {
       </div>
 
       <div v-else class="space-y-3">
-        <NuxtLink
+        <component
+          :is="selectMode ? 'div' : NuxtLink"
           v-for="persona in personas"
           :key="persona.id"
-          :to="`/admin/personas/${persona.id}`"
-          class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
+          :to="selectMode ? undefined : `/admin/personas/${persona.id}`"
+          class="block p-4 border rounded-lg transition-colors cursor-pointer"
+          :class="[
+            selectMode && selectedIds.has(persona.id)
+              ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-950/20'
+              : 'hover:border-primary-500'
+          ]"
+          @click="selectMode ? toggleSelect(persona.id) : undefined"
         >
           <div class="flex items-start justify-between mb-2">
-            <div>
-              <div class="font-semibold">{{ persona.name }}</div>
-              <div v-if="persona.description" class="text-base text-gray-500 mt-1">
-                {{ persona.description }}
+            <div class="flex items-start gap-3">
+              <UCheckbox
+                v-if="selectMode"
+                :model-value="selectedIds.has(persona.id)"
+                @click.stop
+                @update:model-value="toggleSelect(persona.id)"
+                class="mt-0.5"
+              />
+              <div>
+                <div class="font-semibold">{{ persona.name }}</div>
+                <div v-if="persona.description" class="text-base text-gray-500 mt-1">
+                  {{ persona.description }}
+                </div>
               </div>
             </div>
-            <div class="flex items-center gap-1">
+            <div v-if="!selectMode" class="flex items-center gap-1">
               <UButton size="xs" variant="ghost" icon="i-heroicons-plus" @click.prevent="openAddAliasModal(persona)" />
               <UButton size="xs" variant="ghost" icon="i-heroicons-pencil" @click.prevent="openEditModal(persona)" />
               <UButton size="xs" variant="ghost" color="error" icon="i-heroicons-trash" @click.prevent="handleDeletePersona(persona)" />
@@ -253,24 +375,24 @@ onMounted(async () => {
           </div>
 
           <!-- Aliases -->
-          <div v-if="persona.aliases.length > 0" class="flex flex-wrap gap-1">
+          <div v-if="persona.aliases.length > 0" class="flex flex-wrap gap-1" :class="selectMode ? 'ml-8' : ''">
             <UBadge
               v-for="alias in persona.aliases"
               :key="alias"
               color="neutral"
               variant="soft"
               size="sm"
-              class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-              @click.prevent="handleRemoveAlias(persona, alias)"
+              :class="selectMode ? '' : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800'"
+              @click.prevent="selectMode ? undefined : handleRemoveAlias(persona, alias)"
             >
               {{ alias }}
-              <UIcon name="i-heroicons-x-mark" class="w-3 h-3 ml-1" />
+              <UIcon v-if="!selectMode" name="i-heroicons-x-mark" class="w-3 h-3 ml-1" />
             </UBadge>
           </div>
-          <div v-else class="text-sm text-gray-400">
+          <div v-else class="text-sm text-gray-400" :class="selectMode ? 'ml-8' : ''">
             No aliases - click + to add
           </div>
-        </NuxtLink>
+        </component>
       </div>
     </div>
 
@@ -330,7 +452,11 @@ onMounted(async () => {
     <UModal v-model:open="showAddAliasModal">
       <template #content>
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">Add Aliases to {{ editingPersona?.name }}</h3>
+          <h3 class="text-lg font-semibold mb-4">
+            {{ bulkTargetIds.length > 0
+              ? `Add Aliases to ${bulkTargetIds.length} Persona${bulkTargetIds.length !== 1 ? 's' : ''}`
+              : `Add Aliases to ${editingPersona?.name}` }}
+          </h3>
 
           <div class="space-y-4">
             <!-- Folder Selection -->

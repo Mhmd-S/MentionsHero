@@ -228,13 +228,7 @@ onMounted(async () => {
                 <span class="font-medium text-sm truncate">{{ t.name || 'Untitled' }}</span>
                 <UBadge v-if="t.is_premium" color="warning" variant="subtle" size="xs">Premium</UBadge>
               </div>
-              <p v-if="t.preview" class="text-xs text-gray-400 truncate mt-0.5">{{ t.preview }}</p>
               <div class="flex items-center gap-2 mt-1">
-                <span class="text-[11px] text-gray-400">{{ formatDate(t.created_at) }}</span>
-                <template v-if="t.folder_name">
-                  <span class="text-gray-300 dark:text-gray-600">&middot;</span>
-                  <span class="text-[11px] text-gray-400">{{ t.folder_name }}</span>
-                </template>
               </div>
             </div>
           </NuxtLink>

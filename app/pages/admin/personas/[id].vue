@@ -91,7 +91,16 @@ async function loadPersonaTranscripts() {
 }
 
 async function toggleTranscriptVisibility(item: PersonaTranscript, field: 'is_public' | 'is_premium', value: boolean) {
-  if (field === 'is_public' && !value) {
+  if (field === 'is_premium' && value && !item.is_public) {
+    // Turning on premium auto-enables public
+    item.is_public = true
+    item.is_premium = true
+    await authFetch(`/api/transcripts/${item.id}`, {
+      method: 'PATCH',
+      body: { is_public: true, is_premium: true },
+    }).catch(() => {})
+  } else if (field === 'is_public' && !value) {
+    // Turning off public also turns off premium
     item.is_public = false
     item.is_premium = false
     await authFetch(`/api/transcripts/${item.id}`, {
@@ -213,23 +222,18 @@ onMounted(async () => {
           </NuxtLink>
 
           <div class="flex items-center gap-3 shrink-0">
-            <label class="flex items-center gap-1.5 text-xs text-gray-500">
-              <UToggle
-                :model-value="t.is_public ?? false"
-                size="xs"
-                @update:model-value="toggleTranscriptVisibility(t, 'is_public', $event)"
-              />
-              Public
-            </label>
-            <label class="flex items-center gap-1.5 text-xs text-gray-500">
-              <UToggle
-                :model-value="t.is_premium ?? false"
-                size="xs"
-                :disabled="!t.is_public"
-                @update:model-value="toggleTranscriptVisibility(t, 'is_premium', $event)"
-              />
-              Premium
-            </label>
+            <USwitch
+              :model-value="t.is_public ?? false"
+              size="xs"
+              label="Public"
+              @update:model-value="toggleTranscriptVisibility(t, 'is_public', $event)"
+            />
+            <USwitch
+              :model-value="t.is_premium ?? false"
+              size="xs"
+              label="Premium"
+              @update:model-value="toggleTranscriptVisibility(t, 'is_premium', $event)"
+            />
           </div>
         </div>
       </div>
