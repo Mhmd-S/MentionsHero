@@ -17,7 +17,6 @@ interface TranscriptDetail {
   created_at: string
   is_premium: boolean
   is_locked: boolean
-  availableSpeakers?: string[]
   hasHighlights?: boolean
   matchCount?: number
   speakerFrequencies?: SpeakerFrequency[]
@@ -28,7 +27,6 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const searchInput = ref('')
 const debouncedSearch = ref('')
-const selectedSpeakers = ref<string[]>([])
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchInput, (val) => {
@@ -42,9 +40,6 @@ const searchQuery = computed(() => {
   const query: Record<string, string> = {}
   if (debouncedSearch.value.trim()) {
     query.search = debouncedSearch.value.trim()
-  }
-  if (selectedSpeakers.value.length > 0) {
-    query.speakers = selectedSpeakers.value.join(',')
   }
   return query
 })
@@ -66,16 +61,14 @@ async function refresh() {
 watch(searchQuery, () => refresh())
 onMounted(() => refresh())
 
-const availableSpeakers = computed(() => transcript.value?.availableSpeakers || [])
 const hasHighlights = computed(() => transcript.value?.hasHighlights || false)
 const matchCount = computed(() => transcript.value?.matchCount ?? null)
 const speakerFrequencies = computed(() => transcript.value?.speakerFrequencies || [])
-const hasFilters = computed(() => searchInput.value.trim().length > 0 || selectedSpeakers.value.length > 0)
+const hasSearch = computed(() => searchInput.value.trim().length > 0)
 
-function clearFilters() {
+function clearSearch() {
   searchInput.value = ''
   debouncedSearch.value = ''
-  selectedSpeakers.value = []
 }
 
 function formatDate(dateString: string) {
@@ -149,32 +142,20 @@ function formatDate(dateString: string) {
                     <span class="font-semibold">{{ matchCount }}</span> match{{ matchCount !== 1 ? 'es' : '' }} found
                   </div>
                   <UButton
-                    v-if="hasFilters"
+                    v-if="hasSearch"
                     variant="ghost"
                     size="sm"
-                    @click="clearFilters"
+                    @click="clearSearch"
                   >
                     Clear
                   </UButton>
                 </div>
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <UFormField label="Search text">
-                  <UInput
-                    v-model="searchInput"
-                    placeholder="Search in transcript..."
-                    icon="i-heroicons-magnifying-glass"
-                  />
-                </UFormField>
-                <UFormField label="Filter by speaker">
-                  <USelectMenu
-                    v-model="selectedSpeakers"
-                    :items="availableSpeakers"
-                    :placeholder="selectedSpeakers.length === 0 ? 'Select speakers...' : `${selectedSpeakers.length} selected`"
-                    multiple
-                  />
-                </UFormField>
-              </div>
+              <UInput
+                v-model="searchInput"
+                placeholder="Search in transcript..."
+                icon="i-heroicons-magnifying-glass"
+              />
             </div>
           </template>
           <div class="whitespace-pre-wrap text-sm leading-relaxed">
