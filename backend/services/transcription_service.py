@@ -106,7 +106,8 @@ async def transcribe_with_gemini(
     client: genai.Client,
     audio_path: str,
     cancel_event: asyncio.Event | None = None,
-    speaker_hint: str | None = None
+    speaker_hint: str | None = None,
+    video_title: str | None = None
 ) -> str:
     """Transcribe audio using Gemini with speaker diarization."""
     if cancel_event and cancel_event.is_set():
@@ -118,6 +119,12 @@ Requirements:
 1. Identify distinct speakers (e.g., Speaker 1, Speaker 2 format if names are not available).
 2. Transcribe the speech accurately, preserving the natural flow of conversation.
 3. Group consecutive segments from the same speaker together."""
+
+    if video_title:
+        prompt += f"""
+
+Video title: {video_title}
+Use this title as context to better understand the topic, identify speakers, and accurately transcribe domain-specific terms."""
 
     if speaker_hint:
         hint = speaker_hint.strip()[:SPEAKER_HINT_MAX_LENGTH]
@@ -222,7 +229,8 @@ Use this context to label speakers with descriptive names where possible (e.g. P
 async def transcribe_audio(
     audio_path: str,
     cancel_event: asyncio.Event | None = None,
-    speaker_hint: str | None = None
+    speaker_hint: str | None = None,
+    video_title: str | None = None
 ) -> str:
     """
     Transcribe audio file using Gemini.
@@ -240,5 +248,6 @@ async def transcribe_audio(
     client = genai.Client(api_key=settings.gemini_api_key)
 
     return await transcribe_with_gemini(
-        client, audio_path, cancel_event, speaker_hint=speaker_hint
+        client, audio_path, cancel_event, speaker_hint=speaker_hint,
+        video_title=video_title
     )

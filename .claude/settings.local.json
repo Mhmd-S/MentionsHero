@@ -47,7 +47,8 @@
       "Bash(git mv app/pages/markets/[id].vue \"app/pages/admin/markets/[id].vue\")",
       "Bash(git mv 'app/pages/transcripts/\\\\[id\\\\].vue' 'app/pages/admin/transcripts/\\\\[id\\\\].vue')",
       "Bash(git mv 'app/pages/personas/\\\\[id\\\\].vue' 'app/pages/admin/personas/\\\\[id\\\\].vue')",
-      "Bash(git mv 'app/pages/markets/\\\\[id\\\\].vue' 'app/pages/admin/markets/\\\\[id\\\\].vue')"
+      "Bash(git mv 'app/pages/markets/\\\\[id\\\\].vue' 'app/pages/admin/markets/\\\\[id\\\\].vue')",
+      "Bash(head -50 /Users/moslmn/projects/transcripts_generator/app/pages/admin/personas/[id].vue)"
     ],
     "deny": [
       "**/.env*",
