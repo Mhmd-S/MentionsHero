@@ -239,7 +239,7 @@ async def get_transcripts_for_persona(
     print(f"[get_transcripts_for_persona] persona_id={persona_id}, aliases={aliases}")
 
     # Get transcripts
-    query = supabase.table("transcripts").select("id, name, youtube_url, created_at, folder_id")
+    query = supabase.table("transcripts").select("id, name, youtube_url, created_at, folder_id, is_public, is_premium")
 
     if folder_id:
         # Get folder tree

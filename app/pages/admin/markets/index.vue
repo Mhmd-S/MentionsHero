@@ -1,3 +1,7 @@
+<script lang="ts">
+definePageMeta({ layout: 'admin' })
+</script>
+
 <script setup lang="ts">
 import { useKalshi, type BrowsedEvent } from '~/composables/useKalshi'
 
@@ -103,7 +107,7 @@ onMounted(load)
           <NuxtLink
             v-for="ev in filtered[cat]"
             :key="ev.event_ticker"
-            :to="`/markets/${ev.event_ticker}`"
+            :to="`/admin/markets/${ev.event_ticker}`"
             class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
           >
             <div class="flex items-start gap-3">

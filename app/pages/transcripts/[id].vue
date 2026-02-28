@@ -1,64 +1,143 @@
+<script setup lang="ts">
+const route = useRoute()
+const transcriptId = route.params.id as string
+const { publicFetch } = usePublicApi()
+const { isSubscribed } = useSubscription()
+
+interface SpeakerFrequency {
+  speaker: string
+  count: number
+}
+
+interface TranscriptDetail {
+  id: string
+  youtube_url: string | null
+  transcript: string
+  name: string | null
+  created_at: string
+  is_premium: boolean
+  is_locked: boolean
+  availableSpeakers?: string[]
+  hasHighlights?: boolean
+  matchCount?: number
+  speakerFrequencies?: SpeakerFrequency[]
+}
+
+const transcript = ref<TranscriptDetail | null>(null)
+const loading = ref(true)
+const error = ref<string | null>(null)
+const searchInput = ref('')
+const debouncedSearch = ref('')
+const selectedSpeakers = ref<string[]>([])
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchInput, (val) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    debouncedSearch.value = val
+  }, 400)
+})
+
+const searchQuery = computed(() => {
+  const query: Record<string, string> = {}
+  if (debouncedSearch.value.trim()) {
+    query.search = debouncedSearch.value.trim()
+  }
+  if (selectedSpeakers.value.length > 0) {
+    query.speakers = selectedSpeakers.value.join(',')
+  }
+  return query
+})
+
+async function refresh() {
+  loading.value = true
+  error.value = null
+  try {
+    const params = new URLSearchParams(searchQuery.value).toString()
+    const url = `/api/public/transcripts/${transcriptId}` + (params ? `?${params}` : '')
+    transcript.value = await publicFetch<TranscriptDetail>(url)
+  } catch (e: any) {
+    error.value = e.data?.detail || 'Transcript not found'
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(searchQuery, () => refresh())
+onMounted(() => refresh())
+
+const availableSpeakers = computed(() => transcript.value?.availableSpeakers || [])
+const hasHighlights = computed(() => transcript.value?.hasHighlights || false)
+const matchCount = computed(() => transcript.value?.matchCount ?? null)
+const speakerFrequencies = computed(() => transcript.value?.speakerFrequencies || [])
+const hasFilters = computed(() => searchInput.value.trim().length > 0 || selectedSpeakers.value.length > 0)
+
+function clearFilters() {
+  searchInput.value = ''
+  debouncedSearch.value = ''
+  selectedSpeakers.value = []
+}
+
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+</script>
+
 <template>
   <div>
-    <div class="mb-8">
-      <UButton
-        to="/transcripts"
-        variant="ghost"
-        icon="i-heroicons-arrow-left"
-        size="sm"
-        class="mb-4"
-      >
-        Back to all transcripts
-      </UButton>
-      <h1 class="text-2xl font-bold">Transcript</h1>
-    </div>
+    <!-- Back -->
+    <UButton
+      variant="ghost"
+      icon="i-heroicons-arrow-left"
+      size="sm"
+      class="mb-4"
+      @click="$router.back()"
+    >
+      Back
+    </UButton>
 
-    <div v-if="pending && !transcript" class="flex justify-center py-8">
+    <!-- Loading -->
+    <div v-if="loading && !transcript" class="flex justify-center py-8">
       <UIcon name="i-heroicons-arrow-path" class="size-6 animate-spin" />
     </div>
 
+    <!-- Error -->
     <div v-else-if="error && !transcript" class="py-8">
-      <UAlert color="error" title="Transcript not found" />
+      <UAlert color="error" :title="error" />
     </div>
 
     <div v-if="transcript" class="space-y-6">
-      <div class="flex items-center justify-between">
-        <div class="text-sm text-gray-500">
-          <a
-            :href="transcript.youtube_url"
-            target="_blank"
-            class="hover:underline flex items-center gap-1"
-          >
-            {{ transcript.youtube_url }}
-            <UIcon name="i-heroicons-arrow-top-right-on-square" class="size-3" />
-          </a>
+      <!-- Header -->
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <h1 class="text-2xl font-bold">{{ transcript.name || 'Transcript' }}</h1>
+          <UBadge v-if="transcript.is_premium" color="warning" variant="subtle">Premium</UBadge>
         </div>
-        <div class="text-xs text-gray-400">
-          {{ formatDate(transcript.created_at) }}
-        </div>
+        <div class="text-xs text-gray-400">{{ formatDate(transcript.created_at) }}</div>
       </div>
 
-      <div class="flex gap-2">
-        <UButton
-          variant="outline"
-          icon="i-heroicons-clipboard-document"
-          size="sm"
-          @click="copyTranscript"
-        >
-          {{ copied ? 'Copied!' : 'Copy' }}
-        </UButton>
-        <UButton
-          variant="outline"
-          color="error"
-          icon="i-heroicons-trash"
-          size="sm"
-          @click="deleteTranscript"
-          :loading="deleting"
-        >
-          Delete
-        </UButton>
-      </div>
+      <!-- Locked / Paywall -->
+      <UAlert
+        v-if="transcript.is_locked"
+        color="warning"
+        icon="i-heroicons-lock-closed"
+        title="Premium Content"
+        description="Subscribe to read the full transcript. Preview shown below."
+      >
+        <template #actions>
+          <NuxtLink to="/pricing">
+            <UButton size="sm" color="warning">Subscribe</UButton>
+          </NuxtLink>
+        </template>
+      </UAlert>
 
+      <!-- Search & Content -->
       <div :class="speakerFrequencies.length > 0 ? 'grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6' : ''">
         <UCard>
           <template #header>
@@ -87,11 +166,11 @@
                     icon="i-heroicons-magnifying-glass"
                   />
                 </UFormField>
-                <UFormField label="Highlight speakers">
+                <UFormField label="Filter by speaker">
                   <USelectMenu
                     v-model="selectedSpeakers"
                     :items="availableSpeakers"
-                    :placeholder="selectedSpeakers.length === 0 ? 'Select speakers to highlight...' : `${selectedSpeakers.length} selected`"
+                    :placeholder="selectedSpeakers.length === 0 ? 'Select speakers...' : `${selectedSpeakers.length} selected`"
                     multiple
                   />
                 </UFormField>
@@ -105,9 +184,18 @@
             />
             <div v-else>{{ transcript.transcript }}</div>
           </div>
+
+          <!-- Truncation notice for locked transcripts -->
+          <div v-if="transcript.is_locked" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
+            <p class="text-gray-500 mb-3">Subscribe to view the full transcript</p>
+            <NuxtLink to="/pricing">
+              <UButton color="primary">View Plans</UButton>
+            </NuxtLink>
+          </div>
         </UCard>
 
-        <UCard v-if="speakerFrequencies.length > 0" class="h-fit lg:sticky lg:top-4">
+        <!-- Speaker Frequency Sidebar -->
+        <UCard v-if="speakerFrequencies.length > 0" class="h-fit lg:sticky lg:top-20">
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-heroicons-chart-bar" class="size-5" />
@@ -131,141 +219,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-interface SpeakerFrequency {
-  speaker: string
-  count: number
-}
-
-interface Transcript {
-  id: string
-  youtube_url: string
-  transcript: string
-  created_at: string
-  availableSpeakers?: string[]
-  hasHighlights?: boolean
-  matchCount?: number
-  speakerFrequencies?: SpeakerFrequency[]
-}
-
-const route = useRoute()
-const router = useRouter()
-const { authFetch } = useAuthFetch()
-const copied = ref(false)
-const deleting = ref(false)
-const searchInput = ref('')
-const debouncedSearch = ref('')
-const selectedSpeakers = ref<string[]>([])
-
-// Debounce search input
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchInput, (val) => {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    debouncedSearch.value = val
-  }, 400)
-})
-
-const searchQuery = computed(() => {
-  const query: Record<string, string> = {}
-  if (debouncedSearch.value.trim()) {
-    query.search = debouncedSearch.value.trim()
-  }
-  if (selectedSpeakers.value.length > 0) {
-    query.speakers = selectedSpeakers.value.join(',')
-  }
-  return query
-})
-
-const transcript = ref<Transcript | null>(null)
-const pending = ref(true)
-const error = ref<any>(null)
-
-async function refresh() {
-  pending.value = true
-  error.value = null
-  try {
-    const query: Record<string, string> = {}
-    if (debouncedSearch.value.trim()) query.search = debouncedSearch.value.trim()
-    if (selectedSpeakers.value.length > 0) query.speakers = selectedSpeakers.value.join(',')
-    const params = new URLSearchParams(query).toString()
-    const url = `/api/transcripts/${route.params.id}` + (params ? `?${params}` : '')
-    transcript.value = await authFetch<Transcript>(url)
-  } catch (e: any) {
-    error.value = e
-  } finally {
-    pending.value = false
-  }
-}
-
-watch(searchQuery, () => refresh())
-onMounted(() => refresh())
-
-const availableSpeakers = computed(() => transcript.value?.availableSpeakers || [])
-const hasHighlights = computed(() => transcript.value?.hasHighlights || false)
-const matchCount = computed(() => transcript.value?.matchCount ?? null)
-const speakerFrequencies = computed(() => transcript.value?.speakerFrequencies || [])
-const hasFilters = computed(() => searchInput.value.trim().length > 0 || selectedSpeakers.value.length > 0)
-
-// Initialize available speakers when transcript loads
-watch(transcript, (newTranscript) => {
-  if (newTranscript && !newTranscript.availableSpeakers && newTranscript.transcript) {
-    // Extract speakers from transcript if not provided
-    const speakerPattern = /^([A-Z][a-zA-Z'-]*(?:\s+[A-Z][a-zA-Z'-]*)?|[A-Z_0-9]+|Character\d+):/gm
-    const speakers = new Set<string>()
-    const matches = newTranscript.transcript.matchAll(speakerPattern)
-    for (const match of matches) {
-      speakers.add(match[1]!)
-    }
-    if (newTranscript) {
-      newTranscript.availableSpeakers = Array.from(speakers).sort()
-    }
-  }
-}, { immediate: true })
-
-function clearFilters() {
-  searchInput.value = ''
-  debouncedSearch.value = ''
-  selectedSpeakers.value = []
-}
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-async function copyTranscript() {
-  if (!transcript.value) return
-  // Strip HTML tags when copying
-  const textToCopy = hasHighlights.value
-    ? transcript.value.transcript.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ')
-    : transcript.value.transcript
-  await navigator.clipboard.writeText(textToCopy)
-  copied.value = true
-  setTimeout(() => {
-    copied.value = false
-  }, 2000)
-}
-
-async function deleteTranscript() {
-  if (!confirm('Are you sure you want to delete this transcript?')) return
-
-  deleting.value = true
-  try {
-    await authFetch(`/api/transcripts/${route.params.id}`, {
-      method: 'DELETE'
-    })
-    router.push('/transcripts')
-  } catch (err) {
-    console.error('Failed to delete transcript')
-  } finally {
-    deleting.value = false
-  }
-}
-</script>

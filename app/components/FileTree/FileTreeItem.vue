@@ -9,7 +9,7 @@
     tabindex="0"
   >
     <NuxtLink
-      :to="`/transcripts/${transcript.id}`"
+      :to="`/admin/transcripts/${transcript.id}`"
       class="flex-1 truncate"
       draggable="false"
       @click.stop

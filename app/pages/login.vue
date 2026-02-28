@@ -30,7 +30,24 @@ type Schema = z.output<typeof schema>
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   const success = await login(payload.data.email, payload.data.password);
   if (success) {
-    navigateTo("/");
+    // Check role and redirect accordingly
+    const supabase = useSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile?.role === 'admin') {
+        navigateTo('/admin');
+      } else {
+        navigateTo('/');
+      }
+    } else {
+      navigateTo('/');
+    }
   }
 }
 </script>
@@ -42,15 +59,21 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         :schema="schema"
         :fields="fields"
         :loading="loading"
-        title="Transcripts"
+        title="MentionsHero"
         description="Sign in to continue"
-        icon="i-heroicons-microphone"
+        icon="i-heroicons-chat-bubble-left-right"
         @submit="onSubmit"
       >
         <template v-if="error" #validation>
           <UAlert color="error" icon="i-heroicons-information-circle" :title="error" />
         </template>
       </UAuthForm>
+      <div class="text-center mt-4">
+        <p class="text-sm text-gray-500">
+          Don't have an account?
+          <NuxtLink to="/signup" class="text-primary hover:underline">Sign up</NuxtLink>
+        </p>
+      </div>
     </UPageCard>
   </div>
 </template>

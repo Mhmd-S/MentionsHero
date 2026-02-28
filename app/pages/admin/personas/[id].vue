@@ -1,3 +1,7 @@
+<script lang="ts">
+definePageMeta({ layout: 'admin' })
+</script>
+
 <script setup lang="ts">
 import { usePersonas } from '~/composables/usePersonas'
 import { useKalshi, type KalshiSeries } from '~/composables/useKalshi'
@@ -9,6 +13,7 @@ const personaId = route.params.id as string
 const { getPersona } = usePersonas()
 const { fetchAllSeries, linkPersonaToSeries, unlinkPersonaFromSeries } = useKalshi()
 const { folders, fetchFolders } = useFileTree()
+const { authFetch } = useAuthFetch()
 
 const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
@@ -61,6 +66,47 @@ async function handleUnlinkSeries(seriesId: string) {
   await loadLinkedSeries()
 }
 
+// Persona transcripts
+interface PersonaTranscript {
+  id: string
+  name: string | null
+  youtube_url: string
+  created_at: string
+  is_public?: boolean
+  is_premium?: boolean
+}
+
+const personaTranscripts = ref<PersonaTranscript[]>([])
+const loadingTranscripts = ref(false)
+
+async function loadPersonaTranscripts() {
+  loadingTranscripts.value = true
+  try {
+    personaTranscripts.value = await authFetch<PersonaTranscript[]>(`/api/personas/${personaId}/transcripts`)
+  } catch (e) {
+    console.error('Failed to load persona transcripts:', e)
+  } finally {
+    loadingTranscripts.value = false
+  }
+}
+
+async function toggleTranscriptVisibility(item: PersonaTranscript, field: 'is_public' | 'is_premium', value: boolean) {
+  if (field === 'is_public' && !value) {
+    item.is_public = false
+    item.is_premium = false
+    await authFetch(`/api/transcripts/${item.id}`, {
+      method: 'PATCH',
+      body: { is_public: false, is_premium: false },
+    }).catch(() => {})
+  } else {
+    item[field] = value
+    await authFetch(`/api/transcripts/${item.id}`, {
+      method: 'PATCH',
+      body: { [field]: value },
+    }).catch(() => {})
+  }
+}
+
 onMounted(async () => {
   loadingPersona.value = true
   try {
@@ -68,7 +114,7 @@ onMounted(async () => {
   } finally {
     loadingPersona.value = false
   }
-  await Promise.all([loadLinkedSeries(), fetchFolders()])
+  await Promise.all([loadLinkedSeries(), fetchFolders(), loadPersonaTranscripts()])
 })
 </script>
 
@@ -76,7 +122,7 @@ onMounted(async () => {
   <div class="max-w-7xl mx-auto">
     <!-- Header with back button -->
     <div class="mb-6">
-      <NuxtLink to="/personas"
+      <NuxtLink to="/admin/personas"
         class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4">
         <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
         <span class="text-base">Personas</span>
@@ -131,6 +177,60 @@ onMounted(async () => {
             class="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer"
             @click.prevent="handleUnlinkSeries(s.id)"
           />
+        </div>
+      </div>
+    </template>
+
+    <!-- Transcripts -->
+    <template v-if="persona">
+      <div class="flex items-center justify-between mb-3 mt-8">
+        <h2 class="text-xl font-semibold">Transcripts</h2>
+        <UBadge v-if="personaTranscripts.length > 0" color="neutral" variant="subtle">
+          {{ personaTranscripts.length }}
+        </UBadge>
+      </div>
+
+      <div v-if="loadingTranscripts" class="flex items-center justify-center p-4">
+        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
+      </div>
+
+      <div v-else-if="personaTranscripts.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
+        No transcripts found matching this persona's aliases.
+      </div>
+
+      <div v-else class="divide-y divide-gray-100 dark:divide-gray-800">
+        <div
+          v-for="t in personaTranscripts"
+          :key="t.id"
+          class="flex items-center gap-3 py-3"
+        >
+          <NuxtLink
+            :to="`/admin/transcripts/${t.id}`"
+            class="flex-1 min-w-0 hover:underline"
+          >
+            <p class="text-sm font-medium truncate">{{ t.name || 'Untitled' }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}</p>
+          </NuxtLink>
+
+          <div class="flex items-center gap-3 shrink-0">
+            <label class="flex items-center gap-1.5 text-xs text-gray-500">
+              <UToggle
+                :model-value="t.is_public ?? false"
+                size="xs"
+                @update:model-value="toggleTranscriptVisibility(t, 'is_public', $event)"
+              />
+              Public
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-gray-500">
+              <UToggle
+                :model-value="t.is_premium ?? false"
+                size="xs"
+                :disabled="!t.is_public"
+                @update:model-value="toggleTranscriptVisibility(t, 'is_premium', $event)"
+              />
+              Premium
+            </label>
+          </div>
         </div>
       </div>
     </template>
