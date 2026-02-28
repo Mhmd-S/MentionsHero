@@ -102,7 +102,8 @@ async def process_job(
         transcript = await transcribe_audio(
             audio_path=audio_path,
             cancel_event=cancel_event,
-            speaker_hint=speaker_hint
+            speaker_hint=speaker_hint,
+            video_title=video_title
         )
 
         # Clean up audio file

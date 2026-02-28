@@ -67,6 +67,7 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 - Audio >= 20MB: uploaded via Gemini Files API first
 - Response schema enforces `{ segments: [{ speaker, timestamp, content }] }`
 - Retry logic: 3 attempts with exponential backoff (2^attempt seconds) for 429/502/503/504
+- Video title context: the YouTube video title (fetched via yt-dlp) is passed to the Gemini prompt to help with topic understanding, speaker identification, and domain-specific terminology
 - Speaker hint: optional user-provided context passed to Gemini prompt to improve speaker identification
 
 ## API Endpoints
