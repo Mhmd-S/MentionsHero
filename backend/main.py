@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
-from backend.core.auth import require_auth
+from backend.core.auth import require_admin
 from backend.routers import (
     analysis,
     folders,
@@ -13,6 +13,8 @@ from backend.routers import (
     kalshi,
     personas,
     playlist,
+    public,
+    stripe_router,
     transcripts,
     video,
 )
@@ -23,7 +25,6 @@ app = FastAPI(
     title="Transcript Analysis API",
     description="Backend API for press briefing transcription and analysis",
     version="2.0.0",
-    dependencies=[Depends(require_auth)],
 )
 
 # CORS middleware for Nuxt frontend
@@ -43,15 +44,19 @@ async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
 
 
-# Include all routers
-app.include_router(jobs.router)
-app.include_router(transcripts.router)
-app.include_router(folders.router)
-app.include_router(analysis.router)
-app.include_router(video.router)
-app.include_router(playlist.router)
-app.include_router(kalshi.router)
-app.include_router(personas.router)
+# Admin routers (require admin role)
+app.include_router(jobs.router, dependencies=[Depends(require_admin)])
+app.include_router(transcripts.router, dependencies=[Depends(require_admin)])
+app.include_router(folders.router, dependencies=[Depends(require_admin)])
+app.include_router(analysis.router, dependencies=[Depends(require_admin)])
+app.include_router(video.router, dependencies=[Depends(require_admin)])
+app.include_router(playlist.router, dependencies=[Depends(require_admin)])
+app.include_router(kalshi.router, dependencies=[Depends(require_admin)])
+app.include_router(personas.router, dependencies=[Depends(require_admin)])
+
+# Public routers (no global auth — per-endpoint auth where needed)
+app.include_router(public.router)
+app.include_router(stripe_router.router)
 
 
 if __name__ == "__main__":

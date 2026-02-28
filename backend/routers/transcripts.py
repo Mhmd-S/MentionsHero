@@ -86,13 +86,18 @@ async def update_transcript(
         raise HTTPException(status_code=400, detail="Transcript name cannot be empty")
 
     # Check if there's anything to update
-    if request.name is None and request.folder_id is None:
+    has_update = any(
+        v is not None for v in [request.name, request.folder_id, request.is_public, request.is_premium]
+    )
+    if not has_update:
         raise HTTPException(status_code=400, detail="No valid fields to update")
 
     transcript = await transcript_service.update_transcript(
         transcript_id=transcript_id,
         name=request.name,
-        folder_id=request.folder_id
+        folder_id=request.folder_id,
+        is_public=request.is_public,
+        is_premium=request.is_premium,
     )
 
     if not transcript:

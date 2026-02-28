@@ -1,3 +1,7 @@
+<script lang="ts">
+definePageMeta({ layout: 'admin' })
+</script>
+
 <template>
   <div>
     <div class="mb-6">
@@ -34,7 +38,7 @@
     <div v-else-if="!transcripts?.length" class="py-8 text-center text-gray-500">
       <UIcon name="i-heroicons-document-text" class="size-12 mx-auto mb-4 opacity-50" />
       <p>No transcripts yet</p>
-      <UButton to="/" variant="link" class="mt-2">Create your first transcript</UButton>
+      <UButton to="/admin" variant="link" class="mt-2">Create your first transcript</UButton>
     </div>
 
     <div v-else-if="!filtered.length" class="py-8 text-center text-gray-500">
@@ -55,12 +59,14 @@
             v-for="item in group.items"
             :key="item.id"
             class="flex items-start gap-3 py-3 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors group"
-            @click="navigateTo(`/transcripts/${item.id}`)"
+            @click="navigateTo(`/admin/transcripts/${item.id}`)"
           >
             <UIcon name="i-heroicons-document-text" class="size-5 text-gray-400 shrink-0 mt-0.5" />
 
             <div class="flex-1 min-w-0">
-              <p class="font-medium text-sm truncate" v-html="highlight(item.name || 'Untitled')" />
+              <div class="flex items-center gap-2">
+                <p class="font-medium text-sm truncate" v-html="highlight(item.name || 'Untitled')" />
+              </div>
               <p
                 v-if="item.transcript"
                 class="text-xs text-gray-400 truncate mt-0.5"
@@ -77,15 +83,24 @@
               </div>
             </div>
 
-            <div class="hidden group-hover:flex items-center gap-1 shrink-0 mt-0.5">
-              <UButton
-                size="xs"
-                variant="ghost"
-                color="gray"
-                icon="i-heroicons-arrow-top-right-on-square-20-solid"
-                :to="`/transcripts/${item.id}`"
-                @click.stop
-              />
+            <div class="flex items-center gap-3 shrink-0 mt-0.5" @click.stop>
+              <label class="flex items-center gap-1.5 text-xs text-gray-500">
+                <UToggle
+                  :model-value="item.is_public ?? false"
+                  size="xs"
+                  @update:model-value="toggleVisibility(item, 'is_public', $event)"
+                />
+                Public
+              </label>
+              <label class="flex items-center gap-1.5 text-xs text-gray-500">
+                <UToggle
+                  :model-value="item.is_premium ?? false"
+                  size="xs"
+                  :disabled="!item.is_public"
+                  @update:model-value="toggleVisibility(item, 'is_premium', $event)"
+                />
+                Premium
+              </label>
             </div>
           </div>
         </div>
@@ -100,6 +115,8 @@ interface Transcript {
   name: string | null
   youtube_url: string
   transcript: string
+  is_public?: boolean
+  is_premium?: boolean
   created_at: string
 }
 
@@ -187,6 +204,23 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+async function toggleVisibility(item: Transcript, field: 'is_public' | 'is_premium', value: boolean) {
+  if (field === 'is_public' && !value) {
+    item.is_public = false
+    item.is_premium = false
+    await authFetch(`/api/transcripts/${item.id}`, {
+      method: 'PATCH',
+      body: { is_public: false, is_premium: false },
+    }).catch(() => {})
+  } else {
+    item[field] = value
+    await authFetch(`/api/transcripts/${item.id}`, {
+      method: 'PATCH',
+      body: { [field]: value },
+    }).catch(() => {})
+  }
 }
 
 function formatDate(dateString: string) {

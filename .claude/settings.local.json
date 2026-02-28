@@ -36,7 +36,18 @@
       "Bash(# Get a specific press briefing mentions event with nested markets to see full structure curl -s \"\"https://api.elections.kalshi.com/trade-api/v2/events?series_ticker=KXSECPRESSMENTION&with_nested_markets=true&status=open&limit=1\"\" | python3 -m json.tool)",
       "Bash(# Get a settled/closed event to see resolution data curl -s \"\"https://api.elections.kalshi.com/trade-api/v2/events?series_ticker=KXSECPRESSMENTION&with_nested_markets=true&status=settled&limit=1\"\" | python3 -m json.tool)",
       "Bash(ls:*)",
-      "WebFetch(domain:api.elections.kalshi.com)"
+      "WebFetch(domain:api.elections.kalshi.com)",
+      "Bash(git mv app/pages/index.vue app/pages/admin/index.vue)",
+      "Bash(git mv app/pages/term-search.vue app/pages/admin/term-search.vue)",
+      "Bash(git mv app/pages/transcripts/index.vue app/pages/admin/transcripts/index.vue)",
+      "Bash(git mv app/pages/transcripts/[id].vue \"app/pages/admin/transcripts/[id].vue\")",
+      "Bash(git mv app/pages/personas/index.vue app/pages/admin/personas/index.vue)",
+      "Bash(git mv app/pages/personas/[id].vue \"app/pages/admin/personas/[id].vue\")",
+      "Bash(git mv app/pages/markets/index.vue app/pages/admin/markets/index.vue)",
+      "Bash(git mv app/pages/markets/[id].vue \"app/pages/admin/markets/[id].vue\")",
+      "Bash(git mv 'app/pages/transcripts/\\\\[id\\\\].vue' 'app/pages/admin/transcripts/\\\\[id\\\\].vue')",
+      "Bash(git mv 'app/pages/personas/\\\\[id\\\\].vue' 'app/pages/admin/personas/\\\\[id\\\\].vue')",
+      "Bash(git mv 'app/pages/markets/\\\\[id\\\\].vue' 'app/pages/admin/markets/\\\\[id\\\\].vue')"
     ],
     "deny": [
       "**/.env*",

@@ -1,12 +1,13 @@
 # Transcript Analysis Platform
 
-A tool for transcribing YouTube videos (primarily press briefings), analyzing term frequency across transcripts, and tracking Kalshi prediction markets tied to speaker mentions.
+A tool for transcribing YouTube videos (primarily press briefings), analyzing term frequency across transcripts, and tracking Kalshi prediction markets tied to speaker mentions. Includes a public-facing website with Stripe-powered paywall.
 
 ## Tech Stack
 
 - **Frontend**: Nuxt 3 (Vue 3 + TypeScript) in `app/`
 - **Backend**: FastAPI (Python 3) in `backend/`
 - **Database**: Supabase (PostgreSQL)
+- **Payments**: Stripe (monthly subscription)
 - **Transcription**: Google Gemini 2.0 Flash (speaker diarization)
 - **Audio Download**: yt-dlp
 - **UI Components**: Nuxt UI (UButton, UBadge, UModal, UInput, USelectMenu, etc.)
@@ -17,14 +18,23 @@ A tool for transcribing YouTube videos (primarily press briefings), analyzing te
 ```
 app/                          # Nuxt 3 frontend
   pages/                      # Route pages
-    index.vue                 # New Transcript creation
+    index.vue                 # Public personas grid
     login.vue                 # Authentication
-    term-search.vue           # Term Search
-    transcripts/              # Transcript listing & detail
-    personas/                 # Persona listing & detail
-    markets/                  # Kalshi markets listing & detail
+    signup.vue                # User registration
+    pricing.vue               # Subscription pricing
+    account.vue               # User account & subscription management
+    personas/[slug].vue       # Public persona detail & transcript listing
+    transcripts/[id].vue      # Public transcript viewer
+    admin/                    # Admin-only pages (require admin role)
+      index.vue               # New Transcript creation
+      term-search.vue         # Term Search
+      transcripts/            # Admin transcript listing & detail
+      personas/               # Admin persona listing & detail
+      markets/                # Kalshi markets listing & detail
   composables/                # API interaction layer
-    useAuthFetch.ts           # Authenticated fetch wrapper
+    useAuthFetch.ts           # Authenticated fetch wrapper (admin)
+    usePublicApi.ts           # Public fetch wrapper (attaches token if logged in)
+    useSubscription.ts        # Stripe subscription state management
     useJobProgress.ts         # SSE job streaming
     useAnalysis.ts            # Term search & analysis API
     usePersonas.ts            # Persona CRUD API
@@ -37,26 +47,29 @@ app/                          # Nuxt 3 frontend
     TermSection.vue           # Per-market term analysis display
     SpeakerSelector.vue       # Multi-select speaker picker
   layouts/
-    default.vue               # Main layout with fixed sidebar
+    default.vue               # Public layout with top navbar
+    admin.vue                 # Admin layout with fixed sidebar
   middleware/
-    auth.global.ts            # Global auth guard
+    auth.global.ts            # Global auth guard (public/admin/user zones)
 
 backend/                      # FastAPI backend
-  main.py                     # App entry point, router registration
-  config.py                   # Settings from .env (Supabase, Gemini, CORS)
+  main.py                     # App entry point, per-router auth, router registration
+  config.py                   # Settings from .env (Supabase, Gemini, Stripe, CORS)
   core/
-    auth.py                   # Supabase JWT auth
+    auth.py                   # Auth dependencies (require_admin, optional_auth, require_user_auth)
     database.py               # Supabase client, caching helpers
     process_tracker.py        # Subprocess termination tracking
   routers/                    # API route handlers
-    jobs.py                   # /api/jobs/* - Job creation, SSE streaming
-    transcripts.py            # /api/transcripts/* - Transcript CRUD
-    folders.py                # /api/folders/* - Folder CRUD
-    analysis.py               # /api/analysis/* - Term search, n-grams, speakers
-    video.py                  # /api/video/* - YouTube metadata
-    playlist.py               # /api/playlist/* - Playlist metadata
-    kalshi.py                 # /api/kalshi/* - Series, events, markets
-    personas.py               # /api/personas/* - Persona CRUD, aliases
+    jobs.py                   # /api/jobs/* - Job creation, SSE streaming (admin)
+    transcripts.py            # /api/transcripts/* - Transcript CRUD (admin)
+    folders.py                # /api/folders/* - Folder CRUD (admin)
+    analysis.py               # /api/analysis/* - Term search, n-grams, speakers (admin)
+    video.py                  # /api/video/* - YouTube metadata (admin)
+    playlist.py               # /api/playlist/* - Playlist metadata (admin)
+    kalshi.py                 # /api/kalshi/* - Series, events, markets (admin)
+    personas.py               # /api/personas/* - Persona CRUD, aliases (admin)
+    public.py                 # /api/public/* - Public personas & transcripts (no auth)
+    stripe_router.py          # /api/stripe/* - Checkout, webhook, subscription
   services/                   # Business logic
     job_service.py            # Job lifecycle, SSE events
     transcript_service.py     # Transcript DB operations
@@ -67,6 +80,8 @@ backend/                      # FastAPI backend
     persona_service.py        # Persona DB operations
     kalshi_service.py         # Kalshi API client, market analysis
     youtube_service.py        # YouTube metadata via yt-dlp
+    public_service.py         # Public data access, subscription checks
+    stripe_service.py         # Stripe API integration
   models/                     # Pydantic request/response models
     job.py, transcript.py, folder.py, analysis.py,
     speaker.py, persona.py, kalshi.py, video.py
@@ -89,6 +104,7 @@ Each feature has detailed documentation in `docs/`. Read the relevant file befor
 
 | Feature | Doc File | Description |
 |---------|----------|-------------|
+| Public Site & Paywall | `docs/public-site.md` | Public website, Stripe subscription, paywall controls |
 | Transcript Generation | `docs/transcripts.md` | YouTube → yt-dlp → Gemini → DB pipeline with SSE progress |
 | Term Search | `docs/term-search.md` | Frequency analysis, context search, n-grams across transcripts |
 | Personas | `docs/personas.md` | Speaker identity management with aliases, Kalshi links |
@@ -119,7 +135,9 @@ What to update:
 
 | Table | Purpose |
 |-------|---------|
-| `transcripts` | Full transcript text, youtube_url, name, folder_id, upload_date |
+| `transcripts` | Full transcript text, youtube_url, name, folder_id, upload_date, is_public, is_premium |
+| `profiles` | User profiles with role (admin/client), stripe_customer_id |
+| `subscriptions` | Stripe subscription tracking (user_id, status, period) |
 | `jobs` | Job progress tracking (status, stage_progress, cancel_requested) |
 | `folders` | Hierarchical folders (self-referencing parent_id) |
 | `speakers` | Normalized speaker names (unique) |
@@ -130,7 +148,7 @@ What to update:
 
 | Table | Purpose |
 |-------|---------|
-| `personas` | Speaker identities (name, description) |
+| `personas` | Speaker identities (name, description, slug, image_url) |
 | `persona_aliases` | Aliases for a persona (unique alias text, FK → personas CASCADE) |
 
 ### Kalshi Tables
@@ -160,25 +178,29 @@ market_term_results → kalshi_markets + personas
 
 ## API Overview
 
-All routes require Supabase JWT auth (`Authorization: Bearer <token>`).
+Admin routes require admin role. Public routes are unauthenticated or use optional auth. Stripe routes use user-level auth.
 
-| Prefix | Router | Purpose |
-|--------|--------|---------|
-| `/api/jobs` | `jobs.py` | Create jobs, SSE streaming, cancel |
-| `/api/transcripts` | `transcripts.py` | List, get, update, delete transcripts |
-| `/api/folders` | `folders.py` | Folder CRUD |
-| `/api/analysis` | `analysis.py` | Term frequency, n-grams, context search, speakers |
-| `/api/video` | `video.py` | YouTube video metadata |
-| `/api/playlist` | `playlist.py` | YouTube playlist metadata |
-| `/api/kalshi` | `kalshi.py` | Series/events/markets CRUD, analysis |
-| `/api/personas` | `personas.py` | Persona CRUD, alias management |
+| Prefix | Router | Auth | Purpose |
+|--------|--------|------|---------|
+| `/api/jobs` | `jobs.py` | Admin | Create jobs, SSE streaming, cancel |
+| `/api/transcripts` | `transcripts.py` | Admin | List, get, update, delete transcripts |
+| `/api/folders` | `folders.py` | Admin | Folder CRUD |
+| `/api/analysis` | `analysis.py` | Admin | Term frequency, n-grams, context search, speakers |
+| `/api/video` | `video.py` | Admin | YouTube video metadata |
+| `/api/playlist` | `playlist.py` | Admin | YouTube playlist metadata |
+| `/api/kalshi` | `kalshi.py` | Admin | Series/events/markets CRUD, analysis |
+| `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
+| `/api/public` | `public.py` | None/Optional | Public personas & transcript browsing |
+| `/api/stripe` | `stripe_router.py` | User/None | Checkout, webhook, subscription, portal |
 
 ## Key Conventions & Gotchas
 
 - **Python 3 binary**: Use `python3`, not `python`
 - **FastAPI route ordering**: Static routes (`/series/search`) MUST be defined BEFORE parameterized routes (`/series/{series_id}`) to avoid path conflicts
 - **Supabase client**: Use `from backend.core.database import supabase` — singleton client
-- **Auth**: All endpoints use `require_auth` dependency (global in main.py). SSE streams accept `?token=` query param
+- **Auth**: Admin routes use `require_admin` dependency (per-router in main.py). Public routes use `optional_auth` or no auth. Stripe routes use `require_user_auth`. SSE streams accept `?token=` query param
+- **Admin pages**: All admin pages use `definePageMeta({ layout: 'admin' })` and live under `app/pages/admin/`
+- **Public pages**: Public pages use the default layout and live at root level in `app/pages/`
 - **Nuxt UI**: Use Nuxt UI components (UButton, UBadge, UModal, etc.), not raw HTML elements
 - **Composables pattern**: All API calls go through composables in `app/composables/`, never direct fetch from pages
 - **Kalshi API**: Two base URLs — v2 (`https://api.elections.kalshi.com/trade-api/v2`) for series/events/markets CRUD, v1 search (`https://api.elections.kalshi.com/v1/search`) for browsing open events by tag. Unauthenticated read-only. Scoped to `category=Mentions` only
@@ -208,4 +230,7 @@ python3 -m uvicorn backend.main:app --reload --port 8001
 SUPABASE_URL=...
 SUPABASE_SERVICE_KEY=...
 GEMINI_API_KEY=...
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+STRIPE_PRICE_ID=...
 ```

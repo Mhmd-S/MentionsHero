@@ -1,70 +1,82 @@
 <script setup lang="ts">
-const { logout } = useAuth();
+const { session, logout } = useAuth()
 </script>
 
 <template>
   <UApp>
-    <div class="flex min-h-screen">
-      <aside class="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 fixed top-0 left-0 h-screen overflow-y-auto">
-        <div class="p-4">
-          <div class="flex items-center gap-2 mb-6">
-            <UIcon name="i-heroicons-microphone" class="size-6 text-primary" />
-            <span class="font-bold text-lg">Transcripts</span>
-            <UButton
-              icon="i-heroicons-arrow-right-on-rectangle"
-              variant="ghost"
-              size="xs"
-              color="neutral"
-              class="ml-auto"
-              title="Sign out"
-              @click="logout"
-            />
+    <div class="min-h-screen flex flex-col">
+      <!-- Top Navigation -->
+      <header class="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <!-- Logo -->
+            <NuxtLink to="/" class="flex items-center gap-2">
+              <UIcon name="i-heroicons-chat-bubble-left-right" class="size-6 text-primary" />
+              <span class="font-bold text-lg">MentionsHero</span>
+            </NuxtLink>
+
+            <!-- Navigation -->
+            <nav class="flex items-center gap-6">
+              <NuxtLink
+                to="/"
+                class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                active-class="text-primary"
+              >
+                Personas
+              </NuxtLink>
+              <NuxtLink
+                to="/pricing"
+                class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                active-class="text-primary"
+              >
+                Pricing
+              </NuxtLink>
+            </nav>
+
+            <!-- Auth -->
+            <div class="flex items-center gap-3">
+              <template v-if="session">
+                <NuxtLink to="/account">
+                  <UButton variant="ghost" size="sm" icon="i-heroicons-user-circle">
+                    Account
+                  </UButton>
+                </NuxtLink>
+                <UButton
+                  variant="ghost"
+                  size="sm"
+                  color="neutral"
+                  icon="i-heroicons-arrow-right-on-rectangle"
+                  @click="logout"
+                >
+                  Sign Out
+                </UButton>
+              </template>
+              <template v-else>
+                <NuxtLink to="/login">
+                  <UButton variant="ghost" size="sm">Sign In</UButton>
+                </NuxtLink>
+                <NuxtLink to="/signup">
+                  <UButton size="sm">Sign Up</UButton>
+                </NuxtLink>
+              </template>
+            </div>
           </div>
-
-          <nav class="space-y-1 mb-4">
-            <NuxtLink
-              to="/"
-              class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-              active-class="bg-primary-100 dark:bg-primary-900 text-primary"
-            >
-              <UIcon name="i-heroicons-plus-circle" class="size-5" />
-              New Transcript
-            </NuxtLink>
-            <NuxtLink
-              to="/term-search"
-              class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-              active-class="bg-primary-100 dark:bg-primary-900 text-primary"
-            >
-              <UIcon name="i-heroicons-magnifying-glass" class="size-5" />
-              Term Search
-            </NuxtLink>
-            <NuxtLink
-              to="/personas"
-              class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-              active-class="bg-primary-100 dark:bg-primary-900 text-primary"
-            >
-              <UIcon name="i-heroicons-user-group" class="size-5" />
-              Personas
-            </NuxtLink>
-            <NuxtLink
-              to="/markets"
-              class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-              active-class="bg-primary-100 dark:bg-primary-900 text-primary"
-            >
-              <UIcon name="i-heroicons-chart-bar" class="size-5" />
-              Markets
-            </NuxtLink>
-          </nav>
-
-          <FileTree />
-
-          <JobsSidebar />
         </div>
-      </aside>
+      </header>
 
-      <main class="flex-1 p-8 ml-64">
-        <slot />
+      <!-- Main Content -->
+      <main class="flex-1">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <slot />
+        </div>
       </main>
+
+      <!-- Footer -->
+      <footer class="border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <p class="text-sm text-gray-500 text-center">MentionsHero</p>
+        </div>
+      </footer>
     </div>
   </UApp>
 </template>

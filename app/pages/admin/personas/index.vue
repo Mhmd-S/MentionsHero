@@ -1,3 +1,7 @@
+<script lang="ts">
+definePageMeta({ layout: 'admin' })
+</script>
+
 <script setup lang="ts">
 import { usePersonas, type Persona } from '~/composables/usePersonas'
 
@@ -231,7 +235,7 @@ onMounted(async () => {
         <NuxtLink
           v-for="persona in personas"
           :key="persona.id"
-          :to="`/personas/${persona.id}`"
+          :to="`/admin/personas/${persona.id}`"
           class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
         >
           <div class="flex items-start justify-between mb-2">

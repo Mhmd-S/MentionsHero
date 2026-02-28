@@ -15,6 +15,8 @@ class Transcript(BaseModel):
     folder_id: str | None = None
     speakers: list[str] | None = None
     upload_date: str | None = None  # YouTube upload date (YYYYMMDD format)
+    is_public: bool = False
+    is_premium: bool = False
 
     class Config:
         from_attributes = True
@@ -31,6 +33,8 @@ class TranscriptUpdate(BaseModel):
     """Request model for updating a transcript."""
     name: str | None = None
     folder_id: str | None = None
+    is_public: bool | None = None
+    is_premium: bool | None = None
 
 
 class SpeakerFrequency(BaseModel):

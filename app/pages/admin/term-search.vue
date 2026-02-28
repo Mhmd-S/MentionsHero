@@ -1,3 +1,7 @@
+<script lang="ts">
+definePageMeta({ layout: 'admin' })
+</script>
+
 <script setup lang="ts">
 import { useAnalysis, type AnalysisFolder } from '~/composables/useAnalysis'
 import { usePersonas, type Persona } from '~/composables/usePersonas'

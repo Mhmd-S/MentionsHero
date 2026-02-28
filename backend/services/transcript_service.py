@@ -118,7 +118,9 @@ async def create_transcript(
 async def update_transcript(
     transcript_id: str,
     name: str | None = None,
-    folder_id: str | None = None
+    folder_id: str | None = None,
+    is_public: bool | None = None,
+    is_premium: bool | None = None,
 ) -> dict[str, Any] | None:
     """Update a transcript."""
     supabase = get_supabase()
@@ -130,6 +132,12 @@ async def update_transcript(
 
     if folder_id is not None:
         updates["folder_id"] = folder_id
+
+    if is_public is not None:
+        updates["is_public"] = is_public
+
+    if is_premium is not None:
+        updates["is_premium"] = is_premium
 
     if not updates:
         return None
