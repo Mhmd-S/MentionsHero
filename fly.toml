@@ -10,7 +10,7 @@ primary_region = 'iad'
   NODE_ENV = 'production'
   HOST = '0.0.0.0'
   PORT = '3000'
-  CORS_ORIGINS = 'https://mentionshero.com,https://www.mentionshero.com'
+  CORS_ORIGINS = '["https://mentionshero.com","https://www.mentionshero.com"]'
   NUXT_PUBLIC_SITE_URL = 'https://mentionshero.com'
 
 [http_service]
