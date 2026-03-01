@@ -141,11 +141,18 @@ onMounted(async () => {
     </div>
 
     <template v-else>
+      <!-- Back link (mobile only, at top) -->
+      <NuxtLink to="/" class="sm:hidden flex items-center gap-1 mt-3 text-sm text-muted hover:text-default transition-colors -mb-4">
+        <UIcon name="i-ph-arrow-left" class="size-4" />
+        All Personas
+      </NuxtLink>
+
       <!-- Persona Header -->
       <UPageHeader
         :title="persona.name"
         :description="persona.description || undefined"
         :links="[{ label: 'All Personas', to: '/', icon: 'i-ph-arrow-left', variant: 'ghost' as const, color: 'neutral' as const, size: 'xs' as const }]"
+        :ui="{ links: 'hidden sm:flex' }"
       >
         <template #title>
           <div class="flex items-center gap-4">
