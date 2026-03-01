@@ -1,12 +1,17 @@
-# fly.toml app configuration file generated for transcripts-generator on 2026-02-11T13:37:52Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# fly.toml — Fly.io configuration for transcripts-generator
+# See https://fly.io/docs/reference/configuration/
 
 app = 'transcripts-generator'
 primary_region = 'iad'
 
 [build]
+
+[env]
+  NODE_ENV = 'production'
+  HOST = '0.0.0.0'
+  PORT = '3000'
+  CORS_ORIGINS = 'https://mentionshero.com,https://www.mentionshero.com'
+  NUXT_PUBLIC_SITE_URL = 'https://mentionshero.com'
 
 [http_service]
   internal_port = 3000
@@ -15,6 +20,18 @@ primary_region = 'iad'
   auto_start_machines = true
   min_machines_running = 2
   processes = ['app']
+
+  [http_service.concurrency]
+    type = 'requests'
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  grace_period = '30s'
+  interval = '15s'
+  method = 'GET'
+  path = '/'
+  timeout = '5s'
 
 [[vm]]
   memory = '4gb'

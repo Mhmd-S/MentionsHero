@@ -38,9 +38,13 @@ COPY backend/ ./backend/
 COPY start.sh ./start.sh
 RUN chmod +x start.sh
 
+# Create directories for runtime data
+RUN mkdir -p downloads /app/nltk_data
+
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ENV NLTK_DATA=/app/nltk_data
 
 EXPOSE 3000
 
