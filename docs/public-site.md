@@ -94,8 +94,7 @@ Prefix: `/api/public`
 - `page`, `page_size` — pagination
 
 **`GET /transcripts/{id}`**:
-- `search` — highlight search term
-- `speakers` — comma-separated speaker filter
+- `search` — highlight search term, returns per-speaker frequency breakdown in `speakerFrequencies`
 
 ### Access Control
 - Public transcripts: `is_public = true`

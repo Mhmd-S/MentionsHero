@@ -15,6 +15,8 @@ type ReadonlyPersona = {
   readonly id: string
   readonly name: string
   readonly description: string | null
+  readonly meta_title: string | null
+  readonly meta_description: string | null
   readonly aliases: readonly string[]
   readonly created_at: string | null
   readonly updated_at: string | null
@@ -83,6 +85,8 @@ const bulkTargetIds = ref<string[]>([])
 const newPersonaName = ref('')
 const newPersonaDescription = ref('')
 const newPersonaAliases = ref('')
+const newMetaTitle = ref('')
+const newMetaDescription = ref('')
 const editingPersona = ref<ReadonlyPersona | null>(null)
 const aliasToAdd = ref('')
 
@@ -177,13 +181,17 @@ async function handleCreatePersona() {
   await createPersona(
     newPersonaName.value.trim(),
     newPersonaDescription.value.trim() || undefined,
-    aliases
+    aliases,
+    newMetaTitle.value.trim() || undefined,
+    newMetaDescription.value.trim() || undefined,
   )
 
   showCreateModal.value = false
   newPersonaName.value = ''
   newPersonaDescription.value = ''
   newPersonaAliases.value = ''
+  newMetaTitle.value = ''
+  newMetaDescription.value = ''
 }
 
 // Update persona
@@ -193,13 +201,17 @@ async function handleUpdatePersona() {
   await updatePersona(
     editingPersona.value.id,
     newPersonaName.value.trim(),
-    newPersonaDescription.value.trim() || undefined
+    newPersonaDescription.value.trim() || undefined,
+    newMetaTitle.value.trim() || undefined,
+    newMetaDescription.value.trim() || undefined,
   )
 
   showEditModal.value = false
   editingPersona.value = null
   newPersonaName.value = ''
   newPersonaDescription.value = ''
+  newMetaTitle.value = ''
+  newMetaDescription.value = ''
 }
 
 // Delete persona
@@ -213,6 +225,8 @@ function openEditModal(persona: ReadonlyPersona) {
   editingPersona.value = persona
   newPersonaName.value = persona.name
   newPersonaDescription.value = persona.description || ''
+  newMetaTitle.value = persona.meta_title || ''
+  newMetaDescription.value = persona.meta_description || ''
   showEditModal.value = true
 }
 
@@ -273,12 +287,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6 max-w-7xl mx-auto">
+  <div class="p-4 sm:p-6 max-w-7xl mx-auto">
     <!-- Header -->
     <div class="mb-6">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-3xl font-bold mb-2">Personas</h1>
+          <h1 class="text-2xl sm:text-3xl font-bold mb-2">Personas</h1>
           <p class="text-gray-600 dark:text-gray-400">
             Group speaker name variations into unified personas
           </p>
@@ -304,7 +318,7 @@ onMounted(async () => {
     <!-- Bulk action bar -->
     <div
       v-if="selectMode && selectedIds.size > 0"
-      class="mb-4 flex items-center gap-3 p-3 bg-primary-50 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800 rounded-lg"
+      class="mb-4 flex flex-wrap items-center gap-3 p-3 bg-primary-50 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800 rounded-lg"
     >
       <span class="text-sm font-medium">{{ selectedIds.size }} selected</span>
       <UButton size="xs" variant="outline" @click="toggleSelectAll">
@@ -414,6 +428,18 @@ onMounted(async () => {
             <UFormField label="Aliases" description="Comma-separated list of name variations">
               <UInput v-model="newPersonaAliases" placeholder="e.g., J. Smith, John S., Mr. Smith" class="w-full" />
             </UFormField>
+
+            <details class="border border-gray-200 dark:border-gray-700 rounded-lg">
+              <summary class="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer">SEO Settings</summary>
+              <div class="px-3 pb-3 space-y-3">
+                <UFormField label="Meta Title" description="Custom page title for search engines">
+                  <UInput v-model="newMetaTitle" placeholder="Defaults to persona name" class="w-full" />
+                </UFormField>
+                <UFormField label="Meta Description" description="Page description for search results">
+                  <UTextarea v-model="newMetaDescription" placeholder="Defaults to persona description" :rows="2" class="w-full" />
+                </UFormField>
+              </div>
+            </details>
           </div>
 
           <div class="flex justify-end gap-2 mt-6">
@@ -438,6 +464,18 @@ onMounted(async () => {
             <UFormField label="Description">
               <UTextarea v-model="newPersonaDescription" placeholder="Optional description..." :rows="2" class="w-full" />
             </UFormField>
+
+            <details class="border border-gray-200 dark:border-gray-700 rounded-lg">
+              <summary class="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer">SEO Settings</summary>
+              <div class="px-3 pb-3 space-y-3">
+                <UFormField label="Meta Title" description="Custom page title for search engines">
+                  <UInput v-model="newMetaTitle" placeholder="Defaults to persona name" class="w-full" />
+                </UFormField>
+                <UFormField label="Meta Description" description="Page description for search results">
+                  <UTextarea v-model="newMetaDescription" placeholder="Defaults to persona description" :rows="2" class="w-full" />
+                </UFormField>
+              </div>
+            </details>
           </div>
 
           <div class="flex justify-end gap-2 mt-6">

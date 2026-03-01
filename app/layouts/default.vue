@@ -1,75 +1,137 @@
 <script setup lang="ts">
+import type { NavigationMenuItem } from '@nuxt/ui'
+
 const { session, logout } = useAuth()
+const route = useRoute()
+
+const navItems = computed<NavigationMenuItem[]>(() => [
+  {
+    label: 'Personas',
+    icon: 'i-ph-users-three',
+    to: '/',
+    active: route.path === '/'
+  },
+  {
+    label: 'Pricing',
+    icon: 'i-ph-credit-card',
+    to: '/pricing',
+    active: route.path === '/pricing'
+  }
+])
 </script>
 
 <template>
   <UApp>
-    <div class="min-h-screen flex flex-col">
-      <!-- Top Navigation -->
-      <header class="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-16">
-            <!-- Logo -->
-            <NuxtLink to="/" class="flex items-center gap-2">
-              <UIcon name="i-heroicons-chat-bubble-left-right" class="size-6 text-primary" />
-              <span class="font-bold text-lg">MentionsHero</span>
-            </NuxtLink>
-
-            <!-- Navigation -->
-            <nav class="flex items-center gap-6">
-              <NuxtLink
-                to="/"
-                class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-                active-class="text-primary"
-              >
-                Personas
-              </NuxtLink>
-              <NuxtLink
-                to="/pricing"
-                class="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-                active-class="text-primary"
-              >
-                Pricing
-              </NuxtLink>
-            </nav>
-
-            <!-- Auth -->
-            <div class="flex items-center gap-3">
-              <template v-if="session">
-                <NuxtLink to="/account">
-                  <UButton variant="ghost" size="sm" icon="i-heroicons-user-circle">
-                    Account
-                  </UButton>
-                </NuxtLink>
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  color="neutral"
-                  icon="i-heroicons-arrow-right-on-rectangle"
-                  @click="logout"
-                >
-                  Sign Out
-                </UButton>
-              </template>
-              <template v-else>
-                <NuxtLink to="/login">
-                  <UButton variant="ghost" size="sm">Sign In</UButton>
-                </NuxtLink>
-                <NuxtLink to="/signup">
-                  <UButton size="sm">Sign Up</UButton>
-                </NuxtLink>
-              </template>
-            </div>
-          </div>
+    <UHeader :to="'/'">
+      <template #title>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-ph-chat-circle-dots-fill" class="size-5 text-primary" />
+          <span class="font-semibold text-base">MentionsHero</span>
         </div>
-      </header>
+      </template>
 
-      <!-- Main Content -->
-      <main class="flex-1">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <slot />
+      <UNavigationMenu :items="navItems" variant="pill" />
+
+      <template #right>
+        <UColorModeButton />
+        <template v-if="session">
+          <UButton
+            to="/account"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-ph-user-circle"
+            label="Account"
+          />
+          <UButton
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-ph-sign-out"
+            label="Sign Out"
+            @click="logout"
+          />
+        </template>
+        <template v-else>
+          <UButton
+            to="/login"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            label="Sign In"
+          />
+          <UButton
+            to="/signup"
+            size="sm"
+            label="Sign Up"
+          />
+        </template>
+      </template>
+
+      <template #body>
+        <UNavigationMenu :items="navItems" orientation="vertical" class="-mx-2.5" />
+
+        <USeparator type="dashed" class="my-4" />
+
+        <div class="flex flex-col gap-1">
+          <template v-if="session">
+            <UButton
+              to="/account"
+              variant="ghost"
+              color="neutral"
+              block
+              class="justify-start"
+              icon="i-ph-user-circle"
+              label="Account"
+            />
+            <UButton
+              variant="ghost"
+              color="neutral"
+              block
+              class="justify-start"
+              icon="i-ph-sign-out"
+              label="Sign Out"
+              @click="logout"
+            />
+          </template>
+          <template v-else>
+            <UButton
+              to="/login"
+              variant="ghost"
+              color="neutral"
+              block
+              class="justify-start"
+              icon="i-ph-sign-in"
+              label="Sign In"
+            />
+            <UButton
+              to="/signup"
+              block
+              class="justify-start"
+              icon="i-ph-user-plus"
+              label="Sign Up"
+            />
+          </template>
         </div>
-      </main>
-    </div>
+      </template>
+    </UHeader>
+
+    <UMain>
+      <UContainer>
+        <slot />
+      </UContainer>
+    </UMain>
+
+    <UFooter>
+      <template #left>
+        <span class="text-sm text-muted">
+          &copy; {{ new Date().getFullYear() }} MentionsHero
+        </span>
+      </template>
+
+      <template #right>
+        <UColorModeButton />
+      </template>
+    </UFooter>
   </UApp>
 </template>

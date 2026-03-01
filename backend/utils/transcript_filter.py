@@ -89,54 +89,29 @@ def highlight_text(text: str, search_string: str) -> str:
 def highlight_transcript(
     transcript: str,
     search_string: str | None = None,
-    speakers: list[str] | None = None
 ) -> dict[str, Any]:
     """
-    Highlight transcript with search string and/or speaker highlighting.
+    Highlight search term occurrences in transcript text.
 
-    Returns dict with highlightedTranscript and matchCount.
+    Returns dict with highlightedTranscript and matchCount (total word matches).
     """
     segments = parse_transcript(transcript)
 
     match_count = 0
     lines: list[str] = []
     current_speaker: str | None = None
+    word_pattern = re.compile(r'\b' + re.escape(search_string) + r'\b', re.IGNORECASE) if search_string and search_string.strip() else None
 
     for segment in segments:
-        is_speaker_match = (
-            speakers and
-            len(speakers) > 0 and
-            any(
-                segment['speaker'] == speaker or
-                segment['speaker'].lower() == speaker.lower() or
-                speaker.lower() in segment['speaker'].lower()
-                for speaker in speakers
-            )
-        )
-
-        is_content_match = (
-            search_string and
-            search_string.strip() and
-            bool(re.search(r'\b' + re.escape(search_string) + r'\b', segment['content'], re.IGNORECASE))
-        )
-
-        is_match = is_speaker_match or is_content_match
-
-        if is_match:
-            match_count += 1
+        # Count individual word matches (not just segments)
+        if word_pattern:
+            match_count += len(word_pattern.findall(segment['content']))
 
         # Add speaker label
         if segment['speaker'] != current_speaker:
             if lines:
                 lines.append('')
-            if is_speaker_match and speakers:
-                speaker_label = (
-                    f'<mark class="bg-blue-200 dark:bg-blue-900 font-semibold">'
-                    f'{escape_html(segment["speaker"])}:</mark>'
-                )
-            else:
-                speaker_label = f'{escape_html(segment["speaker"])}:'
-            lines.append(speaker_label)
+            lines.append(f'{escape_html(segment["speaker"])}:')
             current_speaker = segment['speaker']
 
         # Add content with highlighting

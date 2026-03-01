@@ -160,7 +160,7 @@ onMounted(async () => {
 
     <!-- Linked Series -->
     <template v-if="persona">
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 class="text-xl font-semibold">Linked Series</h2>
         <UButton size="sm" icon="i-heroicons-plus" @click="showLinkSeriesModal = true">Link to Series</UButton>
       </div>
@@ -211,7 +211,7 @@ onMounted(async () => {
         <div
           v-for="t in personaTranscripts"
           :key="t.id"
-          class="flex items-center gap-3 py-3"
+          class="flex flex-wrap items-center gap-3 py-3"
         >
           <NuxtLink
             :to="`/admin/transcripts/${t.id}`"
@@ -221,7 +221,7 @@ onMounted(async () => {
             <p class="text-xs text-gray-400 mt-0.5">{{ new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}</p>
           </NuxtLink>
 
-          <div class="flex items-center gap-3 shrink-0">
+          <div class="flex items-center gap-2 sm:gap-3 shrink-0">
             <USwitch
               :model-value="t.is_public ?? false"
               size="xs"

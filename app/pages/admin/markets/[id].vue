@@ -135,7 +135,7 @@ onMounted(async () => {
       <!-- Event header -->
       <div class="flex items-start gap-4 mb-6">
         <div class="flex-1 min-w-0">
-          <h1 class="text-3xl font-bold truncate mb-1">{{ detail.event.title || eventTicker }}</h1>
+          <h1 class="text-2xl sm:text-3xl font-bold truncate mb-1">{{ detail.event.title || eventTicker }}</h1>
           <p v-if="detail.series" class="text-gray-500 text-sm">{{ detail.series.title }}</p>
         </div>
         <UButton
@@ -148,9 +148,9 @@ onMounted(async () => {
       </div>
 
       <!-- Persona selector -->
-      <div class="flex items-center gap-3 mb-4">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
         <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Personas:</span>
-        <div class="flex items-center gap-1">
+        <div class="flex flex-wrap items-center gap-1">
           <UBadge
             v-for="pid in detail.persona_ids"
             :key="pid"

@@ -68,7 +68,6 @@ async def get_persona_transcripts(
 async def get_transcript(
     transcript_id: str,
     search: str | None = Query(None),
-    speakers: str | None = Query(None),
     user: dict | None = Depends(optional_auth),
 ) -> dict[str, Any]:
     """
@@ -77,7 +76,7 @@ async def get_transcript(
     If the transcript is premium and the user is not subscribed,
     returns a truncated preview with is_locked=True.
 
-    Supports search highlighting and speaker filtering.
+    Supports search highlighting with per-speaker frequency breakdown.
     """
     user_id = user["sub"] if user else None
     transcript = await public_service.get_public_transcript(transcript_id, user_id)
@@ -85,39 +84,22 @@ async def get_transcript(
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
 
-    # Parse speakers from comma-separated string
-    speaker_list: list[str] | None = None
-    if speakers:
-        speaker_list = [s.strip() for s in speakers.split(",") if s.strip()]
-
-    # Extract available speakers
-    available_speakers = extract_speakers(transcript.get("transcript", ""))
-
-    # Apply highlighting if search or speakers provided
-    if search or speaker_list:
+    if search:
         result = highlight_transcript(
             transcript.get("transcript", ""),
             search_string=search,
-            speakers=speaker_list,
         )
-
-        speaker_frequencies = []
-        if search:
-            speaker_frequencies = calculate_speaker_frequencies(
-                transcript.get("transcript", ""),
-                search,
-            )
+        speaker_frequencies = calculate_speaker_frequencies(
+            transcript.get("transcript", ""),
+            search,
+        )
 
         return {
             **transcript,
             "transcript": result["highlightedTranscript"],
             "matchCount": result["matchCount"],
             "speakerFrequencies": speaker_frequencies,
-            "availableSpeakers": available_speakers,
             "hasHighlights": True,
         }
 
-    return {
-        **transcript,
-        "availableSpeakers": available_speakers,
-    }
+    return transcript

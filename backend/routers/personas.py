@@ -41,6 +41,8 @@ async def create_persona(request: PersonaCreate) -> Persona:
         persona = await persona_service.create_persona(
             name=request.name,
             description=request.description,
+            meta_title=request.meta_title,
+            meta_description=request.meta_description,
             aliases=request.aliases
         )
         return persona
@@ -64,7 +66,9 @@ async def update_persona(persona_id: str, request: PersonaUpdate) -> Persona:
         persona = await persona_service.update_persona(
             persona_id=persona_id,
             name=request.name,
-            description=request.description
+            description=request.description,
+            meta_title=request.meta_title,
+            meta_description=request.meta_description,
         )
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")

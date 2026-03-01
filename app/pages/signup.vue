@@ -36,13 +36,13 @@ async function handleSignup() {
 
     if (data.user) {
       // Create profile with client role and name/phone
-      await supabase.from('profiles').insert({
+      await supabase.from('profiles').upsert({
         id: data.user.id,
         role: 'client',
         first_name: firstName.value,
         last_name: lastName.value,
         phone: phone.value,
-      })
+      }, { onConflict: 'id' })
 
       // Show email verification message instead of auto-login
       emailSent.value = true
@@ -56,21 +56,21 @@ async function handleSignup() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+  <div class="min-h-screen flex items-center justify-center bg-muted p-4">
     <UCard class="w-full max-w-md">
       <template #header>
         <div class="text-center">
-          <UIcon name="i-heroicons-chat-bubble-left-right" class="size-8 text-primary mx-auto mb-2" />
+          <UIcon name="i-ph-chat-circle-dots-fill" class="size-8 text-primary mx-auto mb-2" />
           <h1 class="text-xl font-bold">Create Account</h1>
-          <p class="text-sm text-gray-500 mt-1">Sign up for MentionsHero</p>
+          <p class="text-sm text-muted mt-1">Sign up for MentionsHero</p>
         </div>
       </template>
 
       <!-- Email verification success -->
       <div v-if="emailSent" class="space-y-4 text-center">
-        <UIcon name="i-heroicons-envelope" class="size-12 text-primary mx-auto" />
+        <UIcon name="i-ph-envelope-simple" class="size-12 text-primary mx-auto" />
         <h2 class="text-lg font-semibold">Check your email</h2>
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-muted">
           We sent a verification link to <strong>{{ email }}</strong>. Please click the link to verify your account.
         </p>
         <UButton variant="outline" block @click="navigateTo('/login')">
@@ -82,7 +82,7 @@ async function handleSignup() {
       <form v-else class="space-y-4" @submit.prevent="handleSignup">
         <UAlert v-if="error" color="error" :title="error" />
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <UFormField label="First Name">
             <UInput
               v-model="firstName"
@@ -138,7 +138,7 @@ async function handleSignup() {
       </form>
 
       <template #footer>
-        <p v-if="!emailSent" class="text-sm text-center text-gray-500">
+        <p v-if="!emailSent" class="text-sm text-center text-muted">
           Already have an account?
           <NuxtLink to="/login" class="text-primary hover:underline">Sign in</NuxtLink>
         </p>

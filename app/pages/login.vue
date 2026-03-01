@@ -53,7 +53,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+  <div class="min-h-screen flex items-center justify-center bg-muted p-4">
     <UPageCard class="w-full max-w-md">
       <UAuthForm
         :schema="schema"
@@ -61,15 +61,15 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         :loading="loading"
         title="MentionsHero"
         description="Sign in to continue"
-        icon="i-heroicons-chat-bubble-left-right"
+        icon="i-ph-chat-circle-dots-fill"
         @submit="onSubmit"
       >
         <template v-if="error" #validation>
-          <UAlert color="error" icon="i-heroicons-information-circle" :title="error" />
+          <UAlert color="error" icon="i-ph-info" :title="error" />
         </template>
       </UAuthForm>
       <div class="text-center mt-4">
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-muted">
           Don't have an account?
           <NuxtLink to="/signup" class="text-primary hover:underline">Sign up</NuxtLink>
         </p>

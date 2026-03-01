@@ -86,33 +86,33 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6 max-w-7xl mx-auto">
+  <div class="p-4 sm:p-6 max-w-7xl mx-auto">
     <!-- Header -->
     <div class="mb-8">
-      <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex flex-col lg:flex-row items-start justify-between gap-4">
         <div>
-          <h1 class="text-3xl font-bold mb-2">Term Search</h1>
+          <h1 class="text-2xl sm:text-3xl font-bold mb-2">Term Search</h1>
           <p class="text-gray-600 dark:text-gray-400">
             Search and analyze terms across press briefing transcripts
           </p>
         </div>
-        <div class="flex items-center gap-4 flex-wrap">
-          <div class="flex items-center gap-2">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-wrap w-full lg:w-auto">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
             <label class="text-sm text-gray-500">Analyze folder:</label>
             <USelect
               :model-value="selectedFolderId ?? FOLDER_ALL"
               :items="folderOptions"
-              class="w-48"
+              class="w-full sm:w-48"
               value-key="value"
               @update:model-value="onFolderChange"
             />
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
             <label class="text-sm text-gray-500">Persona:</label>
             <USelect
               :model-value="selectedPersonaId ?? PERSONA_NONE"
               :items="personaOptions"
-              class="w-48"
+              class="w-full sm:w-48"
               value-key="value"
               @update:model-value="onPersonaChange"
             />

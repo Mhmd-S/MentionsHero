@@ -26,18 +26,18 @@ definePageMeta({ layout: 'admin' })
     </div>
 
     <div v-if="transcript" class="space-y-6">
-      <div class="flex items-center justify-between">
-        <div class="text-sm text-gray-500">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm text-gray-500 min-w-0">
           <a
             :href="transcript.youtube_url"
             target="_blank"
-            class="hover:underline flex items-center gap-1"
+            class="hover:underline flex items-center gap-1 truncate"
           >
-            {{ transcript.youtube_url }}
-            <UIcon name="i-heroicons-arrow-top-right-on-square" class="size-3" />
+            <span class="truncate">{{ transcript.youtube_url }}</span>
+            <UIcon name="i-heroicons-arrow-top-right-on-square" class="size-3 shrink-0" />
           </a>
         </div>
-        <div class="text-xs text-gray-400">
+        <div class="text-xs text-gray-400 shrink-0">
           {{ formatDate(transcript.created_at) }}
         </div>
       </div>
@@ -62,7 +62,7 @@ definePageMeta({ layout: 'admin' })
           Delete
         </UButton>
 
-        <div class="ml-auto flex items-center gap-3">
+        <div class="w-full sm:w-auto sm:ml-auto flex items-center gap-3">
           <USwitch v-model="isPublic" label="Public" @update:model-value="updateVisibility" />
           <USwitch v-model="isPremium" label="Premium" @update:model-value="updateVisibility" />
         </div>
