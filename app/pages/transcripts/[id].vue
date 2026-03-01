@@ -222,31 +222,31 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
 
     <template v-if="transcript">
       <!-- Header -->
-      <UPageHeader
-        :title="transcript.name || 'Transcript'"
-        :links="[{ label: 'All Personas', to: '/', icon: 'i-ph-arrow-left', variant: 'ghost' as const, color: 'neutral' as const, size: 'xs' as const }]"
-      >
-        <template #description>
-          <div class="flex flex-wrap items-center gap-3">
-            <span class="inline-flex items-center gap-1.5 text-sm text-muted">
-              <UIcon name="i-ph-calendar" class="size-4" />
-              {{ formatUploadDate(transcript.upload_date) || formatDate(transcript.created_at) }}
-            </span>
-            <a
-              v-if="transcript.youtube_url"
-              :href="transcript.youtube_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors"
-            >
-              <UIcon name="i-ph-play-circle" class="size-4" />
-              <span>YouTube</span>
-              <UIcon name="i-ph-arrow-up-right" class="size-3" />
-            </a>
-            <UBadge v-if="transcript.is_premium" color="warning" variant="subtle" size="sm">Premium</UBadge>
-          </div>
-        </template>
-      </UPageHeader>
+      <div class="py-6">
+        <NuxtLink to="/" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors mb-3">
+          <UIcon name="i-ph-arrow-left" class="size-4" />
+          All Personas
+        </NuxtLink>
+        <h1 class="text-xl font-semibold">{{ transcript.name || 'Transcript' }}</h1>
+        <div class="flex flex-wrap items-center gap-3 mt-2">
+          <span class="inline-flex items-center gap-1.5 text-sm text-muted">
+            <UIcon name="i-ph-calendar" class="size-4" />
+            {{ formatUploadDate(transcript.upload_date) || formatDate(transcript.created_at) }}
+          </span>
+          <a
+            v-if="transcript.youtube_url"
+            :href="transcript.youtube_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors"
+          >
+            <UIcon name="i-ph-play-circle" class="size-4" />
+            <span>YouTube</span>
+            <UIcon name="i-ph-arrow-up-right" class="size-3" />
+          </a>
+          <UBadge v-if="transcript.is_premium" color="warning" variant="subtle" size="sm">Premium</UBadge>
+        </div>
+      </div>
 
       <!-- Sticky Search Bar -->
       <div class="sticky top-(--ui-header-height) z-10 bg-background/95 backdrop-blur-sm py-3">
@@ -288,7 +288,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
               :key="(currentPage - 1) * pageSize + idx"
               class="border-l-2 border-primary/30 pl-4"
             >
-              <div class="text-xs font-semibold tracking-wide uppercase text-primary mb-1">
+              <div class="text-md underline font-semibold tracking-wide uppercase text-primary mb-1">
                 {{ hasHighlights ? '' : seg.speaker }}
                 <span v-if="hasHighlights" v-html="seg.speaker" />
               </div>
@@ -299,7 +299,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
               />
               <p
                 v-else
-                class="text-[0.9375rem] leading-7 text-dimmed"
+                class="text-[0.9375rem] leading-7"
               >{{ seg.content }}</p>
             </div>
 
