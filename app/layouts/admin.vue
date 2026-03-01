@@ -55,12 +55,11 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
           </div>
         </template>
 
-        <UNavigationMenu
-          :items="navItems"
-          orientation="vertical"
-        />
-
         <template #default>
+          <UNavigationMenu
+            :items="navItems"
+            orientation="vertical"
+          />
           <div class="mt-4">
             <FileTree />
             <JobsSidebar />
