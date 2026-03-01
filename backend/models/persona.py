@@ -21,6 +21,8 @@ class Persona(BaseModel):
     id: str
     name: str
     description: str | None = None
+    meta_title: str | None = None
+    meta_description: str | None = None
     aliases: list[str] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -33,6 +35,8 @@ class PersonaCreate(BaseModel):
     """Request model for creating a persona."""
     name: str
     description: str | None = None
+    meta_title: str | None = None
+    meta_description: str | None = None
     aliases: list[str] = []
 
 
@@ -40,6 +44,8 @@ class PersonaUpdate(BaseModel):
     """Request model for updating a persona."""
     name: str | None = None
     description: str | None = None
+    meta_title: str | None = None
+    meta_description: str | None = None
 
 
 class AddAliasesRequest(BaseModel):

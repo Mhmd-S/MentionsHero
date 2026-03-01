@@ -70,16 +70,16 @@ onMounted(load)
 <template>
   <div class="max-w-7xl mx-auto">
     <!-- Header -->
-    <div class="mb-6 flex items-end justify-between gap-4">
+    <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold mb-1">Markets</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold mb-1">Markets</h1>
         <p class="text-gray-500 text-base">Kalshi mentions markets</p>
       </div>
       <UInput
         v-model="search"
         icon="i-heroicons-magnifying-glass"
         placeholder="Search events & markets..."
-        class="w-72"
+        class="w-full sm:w-72"
         :disabled="loading"
       />
     </div>

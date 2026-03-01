@@ -12,7 +12,7 @@ async def get_public_personas() -> list[dict[str, Any]]:
 
     personas_response = (
         supabase.table("personas")
-        .select("id, name, description, slug, image_url")
+        .select("id, name, description, slug, image_url, meta_title, meta_description")
         .order("name")
         .execute()
     )
@@ -40,7 +40,7 @@ async def get_persona_by_slug(slug: str) -> dict[str, Any] | None:
 
     response = (
         supabase.table("personas")
-        .select("id, name, description, slug, image_url")
+        .select("id, name, description, slug, image_url, meta_title, meta_description")
         .eq("slug", slug)
         .single()
         .execute()

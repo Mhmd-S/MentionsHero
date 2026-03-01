@@ -83,7 +83,7 @@ definePageMeta({ layout: 'admin' })
               </div>
             </div>
 
-            <div class="flex items-center gap-3 shrink-0 mt-0.5" @click.stop>
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0 mt-0.5" @click.stop>
               <USwitch
                 :model-value="item.is_public ?? false"
                 size="xs"

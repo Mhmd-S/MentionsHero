@@ -7,6 +7,8 @@ interface Persona {
   id: string
   name: string
   description: string | null
+  meta_title: string | null
+  meta_description: string | null
   slug: string | null
   image_url: string | null
   aliases: string[]
@@ -108,6 +110,14 @@ function formatDate(dateString: string) {
   })
 }
 
+useHead({
+  title: computed(() => persona.value?.meta_title || persona.value?.name || 'Persona'),
+  meta: [
+    { name: 'description', content: computed(() => persona.value?.meta_description || persona.value?.description || '') },
+    { name: 'robots', content: 'index, follow' },
+  ],
+})
+
 onMounted(async () => {
   await loadPersona()
   await loadTranscripts()
@@ -116,61 +126,59 @@ onMounted(async () => {
 
 <template>
   <div>
-    <!-- Back -->
-    <NuxtLink
-      to="/"
-      class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-6"
-    >
-      <UIcon name="i-heroicons-chevron-left" class="size-5" />
-      <span class="text-sm">All Personas</span>
-    </NuxtLink>
-
     <!-- Loading -->
-    <div v-if="loadingPersona" class="flex justify-center py-12">
-      <UIcon name="i-heroicons-arrow-path" class="size-6 animate-spin" />
+    <div v-if="loadingPersona" class="flex justify-center py-16">
+      <UIcon name="i-ph-circle-notch" class="size-6 animate-spin text-muted" />
     </div>
 
     <!-- Not found -->
-    <div v-else-if="!persona" class="py-12 text-center text-gray-500">
-      <p>Persona not found.</p>
+    <div v-else-if="!persona" class="py-16 text-center text-muted">
+      <UIcon name="i-ph-warning" class="size-10 mx-auto mb-3 opacity-40" />
+      <p class="font-medium">Persona not found.</p>
+      <NuxtLink to="/">
+        <UButton variant="outline" size="sm" class="mt-4">Back to Browse</UButton>
+      </NuxtLink>
     </div>
 
     <template v-else>
       <!-- Persona Header -->
-      <div class="flex items-start gap-5 mb-8">
-        <div
-          v-if="persona.image_url"
-          class="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden shrink-0"
-        >
-          <img :src="persona.image_url" :alt="persona.name" class="w-full h-full object-cover" />
-        </div>
-        <div
-          v-else
-          class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center shrink-0"
-        >
-          <span class="text-2xl font-bold text-primary">{{ persona.name[0] }}</span>
-        </div>
-
-        <div>
-          <h1 class="text-3xl font-bold mb-1">{{ persona.name }}</h1>
-          <p v-if="persona.description" class="text-gray-500">{{ persona.description }}</p>
-        </div>
-      </div>
+      <UPageHeader
+        :title="persona.name"
+        :description="persona.description || undefined"
+        :links="[{ label: 'All Personas', to: '/', icon: 'i-ph-arrow-left', variant: 'ghost' as const, color: 'neutral' as const, size: 'xs' as const }]"
+      >
+        <template #title>
+          <div class="flex items-center gap-4">
+            <UAvatar
+              v-if="persona.image_url"
+              :src="persona.image_url"
+              :alt="persona.name"
+              size="xl"
+            />
+            <UAvatar
+              v-else
+              :text="persona.name[0]"
+              size="xl"
+            />
+            <span>{{ persona.name }}</span>
+          </div>
+        </template>
+      </UPageHeader>
 
       <!-- Transcripts Section -->
       <div class="space-y-4">
-        <div class="flex items-center justify-between gap-4 flex-wrap">
-          <h2 class="text-xl font-semibold">
+        <div class="flex items-center justify-between gap-4 flex-wrap pt-4">
+          <h2 class="text-lg font-semibold">
             Transcripts
-            <span v-if="total > 0" class="text-gray-400 text-base font-normal">({{ total }})</span>
+            <span v-if="total > 0" class="text-muted text-base font-normal">({{ total }})</span>
           </h2>
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap w-full sm:w-auto">
             <UInput
               v-model="search"
-              icon="i-heroicons-magnifying-glass"
+              icon="i-ph-magnifying-glass"
               placeholder="Search transcripts..."
-              class="w-64"
+              class="w-full sm:w-64"
               size="sm"
             />
 
@@ -183,7 +191,7 @@ onMounted(async () => {
                 Date
                 <UIcon
                   v-if="sortBy === 'date'"
-                  :name="sortOrder === 'desc' ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-up'"
+                  :name="sortOrder === 'desc' ? 'i-ph-caret-down' : 'i-ph-caret-up'"
                   class="size-3"
                 />
               </UButton>
@@ -195,7 +203,7 @@ onMounted(async () => {
                 Name
                 <UIcon
                   v-if="sortBy === 'name'"
-                  :name="sortOrder === 'desc' ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-up'"
+                  :name="sortOrder === 'desc' ? 'i-ph-caret-down' : 'i-ph-caret-up'"
                   class="size-3"
                 />
               </UButton>
@@ -205,32 +213,29 @@ onMounted(async () => {
 
         <!-- Loading -->
         <div v-if="loadingTranscripts" class="flex justify-center py-8">
-          <UIcon name="i-heroicons-arrow-path" class="size-5 animate-spin" />
+          <UIcon name="i-ph-circle-notch" class="size-5 animate-spin text-muted" />
         </div>
 
         <!-- Empty -->
-        <div v-else-if="transcripts.length === 0" class="py-8 text-center text-gray-500">
-          <UIcon name="i-heroicons-document-text" class="size-10 mx-auto mb-3 opacity-50" />
-          <p>{{ debouncedSearch ? `No transcripts matching "${debouncedSearch}"` : 'No public transcripts available for this persona' }}</p>
+        <div v-else-if="transcripts.length === 0" class="py-10 text-center text-muted">
+          <UIcon name="i-ph-file-text" class="size-10 mx-auto mb-3 opacity-40" />
+          <p class="text-sm">{{ debouncedSearch ? `No transcripts matching "${debouncedSearch}"` : 'No public transcripts available' }}</p>
         </div>
 
         <!-- Transcript List -->
-        <div v-else class="divide-y divide-gray-100 dark:divide-gray-800">
+        <div v-else class="space-y-1">
           <NuxtLink
             v-for="t in transcripts"
             :key="t.id"
             :to="`/transcripts/${t.id}`"
-            class="flex items-start gap-3 py-3 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-elevated transition-colors group"
           >
-            <UIcon name="i-heroicons-document-text" class="size-5 text-gray-400 shrink-0 mt-0.5" />
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-medium text-sm truncate">{{ t.name || 'Untitled' }}</span>
-                <UBadge v-if="t.is_premium" color="warning" variant="subtle" size="xs">Premium</UBadge>
-              </div>
-              <div class="flex items-center gap-2 mt-1">
-              </div>
-            </div>
+            <UIcon name="i-ph-file-text" class="size-4 text-muted shrink-0" />
+            <span class="flex-1 min-w-0 text-sm font-medium truncate group-hover:text-primary transition-colors">
+              {{ t.name || 'Untitled' }}
+            </span>
+            <UBadge v-if="t.is_premium" color="warning" variant="subtle" size="xs">Premium</UBadge>
+            <span class="text-xs text-muted tabular-nums shrink-0">{{ formatDate(t.created_at) }}</span>
           </NuxtLink>
         </div>
 
@@ -240,16 +245,16 @@ onMounted(async () => {
             size="xs"
             variant="ghost"
             :disabled="page <= 1"
+            icon="i-ph-caret-left"
             @click="page--"
-            icon="i-heroicons-chevron-left"
           />
-          <span class="text-sm text-gray-500">Page {{ page }} of {{ totalPages }}</span>
+          <span class="text-sm text-muted">Page {{ page }} of {{ totalPages }}</span>
           <UButton
             size="xs"
             variant="ghost"
             :disabled="page >= totalPages"
+            icon="i-ph-caret-right"
             @click="page++"
-            icon="i-heroicons-chevron-right"
           />
         </div>
       </div>

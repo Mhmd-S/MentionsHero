@@ -20,26 +20,26 @@ function formatDate(dateString: string | null) {
 
 <template>
   <div class="max-w-2xl mx-auto">
-    <h1 class="text-3xl font-bold mb-8">Account</h1>
+    <UPageHeader title="Account" />
 
-    <div v-if="!session" class="text-center py-12 text-gray-500">
-      <p>Please sign in to view your account.</p>
-      <NuxtLink to="/login">
-        <UButton class="mt-4">Sign In</UButton>
-      </NuxtLink>
+    <div v-if="!session" class="text-center py-16 text-muted">
+      <UIcon name="i-ph-user-circle" class="size-12 mx-auto mb-4 opacity-40" />
+      <p class="mb-4">Please sign in to view your account.</p>
+      <UButton to="/login">Sign In</UButton>
     </div>
 
     <div v-else class="space-y-6">
       <!-- User Info -->
       <UCard>
         <template #header>
-          <h2 class="text-lg font-semibold">Profile</h2>
-        </template>
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-gray-500">Email</span>
-            <span class="text-sm font-medium">{{ session.user.email }}</span>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-ph-user" class="size-4 text-primary" />
+            <h2 class="font-semibold">Profile</h2>
           </div>
+        </template>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-sm text-muted shrink-0">Email</span>
+          <span class="text-sm font-medium truncate">{{ session.user.email }}</span>
         </div>
       </UCard>
 
@@ -47,7 +47,10 @@ function formatDate(dateString: string | null) {
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold">Subscription</h2>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-ph-credit-card" class="size-4 text-primary" />
+              <h2 class="font-semibold">Subscription</h2>
+            </div>
             <UBadge
               :color="isSubscribed ? 'success' : 'neutral'"
               :variant="isSubscribed ? 'subtle' : 'soft'"
@@ -58,29 +61,27 @@ function formatDate(dateString: string | null) {
         </template>
 
         <div v-if="loading" class="flex justify-center py-4">
-          <UIcon name="i-heroicons-arrow-path" class="size-5 animate-spin" />
+          <UIcon name="i-ph-circle-notch" class="size-5 animate-spin text-muted" />
         </div>
 
-        <div v-else-if="isSubscribed" class="space-y-3">
+        <div v-else-if="isSubscribed" class="space-y-4">
           <div class="flex items-center justify-between">
-            <span class="text-sm text-gray-500">Status</span>
+            <span class="text-sm text-muted">Status</span>
             <span class="text-sm font-medium capitalize">{{ subscription?.status }}</span>
           </div>
           <div class="flex items-center justify-between">
-            <span class="text-sm text-gray-500">Current Period Ends</span>
+            <span class="text-sm text-muted">Current Period Ends</span>
             <span class="text-sm font-medium">{{ formatDate(subscription?.current_period_end) }}</span>
           </div>
-
+          <USeparator />
           <UButton variant="outline" block @click="openPortal">
             Manage Subscription
           </UButton>
         </div>
 
         <div v-else class="text-center py-4">
-          <p class="text-sm text-gray-500 mb-4">You don't have an active subscription.</p>
-          <NuxtLink to="/pricing">
-            <UButton color="primary">View Plans</UButton>
-          </NuxtLink>
+          <p class="text-sm text-muted mb-4">You don't have an active subscription.</p>
+          <UButton to="/pricing" color="primary">View Plans</UButton>
         </div>
       </UCard>
     </div>

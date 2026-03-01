@@ -136,9 +136,9 @@ definePageMeta({ layout: 'admin' })
     </div>
 
     <!-- Playlist mode: two-column layout -->
-    <div v-else class="flex gap-6 items-start">
+    <div v-else class="flex flex-col lg:flex-row gap-6 items-start">
       <!-- Left column: playlist video list -->
-      <div class="flex-1 min-w-0">
+      <div class="flex-1 min-w-0 w-full">
         <PlaylistSelector
           :playlist="playlistInfo"
           :loading="playlistLoading"
@@ -149,7 +149,7 @@ definePageMeta({ layout: 'admin' })
       </div>
 
       <!-- Right column: transcript options -->
-      <div class="w-80 flex-shrink-0 space-y-5">
+      <div class="w-full lg:w-80 lg:shrink-0 space-y-5">
         <FolderPicker v-model="selectedFolderId" :disabled="isProcessing" />
 
         <UFormField

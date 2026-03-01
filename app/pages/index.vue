@@ -37,27 +37,25 @@ onMounted(async () => {
 
 <template>
   <div>
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold mb-2">Personas</h1>
-      <p class="text-gray-600 dark:text-gray-400">
-        Browse transcripts by speaker
-      </p>
-    </div>
+    <UPageHeader
+      title="Browse"
+      description="Browse transcripts by speaker"
+    />
 
     <UInput
       v-model="search"
-      icon="i-heroicons-magnifying-glass"
-      placeholder="Search personas..."
-      class="mb-6 max-w-md"
+      icon="i-ph-magnifying-glass"
+      placeholder="Search speakers..."
+      class="my-8 max-w-sm"
     />
 
-    <div v-if="loading" class="flex justify-center py-12">
-      <UIcon name="i-heroicons-arrow-path" class="size-6 animate-spin" />
+    <div v-if="loading" class="flex justify-center py-16">
+      <UIcon name="i-ph-circle-notch" class="size-6 animate-spin text-muted" />
     </div>
 
-    <div v-else-if="filtered.length === 0" class="py-12 text-center text-gray-500">
-      <UIcon name="i-heroicons-user-group" class="size-12 mx-auto mb-4 opacity-50" />
-      <p>{{ search ? `No personas matching "${search}"` : 'No personas available' }}</p>
+    <div v-else-if="filtered.length === 0" class="py-16 text-center text-muted">
+      <UIcon name="i-ph-users-three" class="size-12 mx-auto mb-4 opacity-40" />
+      <p class="text-sm">{{ search ? `No results matching "${search}"` : 'No speakers available' }}</p>
     </div>
 
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -65,29 +63,31 @@ onMounted(async () => {
         v-for="persona in filtered"
         :key="persona.id"
         :to="`/personas/${persona.slug || persona.id}`"
-        class="block p-5 border rounded-lg hover:border-primary-500 hover:shadow-sm transition-all"
       >
-        <div class="flex items-start gap-4">
-          <div
-            v-if="persona.image_url"
-            class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0"
-          >
-            <img :src="persona.image_url" :alt="persona.name" class="w-full h-full object-cover" />
+        <UCard
+          class="h-full hover:ring-primary/50 hover:ring-1 transition-all"
+          :ui="{ body: 'sm:p-4' }"
+        >
+          <div class="flex items-start gap-3.5">
+            <UAvatar
+              v-if="persona.image_url"
+              :src="persona.image_url"
+              :alt="persona.name"
+              size="lg"
+            />
+            <UAvatar
+              v-else
+              :text="persona.name[0]"
+              size="lg"
+            />
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate">{{ persona.name }}</p>
+              <p v-if="persona.description" class="text-sm text-muted mt-1 line-clamp-2">
+                {{ persona.description }}
+              </p>
+            </div>
           </div>
-          <div
-            v-else
-            class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"
-          >
-            <span class="text-xl font-bold text-primary">{{ persona.name[0] }}</span>
-          </div>
-
-          <div class="flex-1 min-w-0">
-            <h3 class="font-semibold text-lg truncate">{{ persona.name }}</h3>
-            <p v-if="persona.description" class="text-sm text-gray-500 mt-1 line-clamp-2">
-              {{ persona.description }}
-            </p>
-          </div>
-        </div>
+        </UCard>
       </NuxtLink>
     </div>
   </div>

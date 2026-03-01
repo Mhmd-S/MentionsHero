@@ -68,6 +68,8 @@ async def get_persona_by_id(persona_id: str) -> dict[str, Any] | None:
 async def create_persona(
     name: str,
     description: str | None = None,
+    meta_title: str | None = None,
+    meta_description: str | None = None,
     aliases: list[str] | None = None
 ) -> dict[str, Any]:
     """Create a new persona with optional aliases."""
@@ -79,6 +81,10 @@ async def create_persona(
     }
     if description and description.strip():
         insert_data["description"] = description.strip()
+    if meta_title and meta_title.strip():
+        insert_data["meta_title"] = meta_title.strip()
+    if meta_description and meta_description.strip():
+        insert_data["meta_description"] = meta_description.strip()
 
     persona_response = (
         supabase.table("personas")
@@ -109,9 +115,11 @@ async def create_persona(
 async def update_persona(
     persona_id: str,
     name: str | None = None,
-    description: str | None = None
+    description: str | None = None,
+    meta_title: str | None = None,
+    meta_description: str | None = None,
 ) -> dict[str, Any] | None:
-    """Update a persona's name and/or description."""
+    """Update a persona's name, description, and/or SEO fields."""
     supabase = get_supabase()
 
     updates: dict[str, Any] = {
@@ -123,6 +131,12 @@ async def update_persona(
 
     if description is not None:
         updates["description"] = description.strip() if description else None
+
+    if meta_title is not None:
+        updates["meta_title"] = meta_title.strip() if meta_title else None
+
+    if meta_description is not None:
+        updates["meta_description"] = meta_description.strip() if meta_description else None
 
     response = (
         supabase.table("personas")

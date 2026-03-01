@@ -4,8 +4,9 @@ A persona is a unified speaker identity that groups name variations (aliases) to
 
 ## Core Concepts
 
-- **Persona**: Has a name, optional description, and list of aliases
+- **Persona**: Has a name, optional description, SEO fields (meta_title, meta_description), and list of aliases
 - **Aliases**: Unique text strings mapped to a persona. Used for transcript matching
+- **SEO**: Each persona can have custom `meta_title` and `meta_description` for search engine optimization. Falls back to persona name/description when not set. Persona pages are indexed (`index, follow`), transcript pages are not (`noindex, nofollow`)
 - **Transcript matching**: Finds transcripts containing ANY of the persona's aliases via case-insensitive text search
 - **Series linking**: Personas can be linked to Kalshi series for market analysis (see `docs/markets.md`)
 
@@ -29,7 +30,7 @@ When aliases are added/removed, `kalshi_service.reprocess_persona_markets()` run
 | `GET` | `/api/personas` | List all personas with aliases |
 | `GET` | `/api/personas/{id}` | Get single persona with aliases |
 | `POST` | `/api/personas` | Create persona (with optional initial aliases) |
-| `PATCH` | `/api/personas/{id}` | Update name/description |
+| `PATCH` | `/api/personas/{id}` | Update name/description/SEO fields |
 | `DELETE` | `/api/personas/{id}` | Delete persona (aliases cascade) |
 | `POST` | `/api/personas/{id}/aliases` | Add aliases (filters duplicates) |
 | `DELETE` | `/api/personas/{id}/aliases` | Remove aliases |
@@ -51,7 +52,7 @@ When aliases are added/removed, `kalshi_service.reprocess_persona_markets()` run
 ### persona_service.py
 
 - `get_all_personas()` → Fetches personas, groups aliases by persona_id
-- `create_persona(name, description?, aliases?)` → Atomic create with optional aliases
+- `create_persona(name, description?, meta_title?, meta_description?, aliases?)` → Atomic create with optional aliases and SEO fields
 - `add_aliases(persona_id, aliases[])` → Filters duplicates and existing, triggers market reprocessing
 - `remove_aliases(persona_id, aliases[])` → Removes aliases, triggers market reprocessing
 - `get_transcripts_for_persona(persona_id, folder_id?)` → Searches transcript text for any alias (case-insensitive), optionally scoped to folder tree
@@ -60,7 +61,7 @@ When aliases are added/removed, `kalshi_service.reprocess_persona_markets()` run
 ## Database Tables
 
 **personas**
-- `id` (uuid PK), `name` (text NOT NULL), `description` (text), `created_at`, `updated_at`
+- `id` (uuid PK), `name` (text NOT NULL), `description` (text), `meta_title` (text), `meta_description` (text), `slug` (text UNIQUE), `image_url` (text), `created_at`, `updated_at`
 
 **persona_aliases**
 - `id` (uuid PK), `persona_id` (uuid FK → personas CASCADE), `alias` (text UNIQUE), `created_at`

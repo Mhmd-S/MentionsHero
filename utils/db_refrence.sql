@@ -196,6 +196,8 @@ CREATE TABLE public.personas (
   has_model boolean DEFAULT false,
   slug text UNIQUE,
   image_url text,
+  meta_title text,
+  meta_description text,
   CONSTRAINT personas_pkey PRIMARY KEY (id)
 );
 
