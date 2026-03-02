@@ -1,10 +1,55 @@
 <script setup lang="ts">
 const { session } = useAuth()
 const { subscription, isSubscribed, loading, fetchSubscription, openPortal } = useSubscription()
+const { publicFetch } = usePublicApi()
+
+const firstName = ref('')
+const lastName = ref('')
+const phone = ref('')
+const profileLoading = ref(false)
+const profileSaving = ref(false)
+const profileSaved = ref(false)
+
+async function fetchProfile() {
+  if (!session.value) return
+  profileLoading.value = true
+  try {
+    const data = await publicFetch<{ first_name: string | null; last_name: string | null; phone: string | null }>('/api/profile')
+    firstName.value = data.first_name || ''
+    lastName.value = data.last_name || ''
+    phone.value = data.phone || ''
+  } catch {
+    // Profile may not exist yet
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+async function saveProfile() {
+  profileSaving.value = true
+  profileSaved.value = false
+  try {
+    await publicFetch('/api/profile', {
+      method: 'PUT',
+      body: {
+        first_name: firstName.value || null,
+        last_name: lastName.value || null,
+        phone: phone.value || null,
+      },
+    })
+    profileSaved.value = true
+    setTimeout(() => { profileSaved.value = false }, 3000)
+  } catch {
+    // handle error silently
+  } finally {
+    profileSaving.value = false
+  }
+}
 
 onMounted(() => {
   if (session.value) {
     fetchSubscription()
+    fetchProfile()
   }
 })
 
@@ -37,10 +82,37 @@ function formatDate(dateString: string | null) {
             <h2 class="font-semibold">Profile</h2>
           </div>
         </template>
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-sm text-muted shrink-0">Email</span>
-          <span class="text-sm font-medium truncate">{{ session.user.email }}</span>
+
+        <div v-if="profileLoading" class="flex justify-center py-4">
+          <UIcon name="i-lucide-loader" class="size-5 animate-spin text-muted" />
         </div>
+
+        <form v-else class="space-y-4" @submit.prevent="saveProfile">
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-sm text-muted shrink-0">Email</span>
+            <span class="text-sm font-medium truncate">{{ session.user.email }}</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <UFormField label="First Name">
+              <UInput v-model="firstName" placeholder="First name" class="w-full" />
+            </UFormField>
+            <UFormField label="Last Name">
+              <UInput v-model="lastName" placeholder="Last name" class="w-full" />
+            </UFormField>
+          </div>
+
+          <UFormField label="Phone">
+            <UInput v-model="phone" type="tel" placeholder="+1 (555) 000-0000" class="w-full" />
+          </UFormField>
+
+          <div class="flex items-center gap-3">
+            <UButton type="submit" :loading="profileSaving">
+              Save Profile
+            </UButton>
+            <span v-if="profileSaved" class="text-sm text-green-600">Saved</span>
+          </div>
+        </form>
       </UCard>
 
       <!-- Subscription -->

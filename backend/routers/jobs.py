@@ -270,9 +270,6 @@ async def create_batch_jobs(
     if not request.videos or len(request.videos) == 0:
         raise HTTPException(status_code=400, detail="At least one video is required")
 
-    if len(request.videos) > 50:
-        raise HTTPException(status_code=400, detail="Maximum 50 videos per batch")
-
     # Validate all URLs
     for video in request.videos:
         if not video.url or not validate_youtube_url(video.url):

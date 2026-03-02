@@ -13,6 +13,7 @@ from backend.routers import (
     kalshi,
     personas,
     playlist,
+    profile,
     public,
     stripe_router,
     transcripts,
@@ -57,6 +58,7 @@ app.include_router(personas.router, dependencies=[Depends(require_admin)])
 # Public routers (no global auth — per-endpoint auth where needed)
 app.include_router(public.router)
 app.include_router(stripe_router.router)
+app.include_router(profile.router)
 
 
 if __name__ == "__main__":

@@ -35,14 +35,16 @@ async function handleSignup() {
     }
 
     if (data.user) {
-      // Create profile with client role and name/phone
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        role: 'client',
-        first_name: firstName.value,
-        last_name: lastName.value,
-        phone: phone.value,
-      }, { onConflict: 'id' })
+      // Create profile via backend API (service key bypasses RLS)
+      await $fetch('/api/profile/init', {
+        method: 'POST',
+        body: {
+          user_id: data.user.id,
+          first_name: firstName.value,
+          last_name: lastName.value,
+          phone: phone.value,
+        },
+      })
 
       // Show email verification message instead of auto-login
       emailSent.value = true

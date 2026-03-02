@@ -128,7 +128,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto">
+  <div class="max-w-7xl w-full">
     <!-- Header with back button -->
     <div class="mb-6">
       <NuxtLink to="/admin/personas"

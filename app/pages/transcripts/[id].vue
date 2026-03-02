@@ -2,7 +2,6 @@
 const route = useRoute()
 const transcriptId = route.params.id as string
 const { publicFetch } = usePublicApi()
-const { isSubscribed } = useSubscription()
 
 interface SpeakerFrequency {
   speaker: string
@@ -28,10 +27,16 @@ interface Segment {
   content: string
 }
 
-useHead({
-  meta: [
-    { name: 'robots', content: 'noindex, nofollow' },
-  ],
+useSeoMeta({
+  title: () => transcript.value?.name || 'Transcript',
+  description: () => {
+    const date = transcript.value?.upload_date
+    return date ? `Press briefing transcript from ${formatUploadDate(date)}` : 'Press briefing transcript'
+  },
+  ogTitle: () => transcript.value?.name || 'Transcript',
+  ogDescription: () => 'Press briefing transcript on MentionsHero',
+  twitterCard: 'summary',
+  robots: 'noindex, nofollow',
 })
 
 const transcript = ref<TranscriptDetail | null>(null)
@@ -248,8 +253,8 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
         </div>
       </div>
 
-      <!-- Sticky Search Bar -->
-      <div class="sticky top-(--ui-header-height) z-10 bg-background/95 backdrop-blur-sm py-3">
+      <!-- Sticky Search Bar (hidden for locked transcripts) -->
+      <div v-if="!transcript.is_locked" class="sticky top-(--ui-header-height) z-10 bg-background/95 backdrop-blur-sm py-3">
         <div class="flex items-center gap-3">
           <UInput
             v-model="searchInput"
@@ -303,8 +308,8 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
               >{{ seg.content }}</p>
             </div>
 
-            <!-- Pagination controls -->
-            <div v-if="totalPages > 1" class="flex items-center justify-between pt-6 border-t border-muted">
+            <!-- Pagination controls (hidden for locked transcripts) -->
+            <div v-if="totalPages > 1 && !transcript.is_locked" class="flex items-center justify-between pt-6 border-t border-muted">
               <span class="text-sm text-muted">
                 Page {{ currentPage }} of {{ totalPages }}
               </span>

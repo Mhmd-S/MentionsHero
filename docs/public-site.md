@@ -16,7 +16,7 @@ Uses Supabase auth with role-based access via `profiles` table:
 
 **Email verification** is required. Supabase "Confirm email" must be enabled in the dashboard (Authentication → Settings → Email). After signup, users receive a verification email and must confirm before logging in.
 
-**Profile fields**: `first_name`, `last_name`, `phone` are collected at signup and stored in `profiles` table. Also sent as `user_metadata` in Supabase auth for redundancy.
+**Profile fields**: `first_name`, `last_name`, `phone` are collected at signup and stored in `profiles` table via `POST /api/profile/init` (backend service key bypasses RLS). Also sent as `user_metadata` in Supabase auth for redundancy. Users can view and edit these fields on the `/account` page via `GET /api/profile` and `PUT /api/profile`.
 
 **Backend auth dependencies** (`backend/core/auth.py`):
 - `require_admin` — admin-only endpoints (all existing `/api/*` routers)
@@ -98,10 +98,19 @@ Prefix: `/api/public`
 
 ### Access Control
 - Public transcripts: `is_public = true`
-- Premium transcripts return truncated preview (20 lines) with `is_locked = true` if user not subscribed
+- Premium transcripts return truncated preview (75-word limit, breaking at last newline) with `is_locked = true` if user not subscribed
 - Subscription checked via `subscriptions` table
+- Locked transcripts hide the search bar and pagination controls on the frontend to prevent interaction with restricted content
 
 ## Stripe Integration
+
+### Profile Endpoints (`/api/profile`)
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `POST /init` | None (validates user_id exists) | Create profile during signup |
+| `GET /` | `require_user_auth` | Get current user's profile |
+| `PUT /` | `require_user_auth` | Update current user's profile |
 
 ### Endpoints (`/api/stripe`)
 
@@ -129,11 +138,56 @@ profiles (id, role, stripe_customer_id, first_name, last_name, phone, created_at
 
 ## Persona Discovery
 
-Transcripts are associated with personas via **alias-based matching**:
+Transcripts are associated with personas via **speaker-based matching**:
 1. Each persona has aliases (`persona_aliases` table)
-2. Public transcript listing searches transcript text for any alias match (case-insensitive)
-3. Uses existing `get_transcripts_for_persona()` logic in `persona_service.py`
-4. Personas identified by `slug` field on public routes
+2. Aliases are matched against speaker names in the `speakers` table (case-insensitive via `ilike`)
+3. Matching speakers are joined through `transcript_speakers` to find transcripts where the persona was an actual speaker
+4. Shared helper `_find_transcript_ids_by_aliases()` in `public_service.py` is used by both public and admin endpoints
+5. Personas identified by `slug` field on public routes
+
+## SEO
+
+### Module & Configuration
+
+Uses `@nuxtjs/seo` (unified module bundling sitemap, robots, schema.org, site utils). Configured in `nuxt.config.ts`:
+
+- **Site config**: `site.url = 'https://mentionshero.com'`, `site.name = 'MentionsHero'`
+- **Title template**: `%s | MentionsHero` (via `app.head.titleTemplate`)
+- **Robots**: Disallows `/admin/` and `/account`; auto-references sitemap
+- **Sitemap**: Auto-generated at `/sitemap.xml`, excludes admin/auth/account routes
+
+### Per-Page SEO
+
+| Page | Meta | Structured Data | Indexing |
+|------|------|-----------------|----------|
+| `/` (landing) | Static title/description targeting "press briefing transcripts" | `WebSite` + `WebPage` schema | Indexed |
+| `/personas/[slug]` | Dynamic from `persona.meta_title`/`meta_description` with OG/Twitter tags | `Person` + `BreadcrumbList` schema | Indexed |
+| `/transcripts/[id]` | Dynamic title from transcript name, OG tags for social sharing | None | `noindex, nofollow` |
+| `/pricing` | Static title/description | None | Indexed |
+
+### SSR Data Fetching
+
+Public pages use `useFetch` (not `onMounted` + `$fetch`) so meta tags are rendered during SSR. This is critical — without SSR, Google sees empty `<title>` and `<meta description>`.
+
+- `index.vue` — `useFetch('/api/public/personas')` for persona grid
+- `personas/[slug].vue` — `useFetch('/api/public/personas/${slug}')` for persona data; transcript listing stays client-side (not needed for SEO)
+
+### Dynamic Sitemap
+
+`app/server/api/__sitemap__/urls.ts` fetches persona slugs from the backend API and generates sitemap entries for all persona pages.
+
+### Open Graph & Social
+
+All public pages include OG tags (`ogTitle`, `ogDescription`, `ogImage`, `twitterCard`). Persona pages use `persona.image_url` as OG image with `/og-default.png` fallback.
+
+### Database SEO Fields
+
+```sql
+personas.meta_title       -- Custom SEO title (optional, falls back to name)
+personas.meta_description -- Custom SEO description (optional, falls back to description)
+personas.slug             -- URL-friendly identifier for persona routes
+personas.image_url        -- Used as OG image on persona pages
+```
 
 ## Key Files
 
@@ -141,6 +195,7 @@ Transcripts are associated with personas via **alias-based matching**:
 | File | Purpose |
 |------|---------|
 | `backend/core/auth.py` | Auth dependencies (require_admin, optional_auth, etc.) |
+| `backend/routers/profile.py` | User profile CRUD endpoints |
 | `backend/routers/public.py` | Public API endpoints |
 | `backend/routers/stripe_router.py` | Stripe integration endpoints |
 | `backend/services/public_service.py` | Public data access |
@@ -161,6 +216,7 @@ Transcripts are associated with personas via **alias-based matching**:
 | `app/pages/signup.vue` | User signup |
 | `app/pages/pricing.vue` | Pricing page |
 | `app/pages/account.vue` | Account/subscription management |
+| `app/server/api/__sitemap__/urls.ts` | Dynamic sitemap endpoint for persona pages |
 
 ## Environment Variables
 ```
