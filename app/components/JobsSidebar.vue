@@ -37,7 +37,15 @@
               class="size-4 flex-shrink-0"
               :class="statusIconClass(job.status)"
             />
-            <span class="truncate">{{ formatJobLabel(job, group.jobs.length, index) }}</span>
+            <div class="min-w-0 flex-1">
+              <span class="truncate block">{{ formatJobLabel(job, group.jobs.length, index) }}</span>
+              <span
+                v-if="stageLabel(job)"
+                class="text-xs text-gray-500 dark:text-gray-400 truncate block"
+              >
+                {{ stageLabel(job) }}
+              </span>
+            </div>
           </NuxtLink>
 
           <button
@@ -56,10 +64,18 @@
 <script setup lang="ts">
 import type { JobStatus } from '~/composables/useJobProgress'
 
+interface StageProgress {
+  current_chunk?: number | null
+  total_chunks?: number | null
+  substep?: string | null
+  substep_detail?: string | null
+}
+
 interface Job {
   id: string
   youtube_url: string
   status: JobStatus
+  stage_progress?: StageProgress | null
   playlist_id?: string | null
   playlist_name?: string | null
   playlist_index?: number | null
@@ -189,6 +205,31 @@ function formatJobLabel(job: Job, totalInGroup: number, index: number): string {
   } catch {
     return job.youtube_url.slice(0, 20) + '...'
   }
+}
+
+function stageLabel(job: Job): string | null {
+  const terminal = ['completed', 'failed', 'cancelled']
+  if (terminal.includes(job.status)) return null
+
+  const sp = job.stage_progress
+  const labels: Record<string, string> = {
+    pending: 'Queued',
+    downloading: 'Downloading audio…',
+    transcribing: 'Transcribing…',
+    saving: 'Saving…'
+  }
+
+  let label = labels[job.status] || job.status
+
+  if (job.status === 'transcribing' && sp?.current_chunk && sp?.total_chunks && sp.total_chunks > 1) {
+    label = `Transcribing ${sp.current_chunk}/${sp.total_chunks}…`
+  }
+
+  if (sp?.substep && job.status !== 'pending') {
+    label = sp.substep
+  }
+
+  return label
 }
 
 function statusIcon(status: JobStatus): string {
