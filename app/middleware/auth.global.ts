@@ -36,16 +36,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo("/login")
   }
 
-  // Admin routes require admin role
+  // Admin routes require admin role (fetched from backend via useAuth)
   if (to.path.startsWith("/admin")) {
-    const supabase = useSupabaseClient()
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", currentSession.user.id)
-      .maybeSingle()
-
-    if (!profile || profile.role !== "admin") {
+    const { role } = useAuth()
+    if (role.value !== "admin") {
       return navigateTo("/")
     }
   }

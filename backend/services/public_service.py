@@ -62,8 +62,44 @@ async def get_persona_by_slug(slug: str) -> dict[str, Any] | None:
     return persona
 
 
+async def _find_transcript_ids_by_aliases(aliases: list[str]) -> set[str]:
+    """Find transcript IDs where a speaker name matches any alias (case-insensitive)."""
+    supabase = get_supabase()
+    if not aliases:
+        return set()
+
+    # Find speakers whose name matches any alias (case-insensitive)
+    speaker_ids: list[str] = []
+    for alias in aliases:
+        resp = (
+            supabase.table("speakers")
+            .select("id")
+            .ilike("name", alias)
+            .execute()
+        )
+        speaker_ids.extend(r["id"] for r in (resp.data or []))
+
+    if not speaker_ids:
+        return set()
+
+    # Find transcript IDs linked to those speakers
+    batch_size = 200
+    transcript_ids: set[str] = set()
+    unique_speaker_ids = list(set(speaker_ids))
+    for i in range(0, len(unique_speaker_ids), batch_size):
+        batch = unique_speaker_ids[i:i + batch_size]
+        ts_resp = (
+            supabase.table("transcript_speakers")
+            .select("transcript_id")
+            .in_("speaker_id", batch)
+            .execute()
+        )
+        transcript_ids.update(r["transcript_id"] for r in (ts_resp.data or []))
+
+    return transcript_ids
+
+
 async def get_public_transcripts_for_persona(
-    persona_id: str,
     aliases: list[str],
     folder_id: str | None = None,
     search: str | None = None,
@@ -72,13 +108,24 @@ async def get_public_transcripts_for_persona(
     page: int = 1,
     page_size: int = 20,
 ) -> dict[str, Any]:
-    """Find public transcripts containing any of the persona's aliases."""
+    """Find public transcripts where the persona is an actual speaker."""
     supabase = get_supabase()
 
-    # Build query for public transcripts
+    # Find transcript IDs where persona is a speaker (via aliases)
+    matching_ids = await _find_transcript_ids_by_aliases(aliases)
+    if not matching_ids:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+        }
+
+    # Query public transcripts limited to those IDs
     query = supabase.table("transcripts").select(
         "id, name, created_at, folder_id, is_premium, transcript"
-    ).eq("is_public", True)
+    ).eq("is_public", True).in_("id", list(matching_ids))
 
     if folder_id:
         folders_response = supabase.table("folders").select("*").execute()
@@ -93,29 +140,20 @@ async def get_public_transcripts_for_persona(
     response = query.execute()
     all_transcripts = response.data or []
 
-    # Filter by alias match in transcript text
-    matching = []
-    aliases_lower = [a.lower() for a in aliases]
-    for t in all_transcripts:
-        text = (t.get("transcript") or "").lower()
+    # Apply search filter if provided
+    if search:
+        search_lower = search.lower()
+        all_transcripts = [
+            t for t in all_transcripts
+            if search_lower in (t.get("transcript") or "").lower()
+        ]
 
-        # Check alias match
-        has_alias = any(alias in text for alias in aliases_lower)
-        if not has_alias:
-            continue
-
-        # Check search filter
-        if search and search.lower() not in text:
-            continue
-
-        matching.append(t)
-
-    total = len(matching)
+    total = len(all_transcripts)
     total_pages = max(1, math.ceil(total / page_size))
 
     # Paginate
     start = (page - 1) * page_size
-    page_items = matching[start:start + page_size]
+    page_items = all_transcripts[start:start + page_size]
 
     # Get folder names for the page items
     folder_ids = list({t["folder_id"] for t in page_items if t.get("folder_id")})
@@ -192,11 +230,16 @@ async def get_public_transcript(
         is_locked = True
 
     if is_locked:
-        # Truncate transcript for preview
+        # Truncate transcript for preview (100-word limit, break at last newline)
         full_text = transcript.get("transcript", "")
-        lines = full_text.split("\n")
-        preview_lines = lines[:20]
-        transcript["transcript"] = "\n".join(preview_lines)
+        words = full_text.split()
+        if len(words) > 125:
+            cut = " ".join(words[:125])
+            # Try to break at last newline for clean cut
+            last_nl = cut.rfind("\n")
+            if last_nl > 0:
+                cut = cut[:last_nl]
+            transcript["transcript"] = cut
 
     transcript["is_locked"] = is_locked
     return transcript

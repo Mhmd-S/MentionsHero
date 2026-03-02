@@ -5,6 +5,20 @@ export function useAuth() {
   const session = useState<Session | null>("auth-session", () => null);
   const loading = useState<boolean>("auth-loading", () => false);
   const error = useState<string | null>("auth-error", () => null);
+  const role = useState<string | null>("auth-role", () => null);
+
+  async function fetchRole(accessToken: string) {
+    try {
+      const data = await $fetch<{ role: string | null }>("/api/profile", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      role.value = data.role;
+
+      console.log("Fetched user role:", data.role);
+    } catch {
+      role.value = null;
+    }
+  }
 
   async function init() {
     loading.value = true;
@@ -14,12 +28,21 @@ export function useAuth() {
     const { data } = await supabase.auth.getSession();
     session.value = data.session;
     user.value = data.session?.user ?? null;
+
+    // Fetch role from backend
+    if (data.session?.access_token) {
+      await fetchRole(data.session.access_token);
+    }
+
     loading.value = false;
 
     // Subscribe to auth changes (token refresh, sign-out, etc.)
     supabase.auth.onAuthStateChange((_event, newSession) => {
       session.value = newSession;
       user.value = newSession?.user ?? null;
+      if (!newSession) {
+        role.value = null;
+      }
     });
   }
 
@@ -38,6 +61,9 @@ export function useAuth() {
 
       session.value = data.session;
       user.value = data.user;
+      if (data.session?.access_token) {
+        await fetchRole(data.session.access_token);
+      }
       return true;
     } catch (e: any) {
       error.value = e.message || "Login failed";
@@ -52,6 +78,7 @@ export function useAuth() {
     await supabase.auth.signOut();
     session.value = null;
     user.value = null;
+    role.value = null;
     navigateTo("/login");
   }
 
@@ -64,6 +91,7 @@ export function useAuth() {
     session: readonly(session),
     loading: readonly(loading),
     error: readonly(error),
+    role: readonly(role),
     init,
     login,
     logout,

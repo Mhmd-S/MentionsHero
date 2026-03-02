@@ -1,6 +1,4 @@
 <script setup lang="ts">
-const { publicFetch } = usePublicApi()
-
 interface Persona {
   id: string
   name: string
@@ -10,29 +8,42 @@ interface Persona {
   aliases: string[]
 }
 
-const personas = ref<Persona[]>([])
-const loading = ref(true)
+// SSR-compatible fetch (so Google sees persona grid content)
+const { data: personas, status } = await useFetch<Persona[]>('/api/public/personas')
+const loading = computed(() => status.value === 'pending')
+
 const search = ref('')
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase().trim()
-  if (!q) return personas.value
-  return personas.value.filter(
+  if (!q) return personas.value || []
+  return (personas.value || []).filter(
     (p) =>
       p.name.toLowerCase().includes(q) ||
       (p.description || '').toLowerCase().includes(q)
   )
 })
 
-onMounted(async () => {
-  try {
-    personas.value = await publicFetch<Persona[]>('/api/public/personas')
-  } catch (err) {
-    console.error('Failed to load personas:', err)
-  } finally {
-    loading.value = false
-  }
+// SEO meta tags
+useSeoMeta({
+  title: 'Press Briefing Transcripts & Mentions Analysis',
+  description: 'Browse transcripts of press briefings by speaker. Track what public figures say with full transcript search and Kalshi mentions market analysis.',
+  ogTitle: 'MentionsHero — Press Briefing Transcripts & Mentions Analysis',
+  ogDescription: 'Browse transcripts of press briefings by speaker. Track what public figures say with full transcript search and analysis.',
+  ogImage: '/og-default.png',
+  twitterCard: 'summary_large_image',
 })
+
+// Structured data
+useSchemaOrg([
+  defineWebSite({
+    name: 'MentionsHero',
+    description: 'Search and analyze press briefing transcripts linked to Kalshi mentions prediction markets.',
+  }),
+  defineWebPage({
+    name: 'Press Briefing Transcripts & Mentions Analysis',
+  }),
+])
 </script>
 
 <template>

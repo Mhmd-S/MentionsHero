@@ -32,9 +32,13 @@ interface PaginatedTranscripts {
   total_pages: number
 }
 
-const persona = ref<Persona | null>(null)
+// SSR-compatible fetch for persona data (critical for SEO meta tags)
+const { data: persona, status: personaStatus } = await useFetch<Persona>(
+  `/api/public/personas/${slug}`,
+)
+const loadingPersona = computed(() => personaStatus.value === 'pending')
+
 const transcripts = ref<TranscriptSummary[]>([])
-const loadingPersona = ref(true)
 const loadingTranscripts = ref(false)
 const search = ref('')
 const sortBy = ref<'date' | 'name'>('date')
@@ -53,17 +57,6 @@ watch(search, (val) => {
     page.value = 1
   }, 400)
 })
-
-async function loadPersona() {
-  loadingPersona.value = true
-  try {
-    persona.value = await publicFetch<Persona>(`/api/public/personas/${slug}`)
-  } catch {
-    persona.value = null
-  } finally {
-    loadingPersona.value = false
-  }
-}
 
 async function loadTranscripts() {
   if (!persona.value) return
@@ -110,18 +103,36 @@ function formatDate(dateString: string) {
   })
 }
 
-useHead({
-  title: computed(() => persona.value?.meta_title || persona.value?.name || 'Persona'),
-  meta: [
-    { name: 'description', content: computed(() => persona.value?.meta_description || persona.value?.description || '') },
-    { name: 'robots', content: 'index, follow' },
-  ],
+// SEO meta tags (rendered during SSR thanks to useFetch above)
+useSeoMeta({
+  title: () => persona.value?.meta_title || persona.value?.name || 'Persona',
+  description: () => persona.value?.meta_description || persona.value?.description || '',
+  ogTitle: () => persona.value?.meta_title || persona.value?.name || 'Persona',
+  ogDescription: () => persona.value?.meta_description || persona.value?.description || '',
+  ogImage: () => persona.value?.image_url || '/og-default.png',
+  ogType: 'profile',
+  twitterCard: 'summary',
+  twitterTitle: () => persona.value?.meta_title || persona.value?.name || 'Persona',
+  twitterDescription: () => persona.value?.meta_description || persona.value?.description || '',
+  robots: 'index, follow',
 })
 
-onMounted(async () => {
-  await loadPersona()
-  await loadTranscripts()
-})
+// Structured data
+useSchemaOrg([
+  definePerson({
+    name: () => persona.value?.name || '',
+    description: () => persona.value?.description || '',
+    image: () => persona.value?.image_url || '',
+  }),
+  defineBreadcrumb({
+    itemListElement: [
+      { name: 'Personas', item: '/' },
+      { name: () => persona.value?.name || '' },
+    ],
+  }),
+])
+
+onMounted(() => loadTranscripts())
 </script>
 
 <template>

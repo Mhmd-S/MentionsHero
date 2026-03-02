@@ -192,6 +192,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
 | `/api/public` | `public.py` | None/Optional | Public personas & transcript browsing |
 | `/api/stripe` | `stripe_router.py` | User/None | Checkout, webhook, subscription, portal |
+| `/api/profile` | `profile.py` | User/None | Profile CRUD, signup init |
 
 ## Key Conventions & Gotchas
 

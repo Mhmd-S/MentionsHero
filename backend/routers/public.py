@@ -53,7 +53,6 @@ async def get_persona_transcripts(
         }
 
     return await public_service.get_public_transcripts_for_persona(
-        persona_id=persona["id"],
         aliases=persona["aliases"],
         folder_id=folder_id,
         search=search,

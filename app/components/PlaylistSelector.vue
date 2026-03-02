@@ -152,13 +152,15 @@ function toggleSelection(video: VideoInfo) {
 }
 
 function selectAll() {
-  if (props.playlist) {
-    emit('update:selected', [...props.playlist.videos])
-  }
+  const visible = filteredVideos.value
+  const currentIds = new Set(props.selected.map(v => v.id))
+  const toAdd = visible.filter(v => !currentIds.has(v.id))
+  emit('update:selected', [...props.selected, ...toAdd])
 }
 
 function selectNone() {
-  emit('update:selected', [])
+  const visibleIds = new Set(filteredVideos.value.map(v => v.id))
+  emit('update:selected', props.selected.filter(v => !visibleIds.has(v.id)))
 }
 
 const totalDuration = computed(() => {

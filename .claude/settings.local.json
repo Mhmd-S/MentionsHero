@@ -53,7 +53,11 @@
       "WebFetch(domain:ui3.nuxt.dev)",
       "WebFetch(domain:ui.nuxt.com)",
       "WebFetch(domain:github.com)",
-      "Bash(pnpm build)"
+      "Bash(pnpm build)",
+      "WebFetch(domain:nuxtseo.com)",
+      "Bash(pnpm nuxt prepare)",
+      "Bash(pnpm exec nuxt prepare)",
+      "Bash(npx nuxt prepare)"
     ],
     "deny": [
       "**/.env*",

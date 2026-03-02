@@ -1,6 +1,14 @@
 <script setup lang="ts">
 const { session } = useAuth()
 const { isSubscribed, startCheckout, loading } = useSubscription()
+
+useSeoMeta({
+  title: 'Pricing',
+  description: 'Get unlimited access to all premium press briefing transcripts. Free and premium plans available.',
+  ogTitle: 'Pricing | MentionsHero',
+  ogDescription: 'Get unlimited access to all premium press briefing transcripts.',
+  twitterCard: 'summary',
+})
 </script>
 
 <template>

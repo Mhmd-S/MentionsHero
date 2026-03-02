@@ -240,50 +240,31 @@ async def get_transcripts_for_persona(
     persona_id: str,
     folder_id: str | None = None
 ) -> list[dict[str, Any]]:
-    """Find transcripts containing any of the persona's aliases."""
+    """Find transcripts where the persona is an actual speaker (via aliases)."""
+    from backend.services.public_service import _find_transcript_ids_by_aliases
+
     supabase = get_supabase()
 
     # Get persona aliases
     persona = await get_persona_by_id(persona_id)
     if not persona or not persona["aliases"]:
-        print(f"[get_transcripts_for_persona] No persona or no aliases for persona_id={persona_id}")
         return []
 
-    aliases = persona["aliases"]
-    print(f"[get_transcripts_for_persona] persona_id={persona_id}, aliases={aliases}")
+    # Find transcript IDs where persona is a speaker
+    matching_ids = await _find_transcript_ids_by_aliases(persona["aliases"])
+    if not matching_ids:
+        return []
 
-    # Get transcripts
-    query = supabase.table("transcripts").select("id, name, youtube_url, created_at, folder_id, is_public, is_premium")
+    # Query transcripts limited to those IDs
+    query = supabase.table("transcripts").select(
+        "id, name, youtube_url, created_at, folder_id, is_public, is_premium"
+    ).in_("id", list(matching_ids))
 
     if folder_id:
-        # Get folder tree
         folders_response = supabase.table("folders").select("*").execute()
         folders = folders_response.data if folders_response.data else []
         folder_ids = get_folder_ids_in_tree(folder_id, folders)
         query = query.in_("folder_id", folder_ids)
 
     response = query.order("created_at", desc=True).execute()
-    transcripts = response.data if response.data else []
-    print(f"[get_transcripts_for_persona] Total transcripts to check: {len(transcripts)}")
-
-    # Filter transcripts that contain any alias in transcript text
-    # We need to fetch transcripts content to search
-    matching = []
-    for t in transcripts:
-        # Get full transcript
-        full = (
-            supabase.table("transcripts")
-            .select("transcript")
-            .eq("id", t["id"])
-            .single()
-            .execute()
-        )
-        if full.data:
-            text = full.data.get("transcript", "").lower()
-            for alias in aliases:
-                if alias.lower() in text:
-                    matching.append(t)
-                    break
-
-    print(f"[get_transcripts_for_persona] Matching transcripts: {len(matching)}")
-    return matching
+    return response.data or []
