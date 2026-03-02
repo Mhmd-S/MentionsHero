@@ -8,7 +8,7 @@ definePageMeta({ layout: 'admin' })
       <UButton
         to="/admin/transcripts"
         variant="ghost"
-        icon="i-heroicons-arrow-left"
+        icon="i-lucide-arrow-left"
         size="sm"
         class="mb-4"
       >
@@ -18,7 +18,7 @@ definePageMeta({ layout: 'admin' })
     </div>
 
     <div v-if="pending && !transcript" class="flex justify-center py-8">
-      <UIcon name="i-heroicons-arrow-path" class="size-6 animate-spin" />
+      <UIcon name="i-lucide-loader" class="size-6 animate-spin" />
     </div>
 
     <div v-else-if="error && !transcript" class="py-8">
@@ -34,7 +34,7 @@ definePageMeta({ layout: 'admin' })
             class="hover:underline flex items-center gap-1 truncate"
           >
             <span class="truncate">{{ transcript.youtube_url }}</span>
-            <UIcon name="i-heroicons-arrow-top-right-on-square" class="size-3 shrink-0" />
+            <UIcon name="i-lucide-external-link" class="size-3 shrink-0" />
           </a>
         </div>
         <div class="text-xs text-gray-400 shrink-0">
@@ -45,7 +45,7 @@ definePageMeta({ layout: 'admin' })
       <div class="flex items-center gap-2 flex-wrap">
         <UButton
           variant="outline"
-          icon="i-heroicons-clipboard-document"
+          icon="i-lucide-clipboard"
           size="sm"
           @click="copyTranscript"
         >
@@ -54,7 +54,7 @@ definePageMeta({ layout: 'admin' })
         <UButton
           variant="outline"
           color="error"
-          icon="i-heroicons-trash"
+          icon="i-lucide-trash-2"
           size="sm"
           @click="deleteTranscript"
           :loading="deleting"
@@ -93,7 +93,7 @@ definePageMeta({ layout: 'admin' })
                   <UInput
                     v-model="searchInput"
                     placeholder="Search in transcript..."
-                    icon="i-heroicons-magnifying-glass"
+                    icon="i-lucide-search"
                   />
                 </UFormField>
                 <UFormField label="Highlight speakers">
@@ -119,7 +119,7 @@ definePageMeta({ layout: 'admin' })
         <UCard v-if="speakerFrequencies.length > 0" class="h-fit lg:sticky lg:top-4">
           <template #header>
             <div class="flex items-center gap-2">
-              <UIcon name="i-heroicons-chart-bar" class="size-5" />
+              <UIcon name="i-lucide-bar-chart-2" class="size-5" />
               <h3 class="font-semibold">Frequency by Speaker</h3>
             </div>
           </template>

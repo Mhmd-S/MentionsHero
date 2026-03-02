@@ -11,7 +11,7 @@ definePageMeta({ layout: 'admin' })
 
     <UInput
       v-model="searchQuery"
-      icon="i-heroicons-magnifying-glass"
+      icon="i-lucide-search"
       placeholder="Search by name or URL..."
       class="mb-6 max-w-md"
       :ui="{ icon: { trailing: { pointer: '' } } }"
@@ -20,7 +20,7 @@ definePageMeta({ layout: 'admin' })
         <UButton
           color="gray"
           variant="link"
-          icon="i-heroicons-x-mark-20-solid"
+          icon="i-lucide-x"
           :padded="false"
           @click="searchQuery = ''"
         />
@@ -28,7 +28,7 @@ definePageMeta({ layout: 'admin' })
     </UInput>
 
     <div v-if="pending" class="flex justify-center py-8">
-      <UIcon name="i-heroicons-arrow-path" class="size-6 animate-spin" />
+      <UIcon name="i-lucide-loader" class="size-6 animate-spin" />
     </div>
 
     <div v-else-if="error" class="py-8">
@@ -36,7 +36,7 @@ definePageMeta({ layout: 'admin' })
     </div>
 
     <div v-else-if="!transcripts?.length" class="py-8 text-center text-gray-500">
-      <UIcon name="i-heroicons-document-text" class="size-12 mx-auto mb-4 opacity-50" />
+      <UIcon name="i-lucide-file-text" class="size-12 mx-auto mb-4 opacity-50" />
       <p>No transcripts yet</p>
       <UButton to="/admin" variant="link" class="mt-2">Create your first transcript</UButton>
     </div>
@@ -61,7 +61,7 @@ definePageMeta({ layout: 'admin' })
             class="flex items-start gap-3 py-3 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors group"
             @click="navigateTo(`/admin/transcripts/${item.id}`)"
           >
-            <UIcon name="i-heroicons-document-text" class="size-5 text-gray-400 shrink-0 mt-0.5" />
+            <UIcon name="i-lucide-file-text" class="size-5 text-gray-400 shrink-0 mt-0.5" />
 
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">

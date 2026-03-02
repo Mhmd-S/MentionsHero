@@ -4,7 +4,7 @@
     <div v-if="loading" class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
       <div class="flex items-center gap-3">
         <div class="animate-spin">
-          <UIcon name="i-heroicons-arrow-path" class="size-5" />
+          <UIcon name="i-lucide-refresh-cw" class="size-5" />
         </div>
         <span class="text-sm text-gray-600 dark:text-gray-400">Loading playlist...</span>
       </div>
@@ -29,7 +29,7 @@
           </p>
         </div>
         <UButton size="xs" variant="ghost" @click="$emit('back')">
-          <UIcon name="i-heroicons-x-mark" class="size-4" />
+          <UIcon name="i-lucide-x" class="size-4" />
         </UButton>
       </div>
 
@@ -38,7 +38,7 @@
         <UInput
           v-model="searchQuery"
           placeholder="Search videos..."
-          icon="i-heroicons-magnifying-glass"
+          icon="i-lucide-search"
           size="sm"
           class="w-full"
         />

@@ -124,7 +124,7 @@ function highlightTerm(text: string): string {
             >
               <div class="flex items-center gap-1 truncate">
                 <UIcon
-                  :name="expandedTranscripts.has(group.transcript_id) ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'"
+                  :name="expandedTranscripts.has(group.transcript_id) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
                   class="w-3 h-3 shrink-0 text-gray-400"
                 />
                 <span class="font-medium truncate">{{ group.transcript_name }}</span>

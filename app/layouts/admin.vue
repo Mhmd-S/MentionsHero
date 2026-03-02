@@ -7,31 +7,31 @@ const route = useRoute()
 const navItems = computed<NavigationMenuItem[][]>(() => [[
   {
     label: 'New Transcript',
-    icon: 'i-ph-plus-circle',
+    icon: 'i-lucide-plus-circle',
     to: '/admin',
     active: route.path === '/admin'
   },
   {
     label: 'Term Search',
-    icon: 'i-ph-magnifying-glass',
+    icon: 'i-lucide-search',
     to: '/admin/term-search',
     active: route.path === '/admin/term-search'
   },
   {
     label: 'Transcripts',
-    icon: 'i-ph-file-text',
+    icon: 'i-lucide-file-text',
     to: '/admin/transcripts',
     active: route.path.startsWith('/admin/transcripts')
   },
   {
     label: 'Personas',
-    icon: 'i-ph-users-three',
+    icon: 'i-lucide-users',
     to: '/admin/personas',
     active: route.path.startsWith('/admin/personas')
   },
   {
     label: 'Markets',
-    icon: 'i-ph-chart-bar',
+    icon: 'i-lucide-bar-chart-2',
     to: '/admin/markets',
     active: route.path.startsWith('/admin/markets')
   }
@@ -50,7 +50,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
       >
         <template #header="{ collapsed }">
           <div class="flex items-center gap-2" :class="collapsed ? 'justify-center' : ''">
-            <UIcon name="i-ph-chat-circle-dots-fill" class="size-5 text-primary shrink-0" />
+            <UIcon name="i-lucide-message-circle" class="size-5 text-primary shrink-0" />
             <span v-if="!collapsed" class="font-semibold text-sm truncate">MentionsHero</span>
           </div>
         </template>
@@ -69,7 +69,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
         <template #footer="{ collapsed }">
           <div class="flex items-center" :class="collapsed ? 'justify-center' : 'gap-2'">
             <UButton
-              icon="i-ph-sign-out"
+              icon="i-lucide-log-out"
               variant="ghost"
               color="neutral"
               size="sm"
@@ -84,7 +84,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
 
       <UDashboardPanel>
         <template #header>
-          <UDashboardNavbar title="MentionsHero" icon="i-ph-chat-circle-dots-fill">
+          <UDashboardNavbar title="MentionsHero" icon="i-lucide-message-circle">
             <template #right>
               <UColorModeButton size="sm" />
             </template>

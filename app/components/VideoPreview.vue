@@ -22,11 +22,11 @@
       <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ video.channel }}</p>
       <div class="flex items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
         <span class="flex items-center gap-1">
-          <UIcon name="i-heroicons-clock" class="size-3" />
+          <UIcon name="i-lucide-clock" class="size-3" />
           {{ video.durationFormatted }}
         </span>
         <span v-if="video.viewCount" class="flex items-center gap-1">
-          <UIcon name="i-heroicons-eye" class="size-3" />
+          <UIcon name="i-lucide-eye" class="size-3" />
           {{ formatViewCount(video.viewCount) }}
         </span>
       </div>

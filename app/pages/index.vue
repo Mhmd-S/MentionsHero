@@ -44,17 +44,17 @@ onMounted(async () => {
 
     <UInput
       v-model="search"
-      icon="i-ph-magnifying-glass"
+      icon="i-lucide-search"
       placeholder="Search speakers..."
       class="my-8 max-w-sm"
     />
 
     <div v-if="loading" class="flex justify-center py-16">
-      <UIcon name="i-ph-circle-notch" class="size-6 animate-spin text-muted" />
+      <UIcon name="i-lucide-loader" class="size-6 animate-spin text-muted" />
     </div>
 
     <div v-else-if="filtered.length === 0" class="py-16 text-center text-muted">
-      <UIcon name="i-ph-users-three" class="size-12 mx-auto mb-4 opacity-40" />
+      <UIcon name="i-lucide-users" class="size-12 mx-auto mb-4 opacity-40" />
       <p class="text-sm">{{ search ? `No results matching "${search}"` : 'No speakers available' }}</p>
     </div>
 

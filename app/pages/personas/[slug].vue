@@ -128,12 +128,12 @@ onMounted(async () => {
   <div>
     <!-- Loading -->
     <div v-if="loadingPersona" class="flex justify-center py-16">
-      <UIcon name="i-ph-circle-notch" class="size-6 animate-spin text-muted" />
+      <UIcon name="i-lucide-loader" class="size-6 animate-spin text-muted" />
     </div>
 
     <!-- Not found -->
     <div v-else-if="!persona" class="py-16 text-center text-muted">
-      <UIcon name="i-ph-warning" class="size-10 mx-auto mb-3 opacity-40" />
+      <UIcon name="i-lucide-alert-triangle" class="size-10 mx-auto mb-3 opacity-40" />
       <p class="font-medium">Persona not found.</p>
       <NuxtLink to="/">
         <UButton variant="outline" size="sm" class="mt-4">Back to Browse</UButton>
@@ -143,7 +143,7 @@ onMounted(async () => {
     <template v-else>
       <!-- Back link (mobile only, at top) -->
       <NuxtLink to="/" class="sm:hidden flex items-center gap-1 mt-3 text-sm text-muted hover:text-default transition-colors -mb-4">
-        <UIcon name="i-ph-arrow-left" class="size-4" />
+        <UIcon name="i-lucide-arrow-left" class="size-4" />
         All Personas
       </NuxtLink>
 
@@ -151,7 +151,7 @@ onMounted(async () => {
       <UPageHeader
         :title="persona.name"
         :description="persona.description || undefined"
-        :links="[{ label: 'All Personas', to: '/', icon: 'i-ph-arrow-left', variant: 'ghost' as const, color: 'neutral' as const, size: 'xs' as const }]"
+        :links="[{ label: 'All Personas', to: '/', icon: 'i-lucide-arrow-left', variant: 'ghost' as const, color: 'neutral' as const, size: 'xs' as const }]"
         :ui="{ links: 'hidden sm:flex' }"
       >
         <template #title>
@@ -183,7 +183,7 @@ onMounted(async () => {
           <div class="flex items-center gap-3 flex-wrap w-full sm:w-auto">
             <UInput
               v-model="search"
-              icon="i-ph-magnifying-glass"
+              icon="i-lucide-search"
               placeholder="Search transcripts..."
               class="w-full sm:w-64"
               size="sm"
@@ -198,7 +198,7 @@ onMounted(async () => {
                 Date
                 <UIcon
                   v-if="sortBy === 'date'"
-                  :name="sortOrder === 'desc' ? 'i-ph-caret-down' : 'i-ph-caret-up'"
+                  :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
                   class="size-3"
                 />
               </UButton>
@@ -210,7 +210,7 @@ onMounted(async () => {
                 Name
                 <UIcon
                   v-if="sortBy === 'name'"
-                  :name="sortOrder === 'desc' ? 'i-ph-caret-down' : 'i-ph-caret-up'"
+                  :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
                   class="size-3"
                 />
               </UButton>
@@ -220,12 +220,12 @@ onMounted(async () => {
 
         <!-- Loading -->
         <div v-if="loadingTranscripts" class="flex justify-center py-8">
-          <UIcon name="i-ph-circle-notch" class="size-5 animate-spin text-muted" />
+          <UIcon name="i-lucide-loader" class="size-5 animate-spin text-muted" />
         </div>
 
         <!-- Empty -->
         <div v-else-if="transcripts.length === 0" class="py-10 text-center text-muted">
-          <UIcon name="i-ph-file-text" class="size-10 mx-auto mb-3 opacity-40" />
+          <UIcon name="i-lucide-file-text" class="size-10 mx-auto mb-3 opacity-40" />
           <p class="text-sm">{{ debouncedSearch ? `No transcripts matching "${debouncedSearch}"` : 'No public transcripts available' }}</p>
         </div>
 
@@ -237,7 +237,7 @@ onMounted(async () => {
             :to="`/transcripts/${t.id}`"
             class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-elevated transition-colors group"
           >
-            <UIcon name="i-ph-file-text" class="size-4 text-muted shrink-0" />
+            <UIcon name="i-lucide-file-text" class="size-4 text-muted shrink-0" />
             <span class="flex-1 min-w-0 text-sm font-medium truncate group-hover:text-primary transition-colors">
               {{ t.name || 'Untitled' }}
             </span>
@@ -252,7 +252,7 @@ onMounted(async () => {
             size="xs"
             variant="ghost"
             :disabled="page <= 1"
-            icon="i-ph-caret-left"
+            icon="i-lucide-chevron-left"
             @click="page--"
           />
           <span class="text-sm text-muted">Page {{ page }} of {{ totalPages }}</span>
@@ -260,7 +260,7 @@ onMounted(async () => {
             size="xs"
             variant="ghost"
             :disabled="page >= totalPages"
-            icon="i-ph-caret-right"
+            icon="i-lucide-chevron-right"
             @click="page++"
           />
         </div>
