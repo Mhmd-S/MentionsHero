@@ -365,6 +365,38 @@ async def cancel_job(job_id: str) -> CancelResponse:
     return CancelResponse(success=True, message="Cancellation requested")
 
 
+@router.post("/{job_id}/restart")
+async def restart_job(
+    job_id: str,
+    background_tasks: BackgroundTasks
+) -> CreateJobResponse:
+    """Restart a stuck or failed job by creating a new job with the same URL."""
+    job = await job_service.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Force-cancel the old job
+    cancel_process(job_id)
+    await job_service.force_cancel_job(job_id)
+
+    # Create a new job with the same URL/title
+    new_job = await job_service.create_job(
+        youtube_url=job["youtube_url"],
+        video_title=job.get("video_title"),
+        playlist_id=job.get("playlist_id"),
+        playlist_name=job.get("playlist_name"),
+        playlist_index=job.get("playlist_index"),
+    )
+
+    background_tasks.add_task(
+        process_job,
+        new_job["id"],
+        job["youtube_url"],
+    )
+
+    return CreateJobResponse(jobId=new_job["id"], status=JobStatus(new_job["status"]))
+
+
 @router.post("/{job_id}/force-cancel")
 async def force_cancel_job(job_id: str) -> CancelResponse:
     """Force cancel a job regardless of its current state."""

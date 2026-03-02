@@ -29,7 +29,7 @@
           class="group flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
         >
           <NuxtLink
-            :to="`/?jobId=${job.id}`"
+            :to="`/admin?jobId=${job.id}`"
             class="flex items-center gap-3 flex-1 min-w-0"
           >
             <UIcon
@@ -48,13 +48,23 @@
             </div>
           </NuxtLink>
 
-          <button
-            class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition-all"
-            title="Force cancel this job"
-            @click.stop="forceCancel(job.id)"
-          >
-            <UIcon name="i-lucide-x" class="size-4 text-red-500" />
-          </button>
+          <div class="flex items-center gap-0.5 flex-shrink-0">
+            <button
+              v-if="canRestart(job)"
+              class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition-all"
+              title="Restart this job"
+              @click.stop="restartJob(job.id)"
+            >
+              <UIcon name="i-lucide-rotate-ccw" class="size-3.5 text-blue-500" />
+            </button>
+            <button
+              class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition-all"
+              title="Force cancel this job"
+              @click.stop="forceCancel(job.id)"
+            >
+              <UIcon name="i-lucide-x" class="size-3.5 text-red-500" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -80,6 +90,7 @@ interface Job {
   playlist_name?: string | null
   playlist_index?: number | null
   video_title?: string | null
+  updated_at?: string | null
 }
 
 interface JobGroup {
@@ -153,6 +164,24 @@ async function forceCancel(jobId: string) {
     jobs.value = jobs.value.filter(j => j.id !== jobId)
   } catch (e) {
     console.error('Failed to force cancel job:', e)
+  }
+}
+
+function canRestart(job: Job): boolean {
+  if (job.status === 'failed') return true
+  // Show restart if job hasn't been updated in 2+ minutes (likely stuck)
+  if (job.updated_at) {
+    const stale = Date.now() - new Date(job.updated_at).getTime() > 2 * 60 * 1000
+    if (stale && !['completed', 'cancelled'].includes(job.status)) return true
+  }
+  return false
+}
+
+async function restartJob(jobId: string) {
+  try {
+    await authFetch(`/api/jobs/${jobId}/restart`, { method: 'POST' })
+  } catch (e) {
+    console.error('Failed to restart job:', e)
   }
 }
 
