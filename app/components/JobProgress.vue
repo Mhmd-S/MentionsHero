@@ -12,7 +12,7 @@
     />
 
     <div v-if="isJobActive && substepLabel" class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-      <UIcon name="i-heroicons-cog-6-tooth" class="size-4 animate-spin" />
+      <UIcon name="i-lucide-settings" class="size-4 animate-spin" />
       <span>{{ substepLabel }}</span>
     </div>
     <p v-if="isJobActive && substepDetail" class="text-xs text-gray-500 dark:text-gray-500 ml-6">

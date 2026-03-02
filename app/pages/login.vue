@@ -38,7 +38,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         .from('profiles')
         .select('role')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
       if (profile?.role === 'admin') {
         navigateTo('/admin');
@@ -61,11 +61,11 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         :loading="loading"
         title="MentionsHero"
         description="Sign in to continue"
-        icon="i-ph-chat-circle-dots-fill"
+        icon="i-lucide-message-circle"
         @submit="onSubmit"
       >
         <template v-if="error" #validation>
-          <UAlert color="error" icon="i-ph-info" :title="error" />
+          <UAlert color="error" icon="i-lucide-info" :title="error" />
         </template>
       </UAuthForm>
       <div class="text-center mt-4">

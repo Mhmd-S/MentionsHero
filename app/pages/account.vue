@@ -23,7 +23,7 @@ function formatDate(dateString: string | null) {
     <UPageHeader title="Account" />
 
     <div v-if="!session" class="text-center py-16 text-muted">
-      <UIcon name="i-ph-user-circle" class="size-12 mx-auto mb-4 opacity-40" />
+      <UIcon name="i-lucide-circle-user" class="size-12 mx-auto mb-4 opacity-40" />
       <p class="mb-4">Please sign in to view your account.</p>
       <UButton to="/login">Sign In</UButton>
     </div>
@@ -33,7 +33,7 @@ function formatDate(dateString: string | null) {
       <UCard>
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-ph-user" class="size-4 text-primary" />
+            <UIcon name="i-lucide-user" class="size-4 text-primary" />
             <h2 class="font-semibold">Profile</h2>
           </div>
         </template>
@@ -48,7 +48,7 @@ function formatDate(dateString: string | null) {
         <template #header>
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <UIcon name="i-ph-credit-card" class="size-4 text-primary" />
+              <UIcon name="i-lucide-credit-card" class="size-4 text-primary" />
               <h2 class="font-semibold">Subscription</h2>
             </div>
             <UBadge
@@ -61,7 +61,7 @@ function formatDate(dateString: string | null) {
         </template>
 
         <div v-if="loading" class="flex justify-center py-4">
-          <UIcon name="i-ph-circle-notch" class="size-5 animate-spin text-muted" />
+          <UIcon name="i-lucide-loader" class="size-5 animate-spin text-muted" />
         </div>
 
         <div v-else-if="isSubscribed" class="space-y-4">

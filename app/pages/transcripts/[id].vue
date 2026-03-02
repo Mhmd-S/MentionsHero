@@ -208,12 +208,12 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
   <div class="max-w-5xl mx-auto">
     <!-- Loading -->
     <div v-if="loading && !transcript" class="flex justify-center py-20">
-      <UIcon name="i-ph-circle-notch" class="size-6 animate-spin text-muted" />
+      <UIcon name="i-lucide-loader" class="size-6 animate-spin text-muted" />
     </div>
 
     <!-- Error -->
     <div v-else-if="error && !transcript" class="py-16 text-center">
-      <UIcon name="i-ph-warning" class="size-10 mx-auto mb-4 opacity-40 text-muted" />
+      <UIcon name="i-lucide-alert-triangle" class="size-10 mx-auto mb-4 opacity-40 text-muted" />
       <p class="text-muted font-medium">{{ error }}</p>
       <NuxtLink to="/">
         <UButton variant="outline" size="sm" class="mt-4">Back to Browse</UButton>
@@ -224,13 +224,13 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
       <!-- Header -->
       <div class="py-6">
         <NuxtLink to="/" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors mb-3">
-          <UIcon name="i-ph-arrow-left" class="size-4" />
+          <UIcon name="i-lucide-arrow-left" class="size-4" />
           All Personas
         </NuxtLink>
         <h1 class="text-xl font-semibold">{{ transcript.name || 'Transcript' }}</h1>
         <div class="flex flex-wrap items-center gap-3 mt-2">
           <span class="inline-flex items-center gap-1.5 text-sm text-muted">
-            <UIcon name="i-ph-calendar" class="size-4" />
+            <UIcon name="i-lucide-calendar" class="size-4" />
             {{ formatUploadDate(transcript.upload_date) || formatDate(transcript.created_at) }}
           </span>
           <a
@@ -240,9 +240,9 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors"
           >
-            <UIcon name="i-ph-play-circle" class="size-4" />
+            <UIcon name="i-lucide-play-circle" class="size-4" />
             <span>YouTube</span>
-            <UIcon name="i-ph-arrow-up-right" class="size-3" />
+            <UIcon name="i-lucide-external-link" class="size-3" />
           </a>
           <UBadge v-if="transcript.is_premium" color="warning" variant="subtle" size="sm">Premium</UBadge>
         </div>
@@ -254,7 +254,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
           <UInput
             v-model="searchInput"
             placeholder="Search transcript..."
-            icon="i-ph-magnifying-glass"
+            icon="i-lucide-search"
             size="md"
             class="flex-1"
           />
@@ -271,7 +271,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
             variant="ghost"
             color="neutral"
             size="xs"
-            icon="i-ph-x"
+            icon="i-lucide-x"
             @click="clearSearch"
           />
         </div>
@@ -312,7 +312,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
                 <UButton
                   variant="outline"
                   size="sm"
-                  icon="i-ph-caret-left"
+                  icon="i-lucide-chevron-left"
                   :disabled="currentPage === 1"
                   @click="goToPage(currentPage - 1)"
                 />
@@ -333,7 +333,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
                 <UButton
                   variant="outline"
                   size="sm"
-                  icon="i-ph-caret-right"
+                  icon="i-lucide-chevron-right"
                   :disabled="currentPage === totalPages"
                   @click="goToPage(currentPage + 1)"
                 />
@@ -352,7 +352,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
             <div class="absolute -top-32 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent pointer-events-none" />
             <div class="pt-10 pb-6 text-center">
               <div class="inline-flex items-center justify-center size-14 rounded-full bg-elevated mb-4">
-                <UIcon name="i-ph-lock-simple" class="size-7 text-muted" />
+                <UIcon name="i-lucide-lock" class="size-7 text-muted" />
               </div>
               <p class="font-semibold text-lg mb-1">Full transcript requires a subscription</p>
               <p class="text-sm text-muted mb-5">Get unlimited access to all premium transcripts</p>
@@ -368,7 +368,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
           <UCard :ui="{ body: 'p-4 sm:p-4' }">
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center gap-2">
-                <UIcon name="i-ph-chart-bar" class="size-4 text-primary" />
+                <UIcon name="i-lucide-bar-chart-2" class="size-4 text-primary" />
                 <h3 class="font-semibold text-sm">Frequency by Speaker</h3>
               </div>
               <span class="text-xs text-muted tabular-nums">{{ totalSearchMatches }} total</span>

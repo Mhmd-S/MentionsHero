@@ -77,7 +77,7 @@ onMounted(load)
       </div>
       <UInput
         v-model="search"
-        icon="i-heroicons-magnifying-glass"
+        icon="i-lucide-search"
         placeholder="Search events & markets..."
         class="w-full sm:w-72"
         :disabled="loading"
@@ -86,7 +86,7 @@ onMounted(load)
 
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center p-8">
-      <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
+      <UIcon name="i-lucide-loader" class="w-6 h-6 animate-spin" />
     </div>
 
     <!-- Empty state (no data at all) -->

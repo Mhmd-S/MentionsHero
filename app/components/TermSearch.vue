@@ -23,9 +23,9 @@ async function handleSearch() {
 
 function getTrendIcon(trend: string) {
   switch (trend) {
-    case 'increasing': return 'i-heroicons-arrow-trending-up'
-    case 'decreasing': return 'i-heroicons-arrow-trending-down'
-    default: return 'i-heroicons-minus'
+    case 'increasing': return 'i-lucide-trending-up'
+    case 'decreasing': return 'i-lucide-trending-down'
+    default: return 'i-lucide-minus'
   }
 }
 
@@ -162,7 +162,7 @@ function highlightMatch(text: string, query: string): string {
       v-if="!result && !searchResults && !loading"
       class="text-center py-12 text-gray-500"
     >
-      <UIcon name="i-heroicons-magnifying-glass" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+      <UIcon name="i-lucide-search" class="w-12 h-12 mx-auto mb-4 opacity-50" />
       <p>Enter a term to analyze its frequency in press briefings</p>
     </div>
   </div>

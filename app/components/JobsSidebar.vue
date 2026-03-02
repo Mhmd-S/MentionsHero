@@ -45,7 +45,7 @@
             title="Force cancel this job"
             @click.stop="forceCancel(job.id)"
           >
-            <UIcon name="i-heroicons-x-mark" class="size-4 text-red-500" />
+            <UIcon name="i-lucide-x" class="size-4 text-red-500" />
           </button>
         </div>
       </div>
@@ -193,15 +193,15 @@ function formatJobLabel(job: Job, totalInGroup: number, index: number): string {
 
 function statusIcon(status: JobStatus): string {
   const icons: Record<JobStatus, string> = {
-    pending: 'i-heroicons-clock',
-    downloading: 'i-heroicons-arrow-down-tray',
-    transcribing: 'i-heroicons-language',
-    saving: 'i-heroicons-cloud-arrow-up',
-    completed: 'i-heroicons-check-circle',
-    failed: 'i-heroicons-x-circle',
-    cancelled: 'i-heroicons-x-mark'
+    pending: 'i-lucide-clock',
+    downloading: 'i-lucide-download',
+    transcribing: 'i-lucide-languages',
+    saving: 'i-lucide-cloud-upload',
+    completed: 'i-lucide-check-circle',
+    failed: 'i-lucide-x-circle',
+    cancelled: 'i-lucide-x'
   }
-  return icons[status] || 'i-heroicons-question-mark-circle'
+  return icons[status] || 'i-lucide-help-circle'
 }
 
 function statusIconClass(status: JobStatus): string {

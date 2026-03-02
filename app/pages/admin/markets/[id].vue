@@ -118,13 +118,13 @@ onMounted(async () => {
     <!-- Back button -->
     <NuxtLink to="/admin/markets"
       class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4">
-      <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
+      <UIcon name="i-lucide-chevron-left" class="w-5 h-5" />
       <span class="text-base">Markets</span>
     </NuxtLink>
 
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center p-8">
-      <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
+      <UIcon name="i-lucide-loader" class="w-6 h-6 animate-spin" />
     </div>
 
     <div v-else-if="!detail" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
@@ -141,7 +141,7 @@ onMounted(async () => {
         <UButton
           size="xs"
           variant="ghost"
-          icon="i-heroicons-arrow-path"
+          icon="i-lucide-refresh-cw"
           :loading="refreshing"
           @click="handleRefresh"
         />
@@ -161,13 +161,13 @@ onMounted(async () => {
           >
             {{ getPersonaName(pid) }}
             <UIcon
-              name="i-heroicons-x-mark"
+              name="i-lucide-x"
               class="w-3 h-3 ml-1"
               @click.stop="handleUnlinkPersona(pid)"
             />
           </UBadge>
         </div>
-        <UButton size="xs" variant="ghost" icon="i-heroicons-plus" @click="showLinkModal = true">Link Persona</UButton>
+        <UButton size="xs" variant="ghost" icon="i-lucide-plus" @click="showLinkModal = true">Link Persona</UButton>
       </div>
 
       <!-- Markets -->

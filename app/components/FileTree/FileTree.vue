@@ -7,13 +7,13 @@
         title="New Folder"
         @click="() => createFolder()"
       >
-        <UIcon name="i-heroicons-folder-plus" class="size-4" />
+        <UIcon name="i-lucide-folder-plus" class="size-4" />
       </button>
     </div>
 
     <div class="relative mb-2">
       <UIcon
-        name="i-heroicons-magnifying-glass"
+        name="i-lucide-search"
         class="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-gray-400"
       />
       <input
@@ -27,7 +27,7 @@
         class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
         @click="searchQuery = ''"
       >
-        <UIcon name="i-heroicons-x-mark" class="size-4" />
+        <UIcon name="i-lucide-x" class="size-4" />
       </button>
     </div>
 

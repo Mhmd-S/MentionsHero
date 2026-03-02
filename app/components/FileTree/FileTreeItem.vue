@@ -22,14 +22,14 @@
       title="Rename"
       @click.stop="onRename"
     >
-      <UIcon name="i-heroicons-pencil-square" class="size-4" />
+      <UIcon name="i-lucide-square-pen" class="size-4" />
     </button>
     <button
       class="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity p-0.5"
       title="Delete"
       @click.stop="onDelete"
     >
-      <UIcon name="i-heroicons-trash" class="size-4" />
+      <UIcon name="i-lucide-trash-2" class="size-4" />
     </button>
   </div>
 </template>

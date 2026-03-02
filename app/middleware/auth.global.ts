@@ -43,7 +43,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
       .from("profiles")
       .select("role")
       .eq("id", currentSession.user.id)
-      .single()
+      .maybeSingle()
 
     if (!profile || profile.role !== "admin") {
       return navigateTo("/")

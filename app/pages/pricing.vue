@@ -4,7 +4,7 @@ const { isSubscribed, startCheckout, loading } = useSubscription()
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-4xl pt-8 mx-auto">
     <div class="text-center mb-12">
       <h1 class="text-3xl font-bold mb-3">Pricing</h1>
       <p class="text-gray-600 dark:text-gray-400 text-lg">
@@ -24,19 +24,19 @@ const { isSubscribed, startCheckout, loading } = useSubscription()
 
         <ul class="space-y-3">
           <li class="flex items-center gap-2 text-sm">
-            <UIcon name="i-heroicons-check" class="size-5 text-green-500" />
+            <UIcon name="i-lucide-check" class="size-5 text-green-500" />
             Browse all personas
           </li>
           <li class="flex items-center gap-2 text-sm">
-            <UIcon name="i-heroicons-check" class="size-5 text-green-500" />
+            <UIcon name="i-lucide-check" class="size-5 text-green-500" />
             View free transcripts
           </li>
           <li class="flex items-center gap-2 text-sm">
-            <UIcon name="i-heroicons-check" class="size-5 text-green-500" />
+            <UIcon name="i-lucide-check" class="size-5 text-green-500" />
             Search within transcripts
           </li>
           <li class="flex items-center gap-2 text-sm text-gray-400">
-            <UIcon name="i-heroicons-x-mark" class="size-5" />
+            <UIcon name="i-lucide-x" class="size-5" />
             Premium transcripts
           </li>
         </ul>
@@ -63,19 +63,19 @@ const { isSubscribed, startCheckout, loading } = useSubscription()
 
         <ul class="space-y-3">
           <li class="flex items-center gap-2 text-sm">
-            <UIcon name="i-heroicons-check" class="size-5 text-green-500" />
+            <UIcon name="i-lucide-check" class="size-5 text-green-500" />
             Everything in Free
           </li>
           <li class="flex items-center gap-2 text-sm">
-            <UIcon name="i-heroicons-check" class="size-5 text-green-500" />
+            <UIcon name="i-lucide-check" class="size-5 text-green-500" />
             All premium transcripts
           </li>
           <li class="flex items-center gap-2 text-sm">
-            <UIcon name="i-heroicons-check" class="size-5 text-green-500" />
+            <UIcon name="i-lucide-check" class="size-5 text-green-500" />
             Full search & analysis
           </li>
           <li class="flex items-center gap-2 text-sm">
-            <UIcon name="i-heroicons-check" class="size-5 text-green-500" />
+            <UIcon name="i-lucide-check" class="size-5 text-green-500" />
             Speaker frequency breakdown
           </li>
         </ul>

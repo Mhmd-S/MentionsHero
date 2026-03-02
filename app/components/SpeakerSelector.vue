@@ -100,7 +100,7 @@ watch(
         <template #default="{ open }">
           <span class="truncate flex-1 text-left">{{ selectionPlaceholder }}</span>
           <UIcon
-            name="i-heroicons-chevron-down-20-solid"
+            name="i-lucide-chevron-down"
             class="w-5 h-5 shrink-0 text-gray-400 transition-transform"
             :class="[open && 'transform rotate-180']"
           />
@@ -117,7 +117,7 @@ watch(
         @click="removeSpeaker(name)"
       >
         {{ name }}
-        <UIcon name="i-heroicons-x-mark" class="w-3 h-3 ml-1" />
+        <UIcon name="i-lucide-x" class="w-3 h-3 ml-1" />
       </UBadge>
     </div>
   </div>

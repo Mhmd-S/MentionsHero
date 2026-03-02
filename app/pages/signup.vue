@@ -60,7 +60,7 @@ async function handleSignup() {
     <UCard class="w-full max-w-md">
       <template #header>
         <div class="text-center">
-          <UIcon name="i-ph-chat-circle-dots-fill" class="size-8 text-primary mx-auto mb-2" />
+          <UIcon name="i-lucide-message-circle" class="size-8 text-primary mx-auto mb-2" />
           <h1 class="text-xl font-bold">Create Account</h1>
           <p class="text-sm text-muted mt-1">Sign up for MentionsHero</p>
         </div>
@@ -68,7 +68,7 @@ async function handleSignup() {
 
       <!-- Email verification success -->
       <div v-if="emailSent" class="space-y-4 text-center">
-        <UIcon name="i-ph-envelope-simple" class="size-12 text-primary mx-auto" />
+        <UIcon name="i-lucide-mail" class="size-12 text-primary mx-auto" />
         <h2 class="text-lg font-semibold">Check your email</h2>
         <p class="text-sm text-muted">
           We sent a verification link to <strong>{{ email }}</strong>. Please click the link to verify your account.

@@ -7,13 +7,13 @@ const route = useRoute()
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
     label: 'Personas',
-    icon: 'i-ph-users-three',
+    icon: 'i-lucide-users',
     to: '/',
     active: route.path === '/'
   },
   {
     label: 'Pricing',
-    icon: 'i-ph-credit-card',
+    icon: 'i-lucide-credit-card',
     to: '/pricing',
     active: route.path === '/pricing'
   }
@@ -25,7 +25,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     <UHeader :to="'/'">
       <template #title>
         <div class="flex items-center gap-2">
-          <UIcon name="i-ph-chat-circle-dots-fill" class="size-5 text-primary" />
+          <UIcon name="i-lucide-message-circle" class="size-5 text-primary" />
           <span class="font-semibold text-base">MentionsHero</span>
         </div>
       </template>
@@ -40,14 +40,14 @@ const navItems = computed<NavigationMenuItem[]>(() => [
             variant="ghost"
             color="neutral"
             size="sm"
-            icon="i-ph-user-circle"
+            icon="i-lucide-circle-user"
             label="Account"
           />
           <UButton
             variant="ghost"
             color="neutral"
             size="sm"
-            icon="i-ph-sign-out"
+            icon="i-lucide-log-out"
             label="Sign Out"
             @click="logout"
           />
@@ -81,7 +81,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
               color="neutral"
               block
               class="justify-start"
-              icon="i-ph-user-circle"
+              icon="i-lucide-circle-user"
               label="Account"
             />
             <UButton
@@ -89,7 +89,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
               color="neutral"
               block
               class="justify-start"
-              icon="i-ph-sign-out"
+              icon="i-lucide-log-out"
               label="Sign Out"
               @click="logout"
             />
@@ -101,14 +101,14 @@ const navItems = computed<NavigationMenuItem[]>(() => [
               color="neutral"
               block
               class="justify-start"
-              icon="i-ph-sign-in"
+              icon="i-lucide-log-in"
               label="Sign In"
             />
             <UButton
               to="/signup"
               block
               class="justify-start"
-              icon="i-ph-user-plus"
+              icon="i-lucide-user-plus"
               label="Sign Up"
             />
           </template>

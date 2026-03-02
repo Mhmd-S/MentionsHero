@@ -133,12 +133,12 @@ onMounted(async () => {
     <div class="mb-6">
       <NuxtLink to="/admin/personas"
         class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4">
-        <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
+        <UIcon name="i-lucide-chevron-left" class="w-5 h-5" />
         <span class="text-base">Personas</span>
       </NuxtLink>
 
       <div v-if="loadingPersona" class="flex items-center justify-center p-8">
-        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
+        <UIcon name="i-lucide-loader" class="w-6 h-6 animate-spin" />
       </div>
 
       <div v-else-if="!persona" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
@@ -162,11 +162,11 @@ onMounted(async () => {
     <template v-if="persona">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 class="text-xl font-semibold">Linked Series</h2>
-        <UButton size="sm" icon="i-heroicons-plus" @click="showLinkSeriesModal = true">Link to Series</UButton>
+        <UButton size="sm" icon="i-lucide-plus" @click="showLinkSeriesModal = true">Link to Series</UButton>
       </div>
 
       <div v-if="loadingSeries" class="flex items-center justify-center p-4">
-        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
+        <UIcon name="i-lucide-loader" class="w-5 h-5 animate-spin" />
       </div>
 
       <div v-else-if="linkedSeries.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
@@ -182,7 +182,7 @@ onMounted(async () => {
           <span class="text-sm font-medium">{{ s.title || s.ticker }}</span>
           <UBadge v-if="s.frequency" color="primary" variant="subtle" size="xs">{{ s.frequency }}</UBadge>
           <UIcon
-            name="i-heroicons-x-mark"
+            name="i-lucide-x"
             class="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer"
             @click.prevent="handleUnlinkSeries(s.id)"
           />
@@ -200,7 +200,7 @@ onMounted(async () => {
       </div>
 
       <div v-if="loadingTranscripts" class="flex items-center justify-center p-4">
-        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" />
+        <UIcon name="i-lucide-loader" class="w-5 h-5 animate-spin" />
       </div>
 
       <div v-else-if="personaTranscripts.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">

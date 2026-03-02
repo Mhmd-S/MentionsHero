@@ -303,12 +303,12 @@ onMounted(async () => {
             :variant="selectMode ? 'solid' : 'outline'"
             :color="selectMode ? 'neutral' : undefined"
             size="sm"
-            icon="i-heroicons-check-circle"
+            icon="i-lucide-check-circle"
             @click="selectMode ? exitSelectMode() : (selectMode = true)"
           >
             {{ selectMode ? 'Cancel' : 'Select' }}
           </UButton>
-          <UButton @click="showCreateModal = true" icon="i-heroicons-plus">
+          <UButton @click="showCreateModal = true" icon="i-lucide-plus">
             New Persona
           </UButton>
         </div>
@@ -325,10 +325,10 @@ onMounted(async () => {
         {{ allSelected ? 'Deselect all' : 'Select all' }}
       </UButton>
       <div class="ml-auto flex items-center gap-2">
-        <UButton size="xs" variant="outline" icon="i-heroicons-plus" @click="bulkAddAliases">
+        <UButton size="xs" variant="outline" icon="i-lucide-plus" @click="bulkAddAliases">
           Add Aliases
         </UButton>
-        <UButton size="xs" variant="outline" color="error" icon="i-heroicons-trash" :loading="bulkDeleting" @click="bulkDelete">
+        <UButton size="xs" variant="outline" color="error" icon="i-lucide-trash-2" :loading="bulkDeleting" @click="bulkDelete">
           Delete
         </UButton>
       </div>
@@ -344,7 +344,7 @@ onMounted(async () => {
       </div>
 
       <div v-if="loading" class="flex items-center justify-center p-8">
-        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
+        <UIcon name="i-lucide-loader" class="w-6 h-6 animate-spin" />
       </div>
 
       <div v-else-if="personas.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
@@ -382,9 +382,9 @@ onMounted(async () => {
               </div>
             </div>
             <div v-if="!selectMode" class="flex items-center gap-1">
-              <UButton size="xs" variant="ghost" icon="i-heroicons-plus" @click.prevent="openAddAliasModal(persona)" />
-              <UButton size="xs" variant="ghost" icon="i-heroicons-pencil" @click.prevent="openEditModal(persona)" />
-              <UButton size="xs" variant="ghost" color="error" icon="i-heroicons-trash" @click.prevent="handleDeletePersona(persona)" />
+              <UButton size="xs" variant="ghost" icon="i-lucide-plus" @click.prevent="openAddAliasModal(persona)" />
+              <UButton size="xs" variant="ghost" icon="i-lucide-pencil" @click.prevent="openEditModal(persona)" />
+              <UButton size="xs" variant="ghost" color="error" icon="i-lucide-trash-2" @click.prevent="handleDeletePersona(persona)" />
             </div>
           </div>
 
@@ -400,7 +400,7 @@ onMounted(async () => {
               @click.prevent="selectMode ? undefined : handleRemoveAlias(persona, alias)"
             >
               {{ alias }}
-              <UIcon v-if="!selectMode" name="i-heroicons-x-mark" class="w-3 h-3 ml-1" />
+              <UIcon v-if="!selectMode" name="i-lucide-x" class="w-3 h-3 ml-1" />
             </UBadge>
           </div>
           <div v-else class="text-sm text-gray-400" :class="selectMode ? 'ml-8' : ''">
@@ -539,7 +539,7 @@ onMounted(async () => {
                   @click="selectedSpeakersToAdd = selectedSpeakersToAdd.filter(s => s !== speaker)"
                 >
                   {{ speaker }}
-                  <UIcon name="i-heroicons-x-mark" class="w-3 h-3 ml-1" />
+                  <UIcon name="i-lucide-x" class="w-3 h-3 ml-1" />
                 </UBadge>
               </div>
 

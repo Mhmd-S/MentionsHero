@@ -9,7 +9,7 @@
         </p>
       </div>
       <UButton size="xs" variant="ghost" @click="$emit('back')">
-        <UIcon name="i-heroicons-x-mark" class="size-4" />
+        <UIcon name="i-lucide-x" class="size-4" />
       </UButton>
     </div>
 
@@ -55,7 +55,7 @@
           title="Remove from list"
           @click.stop="removeVideo(video)"
         >
-          <UIcon name="i-heroicons-trash" class="size-4 text-gray-400 hover:text-red-500" />
+          <UIcon name="i-lucide-trash-2" class="size-4 text-gray-400 hover:text-red-500" />
         </button>
       </div>
 

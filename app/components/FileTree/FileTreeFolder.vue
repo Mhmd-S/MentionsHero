@@ -12,10 +12,10 @@
       tabindex="0"
     >
       <UIcon
-        :name="isExpanded ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'"
+        :name="isExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
         class="size-4 text-gray-400 shrink-0"
       />
-      <UIcon name="i-heroicons-folder" class="size-4 text-yellow-500 shrink-0" />
+      <UIcon name="i-lucide-folder" class="size-4 text-yellow-500 shrink-0" />
 
       <span class="flex-1 truncate">{{ folder.name }}</span>
 
@@ -24,14 +24,14 @@
         title="Rename"
         @click.stop="onRename"
       >
-        <UIcon name="i-heroicons-pencil-square" class="size-4" />
+        <UIcon name="i-lucide-square-pen" class="size-4" />
       </button>
       <button
         class="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity p-0.5"
         title="Delete"
         @click.stop="$emit('delete', folder.id)"
       >
-        <UIcon name="i-heroicons-trash" class="size-4" />
+        <UIcon name="i-lucide-trash-2" class="size-4" />
       </button>
     </div>
 
