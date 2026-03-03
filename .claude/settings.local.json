@@ -57,7 +57,8 @@
       "WebFetch(domain:nuxtseo.com)",
       "Bash(pnpm nuxt prepare)",
       "Bash(pnpm exec nuxt prepare)",
-      "Bash(npx nuxt prepare)"
+      "Bash(npx nuxt prepare)",
+      "WebFetch(domain:nuxt.com)"
     ],
     "deny": [
       "**/.env*",

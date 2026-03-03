@@ -79,6 +79,7 @@ Prefix: `/api/public`
 
 | Endpoint | Auth | Purpose |
 |----------|------|---------|
+| `GET /sitemap-urls` | None | Sitemap-formatted persona URLs (loc, lastmod, changefreq, priority) |
 | `GET /personas` | None | List all personas |
 | `GET /personas/{slug}` | None | Get persona by slug |
 | `GET /personas/{slug}/transcripts` | None | List public transcripts for persona |
@@ -174,7 +175,7 @@ Public pages use `useFetch` (not `onMounted` + `$fetch`) so meta tags are render
 
 ### Dynamic Sitemap
 
-`app/server/api/__sitemap__/urls.ts` fetches persona slugs from the backend API and generates sitemap entries for all persona pages.
+The sitemap uses `@nuxtjs/sitemap`'s `sources` config to fetch persona URLs from the backend's `/api/public/sitemap-urls` endpoint (bypasses Nitro's `/api/**` proxy). Static pages like `/pricing` are added via the `urls` config. The `BACKEND_URL` env var controls the backend base URL (defaults to `http://localhost:8001`).
 
 ### Open Graph & Social
 
@@ -216,7 +217,7 @@ personas.image_url        -- Used as OG image on persona pages
 | `app/pages/signup.vue` | User signup |
 | `app/pages/pricing.vue` | Pricing page |
 | `app/pages/account.vue` | Account/subscription management |
-| `app/server/api/__sitemap__/urls.ts` | Dynamic sitemap endpoint for persona pages |
+| `backend/routers/public.py` (`/sitemap-urls`) | Dynamic sitemap endpoint for persona pages |
 
 ## Environment Variables
 ```
