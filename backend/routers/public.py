@@ -13,6 +13,22 @@ from backend.utils.transcript_filter import (
 router = APIRouter(prefix="/api/public", tags=["public"])
 
 
+@router.get("/sitemap-urls")
+async def sitemap_urls() -> list[dict[str, Any]]:
+    """Return sitemap-formatted URLs for all persona pages."""
+    personas = await public_service.get_public_personas()
+    return [
+        {
+            "loc": f"/personas/{p['slug']}",
+            "lastmod": p.get("updated_at"),
+            "changefreq": "weekly",
+            "priority": 0.8,
+        }
+        for p in personas
+        if p.get("slug")
+    ]
+
+
 @router.get("/personas")
 async def list_personas() -> list[dict[str, Any]]:
     """List all personas for public browsing."""

@@ -44,6 +44,12 @@ export default defineNuxtConfig({
 
   sitemap: {
     exclude: ['/admin/**', '/login', '/signup', '/account'],
+    sources: [
+      `${process.env.BACKEND_URL || 'http://localhost:8001'}/api/public/sitemap-urls`,
+    ],
+    urls: [
+      { loc: '/pricing', changefreq: 'monthly', priority: 0.6 },
+    ],
   },
 
   robots: {
