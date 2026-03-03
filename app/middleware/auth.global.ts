@@ -27,8 +27,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const { session, loading } = useAuth()
 
-  // While the plugin is still initializing, don't redirect
-  if (loading.value) return
+  // Wait for the auth plugin to finish initializing
+  if (loading.value) {
+    await new Promise<void>((resolve) => {
+      const stop = watch(loading, (val) => {
+        if (!val) {
+          stop()
+          resolve()
+        }
+      })
+    })
+  }
 
   // Check for session
   let currentSession = session.value

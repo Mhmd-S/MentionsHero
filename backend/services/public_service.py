@@ -12,7 +12,7 @@ async def get_public_personas() -> list[dict[str, Any]]:
 
     personas_response = (
         supabase.table("personas")
-        .select("id, name, description, slug, image_url, meta_title, meta_description")
+        .select("id, name, description, slug, image_url, meta_title, meta_description, updated_at")
         .order("name")
         .execute()
     )
@@ -35,21 +35,31 @@ async def get_public_personas() -> list[dict[str, Any]]:
 
 
 async def get_persona_by_slug(slug: str) -> dict[str, Any] | None:
-    """Fetch a single persona by slug with aliases."""
+    """Fetch a single persona by slug (or by id as fallback) with aliases."""
     supabase = get_supabase()
 
     response = (
         supabase.table("personas")
         .select("id, name, description, slug, image_url, meta_title, meta_description")
         .eq("slug", slug)
-        .single()
+        .limit(1)
         .execute()
     )
+
+    # Fallback: try matching by id (for personas without a slug)
+    if not response.data:
+        response = (
+            supabase.table("personas")
+            .select("id, name, description, slug, image_url, meta_title, meta_description")
+            .eq("id", slug)
+            .limit(1)
+            .execute()
+        )
 
     if not response.data:
         return None
 
-    persona = response.data
+    persona = response.data[0]
 
     aliases_response = (
         supabase.table("persona_aliases")

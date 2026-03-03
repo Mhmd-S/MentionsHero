@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-const { logout } = useAuth()
+const { logout, loading, role } = useAuth()
 const route = useRoute()
+
+const authVerified = computed(() => !loading.value && role.value === 'admin')
 
 const navItems = computed<NavigationMenuItem[][]>(() => [[
   {
@@ -40,7 +42,11 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
 
 <template>
   <UApp>
-    <UDashboardGroup>
+    <!-- Show loading while auth is being verified -->
+    <div v-if="!authVerified" class="flex items-center justify-center h-screen">
+      <UIcon name="i-lucide-loader-circle" class="size-8 animate-spin text-primary" />
+    </div>
+    <UDashboardGroup v-else>
       <UDashboardSidebar
         collapsible
         resizable
