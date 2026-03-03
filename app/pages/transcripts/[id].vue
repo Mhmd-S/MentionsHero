@@ -355,8 +355,8 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
           <!-- Locked transcript fade-out and CTA -->
           <div v-if="transcript.is_locked" class="relative mt-0">
             <div class="absolute -top-32 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent pointer-events-none" />
-            <div class="pt-10 pb-6 text-center">
-              <div class="inline-flex items-center justify-center size-14 rounded-full bg-elevated mb-4">
+            <div class="pt-10 pb-6 flex flex-col items-center justify-center gap-4 text-center">
+              <div class="flex items-center justify-center size-14 rounded-full bg-elevated mb-4">
                 <UIcon name="i-lucide-lock" class="size-7 text-muted" />
               </div>
               <p class="font-semibold text-lg mb-1">Full transcript requires a subscription</p>

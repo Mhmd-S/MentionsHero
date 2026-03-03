@@ -4,7 +4,14 @@ import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 
 definePageMeta({ layout: false });
 
-const { login, error, loading } = useAuth();
+const route = useRoute();
+const { login, error: authError, loading } = useAuth();
+
+// Pick up auth errors passed via query param (e.g. expired OTP link)
+const externalError = ref<string | null>(
+  route.query.error ? (route.query.error as string).replace(/\+/g, ' ') : null
+);
+const error = computed(() => externalError.value || authError.value);
 
 const fields: AuthFormField[] = [{
   name: 'email',
@@ -28,6 +35,7 @@ const schema = z.object({
 type Schema = z.output<typeof schema>
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
+  externalError.value = null;
   const success = await login(payload.data.email, payload.data.password);
   if (success) {
     // Check role and redirect accordingly

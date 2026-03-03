@@ -18,6 +18,7 @@ interface TranscriptSummary {
   id: string
   name: string | null
   created_at: string
+  upload_date: string | null
   is_premium: boolean
   folder_id: string | null
   folder_name: string | null
@@ -95,8 +96,15 @@ function toggleSort(field: 'date' | 'name') {
   }
 }
 
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-US', {
+function formatDate(dateString: string | null, fallback?: string) {
+  const str = dateString || fallback
+  if (!str) return ''
+  // Handle YYYYMMDD format from upload_date
+  if (/^\d{8}$/.test(str)) {
+    const d = new Date(`${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6)}`)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  return new Date(str).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -253,7 +261,7 @@ onMounted(() => loadTranscripts())
               {{ t.name || 'Untitled' }}
             </span>
             <UBadge v-if="t.is_premium" color="warning" variant="subtle" size="xs">Premium</UBadge>
-            <span class="text-xs text-muted tabular-nums shrink-0">{{ formatDate(t.created_at) }}</span>
+            <span class="text-xs text-muted tabular-nums shrink-0">{{ formatDate(t.upload_date, t.created_at) }}</span>
           </NuxtLink>
         </div>
 

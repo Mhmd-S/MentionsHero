@@ -42,7 +42,7 @@ def _select_transcripts(
 async def get_all_transcripts(folder_id: str | None = None) -> list[dict[str, Any]]:
     """Fetch all transcripts, optionally filtered by folder."""
     supabase = get_supabase()
-    query = supabase.table("transcripts").select("*").order("created_at", desc=True)
+    query = supabase.table("transcripts").select("*").order("upload_date", desc=True, nullsfirst=False)
 
     if folder_id:
         query = query.eq("folder_id", folder_id)

@@ -53,11 +53,30 @@ useSchemaOrg([
       description="Browse transcripts by speaker"
     />
 
+    <div class="my-6 rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex-1">
+        <p class="text-sm font-medium">We're expanding our selection daily</p>
+        <p class="text-sm text-muted mt-0.5">
+          Don't see a speaker you're looking for? Reach out at
+          <a href="mailto:support@mentionshero.com?subject=Transcript%20Request" class="text-primary hover:underline">support@mentionshero.com</a>
+          and we'll add them.
+        </p>
+      </div>
+      <UButton
+        to="mailto:support@mentionshero.com?subject=Transcript%20Request"
+        icon="i-lucide-mail"
+        variant="soft"
+        size="sm"
+      >
+        Request a Speaker
+      </UButton>
+    </div>
+
     <UInput
       v-model="search"
       icon="i-lucide-search"
       placeholder="Search speakers..."
-      class="my-8 max-w-sm"
+      class="mb-8 max-w-sm"
     />
 
     <div v-if="loading" class="flex justify-center py-16">

@@ -34,61 +34,20 @@ const navItems = computed<NavigationMenuItem[]>(() => [
 
       <template #right>
         <UColorModeButton />
-        <template v-if="session">
-          <UButton
-            to="/account"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            icon="i-lucide-circle-user"
-            label="Account"
-          />
-          <UButton
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            icon="i-lucide-log-out"
-            label="Sign Out"
-            @click="logout"
-          />
-        </template>
-        <template v-else>
-          <UButton
-            to="/login"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            label="Sign In"
-          />
-          <UButton
-            to="/signup"
-            size="sm"
-            label="Sign Up"
-          />
-        </template>
-      </template>
-
-      <template #body>
-        <UNavigationMenu :items="navItems" orientation="vertical" class="-mx-2.5" />
-
-        <USeparator type="dashed" class="my-4" />
-
-        <div class="flex flex-col gap-1">
+        <ClientOnly>
           <template v-if="session">
             <UButton
               to="/account"
               variant="ghost"
               color="neutral"
-              block
-              class="justify-start"
+              size="sm"
               icon="i-lucide-circle-user"
               label="Account"
             />
             <UButton
               variant="ghost"
               color="neutral"
-              block
-              class="justify-start"
+              size="sm"
               icon="i-lucide-log-out"
               label="Sign Out"
               @click="logout"
@@ -99,19 +58,64 @@ const navItems = computed<NavigationMenuItem[]>(() => [
               to="/login"
               variant="ghost"
               color="neutral"
-              block
-              class="justify-start"
-              icon="i-lucide-log-in"
+              size="sm"
               label="Sign In"
             />
             <UButton
               to="/signup"
-              block
-              class="justify-start"
-              icon="i-lucide-user-plus"
+              size="sm"
               label="Sign Up"
             />
           </template>
+        </ClientOnly>
+      </template>
+
+      <template #body>
+        <UNavigationMenu :items="navItems" orientation="vertical" class="-mx-2.5" />
+
+        <USeparator type="dashed" class="my-4" />
+
+        <div class="flex flex-col gap-1">
+          <ClientOnly>
+            <template v-if="session">
+              <UButton
+                to="/account"
+                variant="ghost"
+                color="neutral"
+                block
+                class="justify-start"
+                icon="i-lucide-circle-user"
+                label="Account"
+              />
+              <UButton
+                variant="ghost"
+                color="neutral"
+                block
+                class="justify-start"
+                icon="i-lucide-log-out"
+                label="Sign Out"
+                @click="logout"
+              />
+            </template>
+            <template v-else>
+              <UButton
+                to="/login"
+                variant="ghost"
+                color="neutral"
+                block
+                class="justify-start"
+                icon="i-lucide-log-in"
+                label="Sign In"
+              />
+              <UButton
+                to="/signup"
+                block
+                class="justify-start"
+                icon="i-lucide-user-plus"
+                label="Sign Up"
+              />
+            </template>
+          </ClientOnly>
         </div>
       </template>
     </UHeader>
