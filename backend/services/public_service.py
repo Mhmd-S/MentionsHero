@@ -124,7 +124,7 @@ async def get_public_transcripts_for_persona(
 
     # Query public transcripts limited to those IDs
     query = supabase.table("transcripts").select(
-        "id, name, created_at, folder_id, is_premium, transcript"
+        "id, name, created_at, upload_date, folder_id, is_premium, transcript"
     ).eq("is_public", True).in_("id", list(matching_ids))
 
     if folder_id:
@@ -133,9 +133,11 @@ async def get_public_transcripts_for_persona(
         tree_ids = get_folder_ids_in_tree(folder_id, folders)
         query = query.in_("folder_id", tree_ids)
 
-    # Sort
-    order_col = "created_at" if sort_by == "date" else "name"
-    query = query.order(order_col, desc=(sort_order == "desc"))
+    # Sort by upload_date (YouTube date) when sorting by date, fall back to created_at
+    if sort_by == "date":
+        query = query.order("upload_date", desc=(sort_order == "desc"), nullsfirst=False)
+    else:
+        query = query.order("name", desc=(sort_order == "desc"))
 
     response = query.execute()
     all_transcripts = response.data or []
@@ -183,6 +185,7 @@ async def get_public_transcripts_for_persona(
             "id": t["id"],
             "name": t.get("name"),
             "created_at": t["created_at"],
+            "upload_date": t.get("upload_date"),
             "is_premium": t.get("is_premium", False),
             "folder_id": t.get("folder_id"),
             "folder_name": folder_names.get(t.get("folder_id", ""), None),

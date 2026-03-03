@@ -38,7 +38,7 @@ definePageMeta({ layout: 'admin' })
           </a>
         </div>
         <div class="text-xs text-gray-400 shrink-0">
-          {{ formatDate(transcript.created_at) }}
+          {{ formatDate(transcript.upload_date || transcript.created_at) }}
         </div>
       </div>
 
@@ -152,6 +152,7 @@ interface Transcript {
   youtube_url: string
   transcript: string
   created_at: string
+  upload_date?: string | null
   is_public?: boolean
   is_premium?: boolean
   availableSpeakers?: string[]
@@ -272,6 +273,11 @@ function clearFilters() {
 }
 
 function formatDate(dateString: string) {
+  // Handle YYYYMMDD format from upload_date
+  if (/^\d{8}$/.test(dateString)) {
+    const d = new Date(`${dateString.slice(0, 4)}-${dateString.slice(4, 6)}-${dateString.slice(6)}`)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',

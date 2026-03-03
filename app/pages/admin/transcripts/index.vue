@@ -74,7 +74,7 @@ definePageMeta({ layout: 'admin' })
                 {{ getPreviewLine(item.transcript) }}
               </p>
               <div class="flex items-center gap-2 mt-1">
-                <span class="text-[11px] text-gray-400">{{ formatDate(item.created_at) }}</span>
+                <span class="text-[11px] text-gray-400">{{ formatDate(item.upload_date || item.created_at) }}</span>
                 <span class="text-gray-300 dark:text-gray-600">&middot;</span>
                 <span
                   class="text-[11px] text-gray-400 truncate"
@@ -113,6 +113,7 @@ interface Transcript {
   is_public?: boolean
   is_premium?: boolean
   created_at: string
+  upload_date?: string | null
 }
 
 const { authFetch } = useAuthFetch()
@@ -164,7 +165,10 @@ const grouped = computed<Group[]>(() => {
   const order = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older']
 
   for (const item of items) {
-    const d = new Date(item.created_at)
+    const raw = item.upload_date || item.created_at
+    const d = raw && /^\d{8}$/.test(raw)
+      ? new Date(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`)
+      : new Date(raw)
     if (d >= todayStart) buckets.Today.push(item)
     else if (d >= yesterdayStart) buckets.Yesterday.push(item)
     else if (d >= weekStart) buckets['This Week'].push(item)
@@ -228,7 +232,10 @@ async function toggleVisibility(item: Transcript, field: 'is_public' | 'is_premi
 }
 
 function formatDate(dateString: string) {
-  const date = new Date(dateString)
+  // Handle YYYYMMDD format from upload_date
+  const date = /^\d{8}$/.test(dateString)
+    ? new Date(`${dateString.slice(0, 4)}-${dateString.slice(4, 6)}-${dateString.slice(6)}`)
+    : new Date(dateString)
   const now = new Date()
   const sameYear = date.getFullYear() === now.getFullYear()
   return date.toLocaleDateString('en-US', {

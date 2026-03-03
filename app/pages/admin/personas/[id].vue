@@ -72,6 +72,7 @@ interface PersonaTranscript {
   name: string | null
   youtube_url: string
   created_at: string
+  upload_date?: string | null
   is_public?: boolean
   is_premium?: boolean
 }
@@ -114,6 +115,14 @@ async function toggleTranscriptVisibility(item: PersonaTranscript, field: 'is_pu
       body: { [field]: value },
     }).catch(() => {})
   }
+}
+
+function formatTranscriptDate(dateString: string) {
+  if (/^\d{8}$/.test(dateString)) {
+    const d = new Date(`${dateString.slice(0, 4)}-${dateString.slice(4, 6)}-${dateString.slice(6)}`)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 onMounted(async () => {
@@ -218,7 +227,7 @@ onMounted(async () => {
             class="flex-1 min-w-0 hover:underline"
           >
             <p class="text-sm font-medium truncate">{{ t.name || 'Untitled' }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ formatTranscriptDate(t.upload_date || t.created_at) }}</p>
           </NuxtLink>
 
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">

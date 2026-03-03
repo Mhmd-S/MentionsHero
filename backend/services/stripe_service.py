@@ -12,6 +12,26 @@ from backend.core.database import get_supabase
 logger = logging.getLogger(__name__)
 
 
+def _extract_period(subscription: dict) -> tuple[int | None, int | None]:
+    """Extract current_period_start/end from a Stripe subscription.
+
+    Newer Stripe API versions moved these fields from the top-level
+    subscription object to items.data[].
+    """
+    start = subscription.get("current_period_start")
+    end = subscription.get("current_period_end")
+    if start and end:
+        return start, end
+    # Fall back to first subscription item
+    items = subscription.get("items", {})
+    for item in (items.get("data", []) if isinstance(items, dict) else []):
+        start = start or item.get("current_period_start")
+        end = end or item.get("current_period_end")
+        if start and end:
+            break
+    return start, end
+
+
 def _get_stripe():
     """Initialize Stripe with secret key."""
     settings = get_settings()
@@ -88,6 +108,7 @@ async def handle_webhook(payload: bytes, signature: str) -> None:
 
 async def _handle_checkout_completed(session: dict) -> None:
     """Handle successful checkout — create subscription record."""
+    s = _get_stripe()
     supabase = get_supabase()
     user_id = session.get("metadata", {}).get("user_id")
     customer_id = session.get("customer")
@@ -97,15 +118,32 @@ async def _handle_checkout_completed(session: dict) -> None:
         logger.warning("Checkout session missing user_id or subscription_id")
         return
 
+    # Fetch full subscription from Stripe to get period dates
+    record: dict[str, Any] = {
+        "user_id": user_id,
+        "stripe_customer_id": customer_id,
+        "stripe_subscription_id": subscription_id,
+        "status": "active",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        sub = s.Subscription.retrieve(subscription_id)
+        period_start, period_end = _extract_period(sub)
+        if period_start:
+            record["current_period_start"] = datetime.fromtimestamp(
+                period_start, tz=timezone.utc
+            ).isoformat()
+        if period_end:
+            record["current_period_end"] = datetime.fromtimestamp(
+                period_end, tz=timezone.utc
+            ).isoformat()
+    except Exception:
+        logger.warning("Could not fetch subscription details from Stripe")
+
     # Upsert subscription
     supabase.table("subscriptions").upsert(
-        {
-            "user_id": user_id,
-            "stripe_customer_id": customer_id,
-            "stripe_subscription_id": subscription_id,
-            "status": "active",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        },
+        record,
         on_conflict="stripe_subscription_id",
     ).execute()
 
@@ -128,21 +166,20 @@ async def _handle_subscription_change(subscription: dict) -> None:
     }
     mapped_status = status_map.get(status, "inactive")
 
-    current_period_start = subscription.get("current_period_start")
-    current_period_end = subscription.get("current_period_end")
+    period_start, period_end = _extract_period(subscription)
 
     updates: dict[str, Any] = {
         "status": mapped_status,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if current_period_start:
+    if period_start:
         updates["current_period_start"] = datetime.fromtimestamp(
-            current_period_start, tz=timezone.utc
+            period_start, tz=timezone.utc
         ).isoformat()
-    if current_period_end:
+    if period_end:
         updates["current_period_end"] = datetime.fromtimestamp(
-            current_period_end, tz=timezone.utc
+            period_end, tz=timezone.utc
         ).isoformat()
 
     supabase.table("subscriptions").update(updates).eq(

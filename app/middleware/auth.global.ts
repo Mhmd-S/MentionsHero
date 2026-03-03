@@ -1,4 +1,16 @@
 export default defineNuxtRouteMiddleware(async (to) => {
+  // Handle Supabase auth errors in URL hash (e.g. expired OTP links)
+  if (import.meta.client && to.hash) {
+    const params = new URLSearchParams(to.hash.substring(1))
+    const errorDescription = params.get("error_description")
+    if (errorDescription) {
+      return navigateTo({
+        path: "/login",
+        query: { error: errorDescription },
+      })
+    }
+  }
+
   // Public routes - no auth needed
   const publicPaths = ["/login", "/signup", "/pricing"]
   const publicPrefixes = ["/personas", "/transcripts"]
