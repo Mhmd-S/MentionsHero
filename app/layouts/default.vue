@@ -33,7 +33,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
       <UNavigationMenu :items="navItems" variant="pill" />
 
       <template #right>
-        <UColorModeButton />
+        <UColorModeButton class="hidden lg:inline-flex" />
         <ClientOnly>
           <template v-if="session">
             <UButton
@@ -117,6 +117,13 @@ const navItems = computed<NavigationMenuItem[]>(() => [
             </template>
           </ClientOnly>
         </div>
+
+        <USeparator type="dashed" class="my-4" />
+
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-muted">Theme</span>
+          <UColorModeButton />
+        </div>
       </template>
     </UHeader>
 
@@ -134,7 +141,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
       </template>
 
       <template #right>
-        <UColorModeButton />
+        <UColorModeButton v-if="!$device.isMobile" />
       </template>
     </UFooter>
   </UApp>
