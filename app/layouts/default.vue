@@ -35,32 +35,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
       <template #right>
         <UColorModeButton class="hidden lg:inline-flex" />
         <ClientOnly>
-          <template v-if="session">
-            <UButton
-              to="/account"
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              icon="i-lucide-circle-user"
-              label="Account"
-            />
-            <UButton
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              icon="i-lucide-log-out"
-              label="Sign Out"
-              @click="logout"
-            />
-          </template>
-          <template v-else>
-            <UButton
-              to="/login"
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              label="Sign In"
-            />
+          <template  v-if="!session">
             <UButton
               to="/signup"
               size="sm"
