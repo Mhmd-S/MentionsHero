@@ -53,6 +53,19 @@ useSchemaOrg([
       </template>
     </UPageHeader>
 
+    <div
+      class="my-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex-1">
+        <p class="text-sm font-medium">Unlock full access to all transcripts</p>
+        <p class="text-sm text-muted mt-0.5">
+          Get unlimited transcript access, advanced search, and real-time updates with a premium subscription.
+        </p>
+      </div>
+      <UButton to="/pricing" icon="i-lucide-crown" variant="soft" color="warning" size="sm">
+        View Pricing
+      </UButton>
+    </div>
+
     <UInput v-model="search" icon="i-lucide-search" placeholder="Search speakers..." class="my-3 max-w-sm" />
 
     <div v-if="loading" class="flex justify-center py-16">
