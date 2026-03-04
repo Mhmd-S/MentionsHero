@@ -161,31 +161,20 @@ onMounted(() => loadTranscripts())
 
     <template v-else>
       <!-- Back link (mobile only, at top) -->
-      <NuxtLink to="/" class="sm:hidden flex items-center gap-1 mt-3 text-sm text-muted hover:text-default transition-colors -mb-4">
-        <UIcon name="i-lucide-arrow-left" class="size-4" />
-        All Personas
-      </NuxtLink>
+
 
       <!-- Persona Header -->
-      <UPageHeader
-        :title="persona.name"
-        :description="persona.description || undefined"
-        :links="[{ label: 'All Personas', to: '/', icon: 'i-lucide-arrow-left', variant: 'ghost' as const, color: 'neutral' as const, size: 'xs' as const }]"
-        :ui="{ links: 'hidden sm:flex' }"
-      >
+      <UPageHeader :title="persona.name" :description="persona.description || undefined"
+        :ui="{ links: 'hidden sm:flex' }">
         <template #title>
+          <NuxtLink to="/"
+            class=" flex items-center gap-1 mb-3 text-sm text-muted hover:text-default transition-colors">
+            <UIcon name="i-lucide-arrow-left" class="size-4" />
+            All Personas
+          </NuxtLink>
           <div class="flex items-center gap-4">
-            <UAvatar
-              v-if="persona.image_url"
-              :src="persona.image_url"
-              :alt="persona.name"
-              size="xl"
-            />
-            <UAvatar
-              v-else
-              :text="persona.name[0]"
-              size="xl"
-            />
+            <UAvatar v-if="persona.image_url" :src="persona.image_url" :alt="persona.name" size="xl" />
+            <UAvatar v-else :text="persona.name[0]" size="xl" />
             <span>{{ persona.name }}</span>
           </div>
         </template>
@@ -200,38 +189,19 @@ onMounted(() => loadTranscripts())
           </h2>
 
           <div class="flex items-center gap-3 flex-wrap w-full sm:w-auto">
-            <UInput
-              v-model="search"
-              icon="i-lucide-search"
-              placeholder="Search transcripts..."
-              class="w-full sm:w-64"
-              size="sm"
-            />
+            <UInput v-model="search" icon="i-lucide-search" placeholder="Search transcripts..." class="w-full sm:w-64"
+              size="sm" />
 
             <div class="flex items-center gap-1">
-              <UButton
-                size="xs"
-                :variant="sortBy === 'date' ? 'solid' : 'ghost'"
-                @click="toggleSort('date')"
-              >
+              <UButton size="xs" :variant="sortBy === 'date' ? 'solid' : 'ghost'" @click="toggleSort('date')">
                 Date
-                <UIcon
-                  v-if="sortBy === 'date'"
-                  :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
-                  class="size-3"
-                />
+                <UIcon v-if="sortBy === 'date'"
+                  :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" class="size-3" />
               </UButton>
-              <UButton
-                size="xs"
-                :variant="sortBy === 'name' ? 'solid' : 'ghost'"
-                @click="toggleSort('name')"
-              >
+              <UButton size="xs" :variant="sortBy === 'name' ? 'solid' : 'ghost'" @click="toggleSort('name')">
                 Name
-                <UIcon
-                  v-if="sortBy === 'name'"
-                  :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
-                  class="size-3"
-                />
+                <UIcon v-if="sortBy === 'name'"
+                  :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" class="size-3" />
               </UButton>
             </div>
           </div>
@@ -250,12 +220,8 @@ onMounted(() => loadTranscripts())
 
         <!-- Transcript List -->
         <div v-else class="space-y-1">
-          <NuxtLink
-            v-for="t in transcripts"
-            :key="t.id"
-            :to="`/transcripts/${t.id}`"
-            class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-elevated transition-colors group"
-          >
+          <NuxtLink v-for="t in transcripts" :key="t.id" :to="`/transcripts/${t.id}`"
+            class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-elevated transition-colors group">
             <UIcon name="i-lucide-file-text" class="size-4 text-muted shrink-0" />
             <span class="flex-1 min-w-0 text-sm font-medium truncate group-hover:text-primary transition-colors">
               {{ t.name || 'Untitled' }}
@@ -267,21 +233,10 @@ onMounted(() => loadTranscripts())
 
         <!-- Pagination -->
         <div v-if="totalPages > 1" class="flex items-center justify-center gap-2 pt-4">
-          <UButton
-            size="xs"
-            variant="ghost"
-            :disabled="page <= 1"
-            icon="i-lucide-chevron-left"
-            @click="page--"
-          />
+          <UButton size="xs" variant="ghost" :disabled="page <= 1" icon="i-lucide-chevron-left" @click="page--" />
           <span class="text-sm text-muted">Page {{ page }} of {{ totalPages }}</span>
-          <UButton
-            size="xs"
-            variant="ghost"
-            :disabled="page >= totalPages"
-            icon="i-lucide-chevron-right"
-            @click="page++"
-          />
+          <UButton size="xs" variant="ghost" :disabled="page >= totalPages" icon="i-lucide-chevron-right"
+            @click="page++" />
         </div>
       </div>
     </template>
