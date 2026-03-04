@@ -26,12 +26,11 @@ const filtered = computed(() => {
 
 // SEO meta tags
 useSeoMeta({
-  title: 'Press Briefing Transcripts & Mentions Analysis',
-  description: 'Browse transcripts of press briefings by speaker. Track what public figures say with full transcript search and Kalshi mentions market analysis.',
-  ogTitle: 'MentionsHero — Press Briefing Transcripts & Mentions Analysis',
-  ogDescription: 'Browse transcripts of press briefings by speaker. Track what public figures say with full transcript search and analysis.',
+  title: 'Transcripts & Mentions Analysis',
+  description: 'Browse transcripts of interviews, press briefings, podcasts, and more by speaker. Track what public figures say with full transcript search to help with Kalshi & Polymarket mentions prediction markets.',
+  ogTitle: 'MentionsHero — Video Transcripts & Mentions Analysis',
+  ogDescription: 'Browse transcripts of interviews, press briefings, podcasts, and more by speaker. Track mentions with full transcript search and analysis.',
   ogImage: '/og-default.png',
-  twitterCard: 'summary_large_image',
 })
 
 // Structured data
@@ -48,36 +47,13 @@ useSchemaOrg([
 
 <template>
   <div>
-    <UPageHeader
-      title="Browse"
-      description="Browse transcripts by speaker"
-    />
+    <UPageHeader title="Browse">
+      <template #description>
+        <span class="text-sm text-muted">Explore transcripts organized by speaker</span>
+      </template>
+    </UPageHeader>
 
-    <div class="my-6 rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-      <div class="flex-1">
-        <p class="text-sm font-medium">We're expanding our selection daily</p>
-        <p class="text-sm text-muted mt-0.5">
-          Don't see a speaker you're looking for? Reach out at
-          <a href="mailto:support@mentionshero.com?subject=Transcript%20Request" class="text-primary hover:underline">support@mentionshero.com</a>
-          and we'll add them.
-        </p>
-      </div>
-      <UButton
-        to="mailto:support@mentionshero.com?subject=Transcript%20Request"
-        icon="i-lucide-mail"
-        variant="soft"
-        size="sm"
-      >
-        Request a Speaker
-      </UButton>
-    </div>
-
-    <UInput
-      v-model="search"
-      icon="i-lucide-search"
-      placeholder="Search speakers..."
-      class="mb-8 max-w-sm"
-    />
+    <UInput v-model="search" icon="i-lucide-search" placeholder="Search speakers..." class="my-3 max-w-sm" />
 
     <div v-if="loading" class="flex justify-center py-16">
       <UIcon name="i-lucide-loader" class="size-6 animate-spin text-muted" />
@@ -89,27 +65,11 @@ useSchemaOrg([
     </div>
 
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <NuxtLink
-        v-for="persona in filtered"
-        :key="persona.id"
-        :to="`/personas/${persona.slug || persona.id}`"
-      >
-        <UCard
-          class="h-full hover:ring-primary/50 hover:ring-1 transition-all"
-          :ui="{ body: 'sm:p-4' }"
-        >
+      <NuxtLink v-for="persona in filtered" :key="persona.id" :to="`/personas/${persona.slug || persona.id}`">
+        <UCard class="h-full hover:ring-primary/50 hover:ring-1 transition-all" :ui="{ body: 'sm:p-4' }">
           <div class="flex items-start gap-3.5">
-            <UAvatar
-              v-if="persona.image_url"
-              :src="persona.image_url"
-              :alt="persona.name"
-              size="lg"
-            />
-            <UAvatar
-              v-else
-              :text="persona.name[0]"
-              size="lg"
-            />
+            <UAvatar v-if="persona.image_url" :src="persona.image_url" :alt="persona.name" size="lg" />
+            <UAvatar v-else :text="persona.name[0]" size="lg" />
             <div class="flex-1 min-w-0">
               <p class="font-semibold truncate">{{ persona.name }}</p>
               <p v-if="persona.description" class="text-sm text-muted mt-1 line-clamp-2">
@@ -119,6 +79,23 @@ useSchemaOrg([
           </div>
         </UCard>
       </NuxtLink>
+    </div>
+
+    <div
+      class="my-4 rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex-1">
+        <p class="text-sm font-medium">We're expanding our selection daily</p>
+        <p class="text-sm text-muted mt-0.5">
+          Don't see a speaker you're looking for? Reach out at
+          <a href="mailto:support@mentionshero.com?subject=Transcript%20Request"
+            class="text-primary hover:underline">support@mentionshero.com</a>
+          and we'll add them.
+        </p>
+      </div>
+      <UButton to="mailto:support@mentionshero.com?subject=Transcript%20Request" icon="i-lucide-mail" variant="soft"
+        size="sm">
+        Request a Speaker
+      </UButton>
     </div>
   </div>
 </template>

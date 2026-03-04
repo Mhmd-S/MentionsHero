@@ -17,7 +17,7 @@ export default defineNuxtConfig({
     head: {
       titleTemplate: '%s | MentionsHero',
       link: [
-        { rel: 'icon', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       ],
     },
   },
@@ -40,7 +40,7 @@ export default defineNuxtConfig({
   },
   ui: {},
   css: ['~/assets/css/main.css'],
-  modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo'],
+  modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo', '@nuxtjs/device'],
 
   sitemap: {
     exclude: ['/admin/**', '/login', '/signup', '/account'],
