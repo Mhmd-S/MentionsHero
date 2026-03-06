@@ -1,10 +1,13 @@
 """Transcript service for database operations."""
 
+import logging
 from typing import Any
 
 from postgrest.exceptions import APIError
 
 from backend.core.database import get_supabase, is_missing_speakers_column, get_folder_ids_in_tree
+
+logger = logging.getLogger(__name__)
 from backend.services import folder_service
 
 

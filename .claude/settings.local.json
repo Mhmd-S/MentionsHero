@@ -58,7 +58,12 @@
       "Bash(pnpm nuxt prepare)",
       "Bash(pnpm exec nuxt prepare)",
       "Bash(npx nuxt prepare)",
-      "WebFetch(domain:nuxt.com)"
+      "WebFetch(domain:nuxt.com)",
+      "WebFetch(domain:vidrock.net)",
+      "Bash(pnpm nuxi typecheck)",
+      "Bash(pnpm approve-builds better-sqlite3 sharp)",
+      "Bash(pnpm install)",
+      "Bash(pnpm rebuild better-sqlite3)"
     ],
     "deny": [
       "**/.env*",

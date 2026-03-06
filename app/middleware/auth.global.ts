@@ -13,7 +13,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // Public routes - no auth needed
   const publicPaths = ["/login", "/signup", "/pricing"]
-  const publicPrefixes = ["/personas", "/transcripts"]
+  const publicPrefixes = ["/personas", "/transcripts", "/blog"]
 
   const isPublicRoute =
     to.path === "/" ||

@@ -1,6 +1,12 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
+useSeoMeta({
+  title: 'Sign Up',
+  description: 'Create a free MentionsHero account to access press briefing transcripts and mentions analysis.',
+  robots: 'noindex, nofollow',
+})
+
 const firstName = ref('')
 const lastName = ref('')
 const phone = ref('')

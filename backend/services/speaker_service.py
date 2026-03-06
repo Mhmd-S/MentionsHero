@@ -1,9 +1,12 @@
 """Speaker service for database operations and extraction."""
 
+import logging
 from collections import Counter
 from typing import Any
 
 from backend.core.database import get_supabase
+
+logger = logging.getLogger(__name__)
 from backend.services import transcript_service
 from backend.utils.nlp import parse_transcript_segments
 
@@ -71,6 +74,7 @@ async def extract_and_save_transcript_speakers(
         "transcript_id", transcript_id
     ).execute()
 
+    logger.info("Extracting %d speakers for transcript %s", len(counts), transcript_id)
     result: list[dict[str, Any]] = []
     for speaker_name, segment_count in counts.items():
         speaker = await get_or_create_speaker(speaker_name)

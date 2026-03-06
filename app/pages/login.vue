@@ -4,6 +4,12 @@ import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 
 definePageMeta({ layout: false });
 
+useSeoMeta({
+  title: 'Sign In',
+  description: 'Sign in to your MentionsHero account.',
+  robots: 'noindex, nofollow',
+});
+
 const route = useRoute();
 const { login, error: authError, loading } = useAuth();
 

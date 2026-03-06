@@ -30,8 +30,9 @@ useSeoMeta({
   description: 'Browse transcripts of interviews, press briefings, podcasts, and more by speaker. Track what public figures say with full transcript search to help with Kalshi & Polymarket mentions prediction markets.',
   ogTitle: 'MentionsHero — Video Transcripts & Mentions Analysis',
   ogDescription: 'Browse transcripts of interviews, press briefings, podcasts, and more by speaker. Track mentions with full transcript search and analysis.',
-  ogImage: '/og-default.png',
 })
+
+defineOgImage({ component: 'OgImageDefault' })
 
 // Structured data
 useSchemaOrg([
@@ -41,6 +42,12 @@ useSchemaOrg([
   }),
   defineWebPage({
     name: 'Press Briefing Transcripts & Mentions Analysis',
+  }),
+  defineOrganization({
+    name: 'MentionsHero',
+    url: 'https://mentionshero.com',
+    logo: 'https://mentionshero.com/favicon.svg',
+    description: 'Search and analyze press briefing transcripts. Track what public figures say, linked to Kalshi mentions prediction markets.',
   }),
 ])
 </script>

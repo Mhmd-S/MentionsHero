@@ -117,12 +117,20 @@ useSeoMeta({
   description: () => persona.value?.meta_description || persona.value?.description || '',
   ogTitle: () => persona.value?.meta_title || persona.value?.name || 'Persona',
   ogDescription: () => persona.value?.meta_description || persona.value?.description || '',
-  ogImage: () => persona.value?.image_url || '/og-default.png',
   ogType: 'profile',
   twitterCard: 'summary',
   twitterTitle: () => persona.value?.meta_title || persona.value?.name || 'Persona',
   twitterDescription: () => persona.value?.meta_description || persona.value?.description || '',
   robots: 'index, follow',
+})
+
+defineOgImage({
+  component: 'OgImagePersona',
+  props: {
+    name: () => persona.value?.name || '',
+    description: () => persona.value?.description || '',
+    imageUrl: () => persona.value?.image_url || '',
+  },
 })
 
 // Structured data

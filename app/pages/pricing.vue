@@ -9,6 +9,52 @@ useSeoMeta({
   ogDescription: 'Get unlimited access to all premium press briefing transcripts.',
   twitterCard: 'summary',
 })
+
+useSchemaOrg([
+  defineBreadcrumb({
+    itemListElement: [
+      { name: 'Home', item: '/' },
+      { name: 'Pricing' },
+    ],
+  }),
+  {
+    '@type': 'FAQPage',
+    'mainEntity': [
+      {
+        '@type': 'Question',
+        'name': 'What do I get with a premium subscription?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'Premium subscribers get unlimited access to all press briefing transcripts, full search and analysis tools, and speaker frequency breakdowns.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'How much does MentionsHero cost?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'MentionsHero offers a free plan with access to free transcripts, and a premium plan at $20/month for full access to all transcripts and analysis features.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'Can I cancel my subscription anytime?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'Yes, you can cancel your subscription at any time from your account page. You will retain access until the end of your current billing period.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'What transcripts are available for free?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'Free users can browse all personas, view non-premium transcripts, and search within available transcripts. Premium transcripts require a subscription.',
+        },
+      },
+    ],
+  },
+])
 </script>
 
 <template>
@@ -104,6 +150,36 @@ useSeoMeta({
           </template>
         </template>
       </UCard>
+    </div>
+
+    <div class="mt-16 max-w-2xl mx-auto">
+      <h2 class="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
+      <div class="space-y-4">
+        <UCard>
+          <template #header>
+            <p class="font-semibold text-sm">What do I get with a premium subscription?</p>
+          </template>
+          <p class="text-sm text-muted">Premium subscribers get unlimited access to all press briefing transcripts, full search and analysis tools, and speaker frequency breakdowns.</p>
+        </UCard>
+        <UCard>
+          <template #header>
+            <p class="font-semibold text-sm">How much does MentionsHero cost?</p>
+          </template>
+          <p class="text-sm text-muted">MentionsHero offers a free plan with access to free transcripts, and a premium plan at $20/month for full access to all transcripts and analysis features.</p>
+        </UCard>
+        <UCard>
+          <template #header>
+            <p class="font-semibold text-sm">Can I cancel my subscription anytime?</p>
+          </template>
+          <p class="text-sm text-muted">Yes, you can cancel your subscription at any time from your account page. You will retain access until the end of your current billing period.</p>
+        </UCard>
+        <UCard>
+          <template #header>
+            <p class="font-semibold text-sm">What transcripts are available for free?</p>
+          </template>
+          <p class="text-sm text-muted">Free users can browse all personas, view non-premium transcripts, and search within available transcripts. Premium transcripts require a subscription.</p>
+        </UCard>
+      </div>
     </div>
   </div>
 </template>
