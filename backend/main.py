@@ -5,6 +5,9 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
+from backend.logging_config import setup_logging
+
+setup_logging()
 from backend.core.auth import require_admin
 from backend.routers import (
     analysis,

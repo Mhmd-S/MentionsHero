@@ -1,10 +1,13 @@
 """Download service for yt-dlp audio extraction."""
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 
 from backend.core.exceptions import CancellationError, DownloadError
+
+logger = logging.getLogger(__name__)
 from backend.core.process_tracker import track_process, untrack_process
 from backend.services.yt_dlp_utils import get_yt_dlp_base_args
 
@@ -23,6 +26,7 @@ async def download_audio(
     # Ensure downloads directory exists
     Path(downloads_dir).mkdir(parents=True, exist_ok=True)
 
+    logger.info("Downloading audio from %s", url)
     output_template = os.path.join(downloads_dir, "%(id)s.%(ext)s")
 
     yt_dlp_args = get_yt_dlp_base_args()
@@ -87,6 +91,7 @@ async def download_audio(
         error_output = stderr.decode() if stderr else ""
 
         if proc.returncode == 0 and output_path:
+            logger.info("Download complete: %s", output_path)
             return output_path
         elif proc.returncode == -15:  # SIGTERM
             raise CancellationError()
@@ -104,4 +109,4 @@ async def cleanup_audio_file(file_path: str) -> None:
         if os.path.exists(file_path):
             os.unlink(file_path)
     except OSError:
-        pass  # Ignore cleanup errors
+        logger.warning("Failed to clean up audio file: %s", file_path, exc_info=True)

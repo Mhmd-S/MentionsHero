@@ -1,11 +1,14 @@
 """Job service for database operations."""
 
+import logging
 import threading
 from datetime import datetime, timezone
 from typing import Any
 
 from backend.core.database import get_supabase
 from backend.models.job import JobStatus, StageProgress
+
+logger = logging.getLogger(__name__)
 
 # Thread-safe events for SSE: wait() in thread pool, set() from async main thread
 _jobs_list_event: threading.Event | None = None
@@ -118,6 +121,7 @@ async def update_job_progress(
         update_data["transcript_id"] = transcript_id
 
     supabase.table("jobs").update(update_data).eq("id", job_id).execute()
+    logger.info("Job %s: status -> %s", job_id, status.value)
     notify_job_changed(job_id)
     notify_jobs_list_changed()
 

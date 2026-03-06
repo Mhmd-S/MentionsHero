@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 from typing import Any
 
@@ -11,6 +12,8 @@ from google.genai import types
 
 from backend.config import get_settings
 from backend.core.exceptions import CancellationError, TranscriptionError
+
+logger = logging.getLogger(__name__)
 
 
 async def with_retry(
@@ -42,7 +45,7 @@ async def with_retry(
                 raise
 
             delay = base_delay * (2 ** attempt)
-            print(f"{service_name} error (attempt {attempt + 1}/{max_retries + 1}), retrying in {delay}s...")
+            logger.warning("%s error (attempt %d/%d), retrying in %ss: %s", service_name, attempt + 1, max_retries + 1, delay, e)
             await asyncio.sleep(delay)
 
     raise last_error
@@ -247,7 +250,10 @@ async def transcribe_audio(
 
     client = genai.Client(api_key=settings.gemini_api_key)
 
-    return await transcribe_with_gemini(
+    logger.info("Starting transcription for %s", audio_path)
+    result = await transcribe_with_gemini(
         client, audio_path, cancel_event, speaker_hint=speaker_hint,
         video_title=video_title
     )
+    logger.info("Transcription complete for %s", audio_path)
+    return result

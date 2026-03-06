@@ -40,7 +40,12 @@ export default defineNuxtConfig({
   },
   ui: {},
   css: ['~/assets/css/main.css'],
-  modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo', '@nuxtjs/device'],
+  modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo', '@nuxtjs/device', '@nuxt/image', '@nuxt/content'],
+
+  image: {
+    quality: 80,
+    formats: ['webp'],
+  },
 
   sitemap: {
     exclude: ['/admin/**', '/login', '/signup', '/account'],
@@ -48,7 +53,9 @@ export default defineNuxtConfig({
       `${process.env.BACKEND_URL || 'http://localhost:8001'}/api/public/sitemap-urls`,
     ],
     urls: [
+      { loc: '/', changefreq: 'daily', priority: 1.0 },
       { loc: '/pricing', changefreq: 'monthly', priority: 0.6 },
+      { loc: '/blog', changefreq: 'weekly', priority: 0.7 },
     ],
   },
 

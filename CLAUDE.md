@@ -12,6 +12,8 @@ A tool for transcribing YouTube videos (primarily press briefings), analyzing te
 - **Audio Download**: yt-dlp
 - **UI Components**: Nuxt UI (UButton, UBadge, UModal, UInput, USelectMenu, etc.)
 - **ML Training**: MLX LoRA fine-tuning on Apple Silicon (per-persona)
+- **SEO**: @nuxtjs/seo (robots, sitemap, schema-org, og-image), @nuxt/image
+- **Blog**: @nuxt/content v3 (markdown in `content/blog/`)
 
 ## Project Structure
 
@@ -25,6 +27,9 @@ app/                          # Nuxt 3 frontend
     account.vue               # User account & subscription management
     personas/[slug].vue       # Public persona detail & transcript listing
     transcripts/[id].vue      # Public transcript viewer
+    blog/                     # Blog pages (public)
+      index.vue               # Blog listing
+      [...slug].vue           # Individual blog post
     admin/                    # Admin-only pages (require admin role)
       index.vue               # New Transcript creation
       term-search.vue         # Term Search
@@ -46,6 +51,10 @@ app/                          # Nuxt 3 frontend
     TermSearch.vue            # Term search interface
     TermSection.vue           # Per-market term analysis display
     SpeakerSelector.vue       # Multi-select speaker picker
+    OgImage/                  # Dynamic OG image templates (nuxt-og-image)
+      OgImageDefault.vue      # Default branded OG image
+      OgImagePersona.vue      # Persona-specific OG image
+      OgImageBlog.vue         # Blog post OG image
   layouts/
     default.vue               # Public layout with top navbar
     admin.vue                 # Admin layout with fixed sidebar
@@ -95,6 +104,11 @@ utils/
 supabase/
   migrations/                 # SQL migration files
 
+content/                        # @nuxt/content markdown files
+  blog/                         # Blog posts (markdown with frontmatter)
+
+content.config.ts               # Content collections config (blog schema)
+
 docs/                         # Feature documentation (see below)
 ```
 
@@ -110,6 +124,7 @@ Each feature has detailed documentation in `docs/`. Read the relevant file befor
 | Personas | `docs/personas.md` | Speaker identity management with aliases, Kalshi links |
 | Markets (Kalshi) | `docs/markets.md` | Mentions markets: Series → Events → Markets, custom_strike.Word, analysis |
 | Sidebar & Directory | `docs/sidebar.md` | FileTree component, folder hierarchy, drag-and-drop |
+| SEO & Blog | `docs/seo.md` | OG images, structured data, sitemap, @nuxt/content blog |
 
 ## Mandatory: Update Documentation on Feature Changes
 
@@ -120,6 +135,7 @@ When you edit code that belongs to a feature, you MUST also update the correspon
 - Persona changes → update `docs/personas.md`
 - Markets/Kalshi changes → update `docs/markets.md`
 - Sidebar/FileTree/folder changes → update `docs/sidebar.md`
+- SEO/OG images/blog/sitemap changes → update `docs/seo.md`
 - Database schema changes → update the relevant feature doc AND the Database section below
 - New features → create a new `docs/<feature>.md` and add it to the table above
 

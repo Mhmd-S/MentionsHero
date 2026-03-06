@@ -16,6 +16,12 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     icon: 'i-lucide-credit-card',
     to: '/pricing',
     active: route.path === '/pricing'
+  },
+  {
+    label: 'Blog',
+    icon: 'i-lucide-notebook-pen',
+    to: '/blog',
+    active: route.path.startsWith('/blog')
   }
 ])
 </script>
@@ -141,6 +147,14 @@ const navItems = computed<NavigationMenuItem[]>(() => [
         <span class="text-sm text-muted">
           &copy; {{ new Date().getFullYear() }} MentionsHero
         </span>
+      </template>
+
+      <template #center>
+        <nav class="flex items-center gap-4">
+          <NuxtLink to="/" class="text-sm text-muted hover:text-default transition-colors">Personas</NuxtLink>
+          <NuxtLink to="/pricing" class="text-sm text-muted hover:text-default transition-colors">Pricing</NuxtLink>
+          <NuxtLink to="/blog" class="text-sm text-muted hover:text-default transition-colors">Blog</NuxtLink>
+        </nav>
       </template>
 
       <template #right>

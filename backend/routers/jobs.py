@@ -2,11 +2,14 @@
 
 import asyncio
 import json
+import logging
 import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
+
+logger = logging.getLogger(__name__)
 
 from backend.config import get_settings
 from backend.core.database import get_supabase
@@ -64,9 +67,10 @@ async def process_job(
             upload_date = video_info.upload_date
             video_title = video_info.title
         except Exception:
-            pass  # Continue without video info if fetch fails
+            logger.warning("Job %s: failed to fetch video info for %s", job_id, url, exc_info=True)
 
         # Download audio
+        logger.info("Job %s: downloading audio from %s", job_id, url)
         await job_service.update_job_progress(
             job_id,
             JobStatus.DOWNLOADING,
@@ -88,6 +92,7 @@ async def process_job(
             raise CancellationError()
 
         # Transcribe audio
+        logger.info("Job %s: starting transcription", job_id)
         await job_service.update_job_progress(
             job_id,
             JobStatus.TRANSCRIBING,
@@ -116,6 +121,7 @@ async def process_job(
             raise CancellationError()
 
         # Save transcript
+        logger.info("Job %s: saving transcript", job_id)
         await job_service.update_job_progress(
             job_id,
             JobStatus.SAVING,
@@ -148,7 +154,7 @@ async def process_job(
                     transcript_id, transcript
                 )
             except Exception:
-                pass  # Do not fail the job if speaker extraction fails
+                logger.warning("Job %s: speaker extraction failed", job_id, exc_info=True)
 
         # Auto-reprocess market analysis for personas whose aliases appear in this transcript
         if transcript_id and transcript:
@@ -159,9 +165,10 @@ async def process_job(
                 for pid in affected_ids:
                     await kalshi_service.reprocess_persona_markets(pid)
             except Exception:
-                pass  # Never fail the job for market reprocessing
+                logger.warning("Job %s: market reprocessing failed", job_id, exc_info=True)
 
         # Mark job as completed
+        logger.info("Job %s: completed (transcript_id=%s)", job_id, transcript_id)
         await job_service.update_job_progress(
             job_id,
             JobStatus.COMPLETED,
@@ -169,12 +176,14 @@ async def process_job(
         )
 
     except CancellationError:
+        logger.info("Job %s: cancelled", job_id)
         # Clean up on cancellation
         if audio_path:
             await cleanup_audio_file(audio_path)
         await job_service.mark_job_cancelled(job_id)
 
     except Exception as e:
+        logger.error("Job %s: failed - %s", job_id, e, exc_info=True)
         # Clean up on error
         if audio_path:
             await cleanup_audio_file(audio_path)

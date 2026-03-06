@@ -107,6 +107,19 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 | Util | `backend/utils/nlp.py` | `parse_transcript_segments()`, `extract_speakers()` |
 | Util | `backend/utils/transcript_filter.py` | Highlighting, speaker frequency |
 
+## Logging
+
+All transcript generation services use Python's `logging` module at INFO level. Logging is configured in `backend/logging_config.py` and initialized at app startup in `backend/main.py`.
+
+Key log points:
+- **Job lifecycle**: job creation, stage transitions (downloading/transcribing/saving), completion, cancellation, and failures
+- **Download**: start and completion of audio downloads
+- **Transcription**: start and completion, retry warnings on transient API errors (429/5xx)
+- **Speaker extraction**: number of speakers extracted per transcript
+- **Non-fatal failures**: video info fetch, speaker extraction, and market reprocessing failures logged at WARNING level with stack traces
+
+All output goes to console (stdout/stderr) via uvicorn.
+
 ## Database Tables
 
 **transcripts**
