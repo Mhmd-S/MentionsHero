@@ -63,7 +63,17 @@
       "Bash(pnpm nuxi typecheck)",
       "Bash(pnpm approve-builds better-sqlite3 sharp)",
       "Bash(pnpm install)",
-      "Bash(pnpm rebuild better-sqlite3)"
+      "Bash(pnpm rebuild better-sqlite3)",
+      "Bash(node --version)",
+      "Bash(deno --version)",
+      "Bash(yt-dlp --js-runtimes node --remote-components ejs:github --cookies /Users/moslmn/projects/transcripts_generator/backend/cookies.txt --extractor-args 'youtube:player_client=web' --format 'bestaudio/best' -x --audio-format mp3 --audio-quality 0 --print 'after_move:filepath' -o '/tmp/test_dl/%\\(id\\)s.%\\(ext\\)s' 'https://www.youtube.com/watch?v=MifWDz4br4E')",
+      "Bash(rm -f /tmp/test_dl/MifWDz4br4E.mp3)",
+      "Bash(rmdir /tmp/test_dl)",
+      "Bash(python3 -c \"import subprocess; r = subprocess.run\\([''yt-dlp'', ''--version''], capture_output=True, text=True\\); print\\(''yt-dlp version:'', r.stdout.strip\\(\\)\\)\")",
+      "Read(//Users/moslmn/Library/Caches/**)",
+      "Read(//private/tmp/**)",
+      "Read(//Users/moslmn/**)",
+      "Bash(pip show yt-dlp)"
     ],
     "deny": [
       "**/.env*",

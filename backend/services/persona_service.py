@@ -115,11 +115,12 @@ async def create_persona(
 async def update_persona(
     persona_id: str,
     name: str | None = None,
+    slug: str | None = None,
     description: str | None = None,
     meta_title: str | None = None,
     meta_description: str | None = None,
 ) -> dict[str, Any] | None:
-    """Update a persona's name, description, and/or SEO fields."""
+    """Update a persona's name, slug, description, and/or SEO fields."""
     supabase = get_supabase()
 
     updates: dict[str, Any] = {
@@ -128,6 +129,9 @@ async def update_persona(
 
     if name is not None:
         updates["name"] = name.strip()
+
+    if slug is not None:
+        updates["slug"] = slug.strip() if slug else None
 
     if description is not None:
         updates["description"] = description.strip() if description else None

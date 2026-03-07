@@ -14,6 +14,7 @@ const { folders: fileTreeFolders, fetchFolders: fetchFileTreeFolders } = useFile
 type ReadonlyPersona = {
   readonly id: string
   readonly name: string
+  readonly slug: string | null
   readonly description: string | null
   readonly meta_title: string | null
   readonly meta_description: string | null
@@ -85,6 +86,7 @@ const bulkTargetIds = ref<string[]>([])
 const newPersonaName = ref('')
 const newPersonaDescription = ref('')
 const newPersonaAliases = ref('')
+const newSlug = ref('')
 const newMetaTitle = ref('')
 const newMetaDescription = ref('')
 const editingPersona = ref<ReadonlyPersona | null>(null)
@@ -204,12 +206,14 @@ async function handleUpdatePersona() {
     newPersonaDescription.value.trim() || undefined,
     newMetaTitle.value.trim() || undefined,
     newMetaDescription.value.trim() || undefined,
+    newSlug.value.trim() || undefined,
   )
 
   showEditModal.value = false
   editingPersona.value = null
   newPersonaName.value = ''
   newPersonaDescription.value = ''
+  newSlug.value = ''
   newMetaTitle.value = ''
   newMetaDescription.value = ''
 }
@@ -225,6 +229,7 @@ function openEditModal(persona: ReadonlyPersona) {
   editingPersona.value = persona
   newPersonaName.value = persona.name
   newPersonaDescription.value = persona.description || ''
+  newSlug.value = persona.slug || ''
   newMetaTitle.value = persona.meta_title || ''
   newMetaDescription.value = persona.meta_description || ''
   showEditModal.value = true
@@ -459,6 +464,10 @@ onMounted(async () => {
           <div class="space-y-4">
             <UFormField label="Name" required>
               <UInput v-model="newPersonaName" placeholder="e.g., John Smith" class="w-full" />
+            </UFormField>
+
+            <UFormField label="Slug" description="URL-friendly identifier (e.g., john-smith)">
+              <UInput v-model="newSlug" placeholder="e.g., john-smith" class="w-full" />
             </UFormField>
 
             <UFormField label="Description">

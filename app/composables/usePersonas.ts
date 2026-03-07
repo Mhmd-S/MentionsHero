@@ -5,6 +5,7 @@
 export interface Persona {
   id: string;
   name: string;
+  slug: string | null;
   description: string | null;
   meta_title: string | null;
   meta_description: string | null;
@@ -97,13 +98,14 @@ export function usePersonas() {
     description?: string,
     meta_title?: string,
     meta_description?: string,
+    slug?: string,
   ): Promise<Persona | null> {
     loading.value = true;
     error.value = null;
     try {
       const result = await authFetch<Persona>(`/api/personas/${id}`, {
         method: 'PATCH',
-        body: { name, description, meta_title, meta_description }
+        body: { name, description, meta_title, meta_description, slug }
       });
       // Refresh list
       await fetchPersonas();

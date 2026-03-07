@@ -66,6 +66,7 @@ async def update_persona(persona_id: str, request: PersonaUpdate) -> Persona:
         persona = await persona_service.update_persona(
             persona_id=persona_id,
             name=request.name,
+            slug=request.slug,
             description=request.description,
             meta_title=request.meta_title,
             meta_description=request.meta_description,
