@@ -132,6 +132,7 @@ const { getAccessToken } = useAuth()
 const { authFetch } = useAuthFetch()
 
 let eventSource: EventSource | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
 function connectJobsStream() {
   if (import.meta.server) return
@@ -155,6 +156,8 @@ function connectJobsStream() {
   eventSource.onerror = () => {
     eventSource?.close()
     eventSource = null
+    // Auto-reconnect after 3 seconds
+    reconnectTimer = setTimeout(() => connectJobsStream(), 3000)
   }
 }
 
@@ -202,6 +205,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (reconnectTimer) clearTimeout(reconnectTimer)
   if (eventSource) {
     eventSource.close()
     eventSource = null

@@ -4,102 +4,82 @@ definePageMeta({ layout: 'admin' })
 
 <template>
   <div>
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">All Transcripts</h1>
-      <p class="text-gray-500 mt-1">Browse your previously generated transcripts</p>
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-4">
+      <h1 class="text-2xl font-bold">
+        All Transcripts
+        <span v-if="filtered.length > 0" class="text-muted text-base font-normal">({{ filtered.length }})</span>
+      </h1>
+
+      <div class="flex items-center gap-3 flex-wrap w-full sm:w-auto">
+        <UInput
+          v-model="searchQuery"
+          icon="i-lucide-search"
+          placeholder="Search transcripts..."
+          class="w-full sm:w-64"
+          size="sm"
+        />
+
+        <div class="flex items-center gap-1">
+          <UButton size="xs" :variant="sortBy === 'date' ? 'solid' : 'ghost'" @click="toggleSort('date')">
+            Date
+            <UIcon v-if="sortBy === 'date'" :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" class="size-3" />
+          </UButton>
+          <UButton size="xs" :variant="sortBy === 'name' ? 'solid' : 'ghost'" @click="toggleSort('name')">
+            Name
+            <UIcon v-if="sortBy === 'name'" :name="sortOrder === 'desc' ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" class="size-3" />
+          </UButton>
+        </div>
+      </div>
     </div>
 
-    <UInput
-      v-model="searchQuery"
-      icon="i-lucide-search"
-      placeholder="Search by name or URL..."
-      class="mb-6 max-w-md"
-      :ui="{ icon: { trailing: { pointer: '' } } }"
-    >
-      <template v-if="searchQuery" #trailing>
-        <UButton
-          color="gray"
-          variant="link"
-          icon="i-lucide-x"
-          :padded="false"
-          @click="searchQuery = ''"
-        />
-      </template>
-    </UInput>
-
     <div v-if="pending" class="flex justify-center py-8">
-      <UIcon name="i-lucide-loader" class="size-6 animate-spin" />
+      <UIcon name="i-lucide-loader" class="size-5 animate-spin text-muted" />
     </div>
 
     <div v-else-if="error" class="py-8">
       <UAlert color="error" :title="error.message" />
     </div>
 
-    <div v-else-if="!transcripts?.length" class="py-8 text-center text-gray-500">
-      <UIcon name="i-lucide-file-text" class="size-12 mx-auto mb-4 opacity-50" />
-      <p>No transcripts yet</p>
-      <UButton to="/admin" variant="link" class="mt-2">Create your first transcript</UButton>
+    <div v-else-if="!transcripts?.length" class="py-10 text-center text-muted">
+      <UIcon name="i-lucide-file-text" class="size-10 mx-auto mb-3 opacity-40" />
+      <p class="text-sm">No transcripts yet</p>
+      <UButton to="/admin" variant="link" class="mt-2" size="sm">Create your first transcript</UButton>
     </div>
 
-    <div v-else-if="!filtered.length" class="py-8 text-center text-gray-500">
-      <p>No transcripts matching "{{ searchQuery }}"</p>
+    <div v-else-if="!sorted.length" class="py-10 text-center text-muted">
+      <UIcon name="i-lucide-file-text" class="size-10 mx-auto mb-3 opacity-40" />
+      <p class="text-sm">No transcripts matching "{{ searchQuery }}"</p>
     </div>
 
-    <div v-else>
-      <template v-for="(group, groupIdx) in grouped" :key="group.label">
-        <div
-          class="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 sticky top-0 bg-white dark:bg-gray-900 z-10"
-          :class="{ 'pt-6 mt-2 border-t border-gray-100 dark:border-gray-800': groupIdx > 0 }"
-        >
-          {{ group.label }}
+    <div v-else class="space-y-1">
+      <div
+        v-for="item in sorted"
+        :key="item.id"
+        class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-elevated transition-colors group cursor-pointer"
+        @click="navigateTo(`/admin/transcripts/${item.id}`)"
+      >
+        <UIcon name="i-lucide-file-text" class="size-4 text-muted shrink-0" />
+        <span class="flex-1 min-w-0 text-sm font-medium truncate group-hover:text-primary transition-colors">
+          {{ item.name || 'Untitled' }}
+        </span>
+
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0" @click.stop>
+          <USwitch
+            :model-value="item.is_public ?? false"
+            size="xs"
+            label="Public"
+            @update:model-value="toggleVisibility(item, 'is_public', $event)"
+          />
+          <USwitch
+            :model-value="item.is_premium ?? false"
+            size="xs"
+            label="Premium"
+            @update:model-value="toggleVisibility(item, 'is_premium', $event)"
+          />
         </div>
 
-        <div class="divide-y divide-gray-100 dark:divide-gray-800">
-          <div
-            v-for="item in group.items"
-            :key="item.id"
-            class="flex items-start gap-3 py-3 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors group"
-            @click="navigateTo(`/admin/transcripts/${item.id}`)"
-          >
-            <UIcon name="i-lucide-file-text" class="size-5 text-gray-400 shrink-0 mt-0.5" />
-
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <p class="font-medium text-sm truncate" v-html="highlight(item.name || 'Untitled')" />
-              </div>
-              <p
-                v-if="item.transcript"
-                class="text-xs text-gray-400 truncate mt-0.5"
-              >
-                {{ getPreviewLine(item.transcript) }}
-              </p>
-              <div class="flex items-center gap-2 mt-1">
-                <span class="text-[11px] text-gray-400">{{ formatDate(item.upload_date || item.created_at) }}</span>
-                <span class="text-gray-300 dark:text-gray-600">&middot;</span>
-                <span
-                  class="text-[11px] text-gray-400 truncate"
-                  v-html="highlight(item.youtube_url)"
-                />
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2 sm:gap-3 shrink-0 mt-0.5" @click.stop>
-              <USwitch
-                :model-value="item.is_public ?? false"
-                size="xs"
-                label="Public"
-                @update:model-value="toggleVisibility(item, 'is_public', $event)"
-              />
-              <USwitch
-                :model-value="item.is_premium ?? false"
-                size="xs"
-                label="Premium"
-                @update:model-value="toggleVisibility(item, 'is_premium', $event)"
-              />
-            </div>
-          </div>
-        </div>
-      </template>
+        <span class="text-xs text-muted tabular-nums shrink-0">{{ formatDate(item.upload_date || item.created_at) }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -121,6 +101,8 @@ const transcripts = ref<Transcript[] | null>(null)
 const pending = ref(true)
 const error = ref<any>(null)
 const searchQuery = ref('')
+const sortBy = ref<'date' | 'name'>('date')
+const sortOrder = ref<'desc' | 'asc'>('desc')
 
 try {
   transcripts.value = await authFetch<Transcript[]>('/api/transcripts')
@@ -140,74 +122,43 @@ const filtered = computed(() => {
   )
 })
 
-interface Group {
-  label: string
-  items: Transcript[]
+function parseDate(dateString: string): Date {
+  if (/^\d{8}$/.test(dateString)) {
+    return new Date(`${dateString.slice(0, 4)}-${dateString.slice(4, 6)}-${dateString.slice(6)}`)
+  }
+  return new Date(dateString)
 }
 
-const grouped = computed<Group[]>(() => {
-  const items = filtered.value
-  if (!items.length) return []
-
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
-  const weekStart = new Date(todayStart.getTime() - 7 * 86400000)
-  const monthStart = new Date(todayStart.getTime() - 30 * 86400000)
-
-  const buckets: Record<string, Transcript[]> = {
-    Today: [],
-    Yesterday: [],
-    'This Week': [],
-    'This Month': [],
-    Older: [],
+const sorted = computed(() => {
+  const items = [...filtered.value]
+  const dir = sortOrder.value === 'desc' ? -1 : 1
+  if (sortBy.value === 'date') {
+    items.sort((a, b) => {
+      const da = parseDate(a.upload_date || a.created_at).getTime()
+      const db = parseDate(b.upload_date || b.created_at).getTime()
+      return (da - db) * dir
+    })
+  } else {
+    items.sort((a, b) => {
+      const na = (a.name || '').toLowerCase()
+      const nb = (b.name || '').toLowerCase()
+      return na.localeCompare(nb) * dir
+    })
   }
-  const order = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older']
-
-  for (const item of items) {
-    const raw = item.upload_date || item.created_at
-    const d = raw && /^\d{8}$/.test(raw)
-      ? new Date(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`)
-      : new Date(raw)
-    if (d >= todayStart) buckets.Today.push(item)
-    else if (d >= yesterdayStart) buckets.Yesterday.push(item)
-    else if (d >= weekStart) buckets['This Week'].push(item)
-    else if (d >= monthStart) buckets['This Month'].push(item)
-    else buckets.Older.push(item)
-  }
-
-  return order
-    .filter(label => buckets[label].length > 0)
-    .map(label => ({ label, items: buckets[label] }))
+  return items
 })
 
-function getPreviewLine(transcript: string): string {
-  const firstLine = transcript.split('\n').find(l => l.trim().length > 0) || ''
-  return firstLine.slice(0, 120)
-}
-
-function highlight(text: string): string {
-  const q = searchQuery.value.trim()
-  if (!q) return escapeHtml(text)
-  const escaped = escapeHtml(text)
-  const escapedQuery = escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return escaped.replace(
-    new RegExp(`(${escapedQuery})`, 'gi'),
-    '<mark class="bg-yellow-200 dark:bg-yellow-700/60 rounded-sm px-0.5">$1</mark>'
-  )
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+function toggleSort(field: 'date' | 'name') {
+  if (sortBy.value === field) {
+    sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    sortBy.value = field
+    sortOrder.value = field === 'date' ? 'desc' : 'asc'
+  }
 }
 
 async function toggleVisibility(item: Transcript, field: 'is_public' | 'is_premium', value: boolean) {
   if (field === 'is_premium' && value && !item.is_public) {
-    // Turning on premium auto-enables public
     item.is_public = true
     item.is_premium = true
     await authFetch(`/api/transcripts/${item.id}`, {
@@ -215,7 +166,6 @@ async function toggleVisibility(item: Transcript, field: 'is_public' | 'is_premi
       body: { is_public: true, is_premium: true },
     }).catch(() => {})
   } else if (field === 'is_public' && !value) {
-    // Turning off public also turns off premium
     item.is_public = false
     item.is_premium = false
     await authFetch(`/api/transcripts/${item.id}`, {
@@ -232,10 +182,7 @@ async function toggleVisibility(item: Transcript, field: 'is_public' | 'is_premi
 }
 
 function formatDate(dateString: string) {
-  // Handle YYYYMMDD format from upload_date
-  const date = /^\d{8}$/.test(dateString)
-    ? new Date(`${dateString.slice(0, 4)}-${dateString.slice(4, 6)}-${dateString.slice(6)}`)
-    : new Date(dateString)
+  const date = parseDate(dateString)
   const now = new Date()
   const sameYear = date.getFullYear() === now.getFullYear()
   return date.toLocaleDateString('en-US', {

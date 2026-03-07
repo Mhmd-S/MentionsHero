@@ -20,6 +20,7 @@ class Persona(BaseModel):
     """Persona model with aliases."""
     id: str
     name: str
+    slug: str | None = None
     description: str | None = None
     meta_title: str | None = None
     meta_description: str | None = None
@@ -43,6 +44,7 @@ class PersonaCreate(BaseModel):
 class PersonaUpdate(BaseModel):
     """Request model for updating a persona."""
     name: str | None = None
+    slug: str | None = None
     description: str | None = None
     meta_title: str | None = None
     meta_description: str | None = None
