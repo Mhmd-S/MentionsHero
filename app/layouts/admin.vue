@@ -53,6 +53,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
         :min-size="15"
         :default-size="18"
         :max-size="25"
+        :ui="{ root: 'max-h-svh' }"
       >
         <template #header="{ collapsed }">
           <div class="flex items-center gap-2" :class="collapsed ? 'justify-center' : ''">
@@ -65,11 +66,10 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
           <UNavigationMenu
             :items="navItems"
             orientation="vertical"
+            class="shrink-0"
           />
-          <div class="mt-4">
-            <FileTree />
-            <JobsSidebar />
-          </div>
+          <FileTree />
+          <JobsSidebar />
         </template>
 
         <template #footer="{ collapsed }">
@@ -88,7 +88,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
         </template>
       </UDashboardSidebar>
 
-      <UDashboardPanel>
+      <UDashboardPanel :ui="{ root: 'max-h-svh' }">
         <template #header>
           <UDashboardNavbar title="MentionsHero" icon="i-lucide-message-circle">
             <template #right>
