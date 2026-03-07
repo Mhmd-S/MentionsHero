@@ -13,11 +13,11 @@ Trading mentions markets for Donald Trump isn't about political science — it's
 
 The single strongest predictor of what Trump will say is **where he's saying it.** Before placing a single trade, figure out the venue.
 
-### The East Room Rule
+### The Formal Venue Rule
 
-Speeches in the White House East Room are formal, teleprompter-driven events. They historically lack Q&A sessions. No Q&A means no "unscripted" tangents — so mentions of trending news topics, specific foreign policy updates, or off-the-cuff rebuttals become significantly less likely.
+Speeches in formal settings — like the White House East Room, joint sessions of Congress, or UN General Assembly addresses — are typically teleprompter-driven events. They often lack Q&A sessions. No Q&A means no "unscripted" tangents — so mentions of trending news topics, specific policy updates, or off-the-cuff remarks become significantly less likely.
 
-If a mentions market hinges on an obscure or reactive topic and the venue is the East Room, that's a strong signal to buy **No**.
+If a mentions market hinges on an obscure or reactive topic and the scheduled event is a formal address, that's a strong signal to buy **No**.
 
 ### Script vs. Freestyle
 
