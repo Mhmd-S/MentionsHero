@@ -53,3 +53,19 @@ class PlaylistInfo(BaseModel):
 
     class Config:
         populate_by_name = True
+
+
+class ChannelInfoRequest(BaseModel):
+    """Request model for channel info."""
+    url: str
+
+
+class ChannelInfo(BaseModel):
+    """Channel information from YouTube."""
+    id: str
+    title: str
+    video_count: int
+    videos: list[PlaylistVideo]
+
+    class Config:
+        populate_by_name = True

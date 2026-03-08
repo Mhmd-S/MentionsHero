@@ -11,6 +11,7 @@ setup_logging()
 from backend.core.auth import require_admin
 from backend.routers import (
     analysis,
+    channel,
     folders,
     jobs,
     kalshi,
@@ -55,6 +56,7 @@ app.include_router(folders.router, dependencies=[Depends(require_admin)])
 app.include_router(analysis.router, dependencies=[Depends(require_admin)])
 app.include_router(video.router, dependencies=[Depends(require_admin)])
 app.include_router(playlist.router, dependencies=[Depends(require_admin)])
+app.include_router(channel.router, dependencies=[Depends(require_admin)])
 app.include_router(kalshi.router, dependencies=[Depends(require_admin)])
 app.include_router(personas.router, dependencies=[Depends(require_admin)])
 
