@@ -75,6 +75,7 @@ backend/                      # FastAPI backend
     analysis.py               # /api/analysis/* - Term search, n-grams, speakers (admin)
     video.py                  # /api/video/* - YouTube metadata (admin)
     playlist.py               # /api/playlist/* - Playlist metadata (admin)
+    channel.py                # /api/channel/* - YouTube channel video listing (admin)
     kalshi.py                 # /api/kalshi/* - Series, events, markets (admin)
     personas.py               # /api/personas/* - Persona CRUD, aliases (admin)
     public.py                 # /api/public/* - Public personas & transcripts (no auth)
@@ -204,6 +205,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 | `/api/analysis` | `analysis.py` | Admin | Term frequency, n-grams, context search, speakers |
 | `/api/video` | `video.py` | Admin | YouTube video metadata |
 | `/api/playlist` | `playlist.py` | Admin | YouTube playlist metadata |
+| `/api/channel` | `channel.py` | Admin | YouTube channel video listing |
 | `/api/kalshi` | `kalshi.py` | Admin | Series/events/markets CRUD, analysis |
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
 | `/api/public` | `public.py` | None/Optional | Public personas & transcript browsing |

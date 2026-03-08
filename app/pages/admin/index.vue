@@ -10,13 +10,13 @@ definePageMeta({ layout: 'admin' })
     </div>
 
     <!-- Single / detecting / batch mode: single column -->
-    <div v-if="inputMode !== 'playlist'" class="max-w-xl space-y-6">
+    <div v-if="inputMode !== 'playlist' && inputMode !== 'channel'" class="max-w-xl space-y-6">
       <!-- URL Input Mode -->
       <div v-if="inputMode === 'single' || inputMode === 'detecting'">
         <UFormField label="YouTube URL">
           <UTextarea
             v-model="youtubeUrl"
-            placeholder="https://www.youtube.com/watch?v=...&#10;&#10;Paste a video URL, playlist URL, or multiple URLs (one per line)"
+            placeholder="https://www.youtube.com/watch?v=...&#10;&#10;Paste a video URL, playlist URL, channel URL, or multiple URLs (one per line)"
             :rows="3"
             class="w-full"
             :disabled="isProcessing"
@@ -135,14 +135,23 @@ definePageMeta({ layout: 'admin' })
       </div>
     </div>
 
-    <!-- Playlist mode: two-column layout -->
+    <!-- Playlist/Channel mode: two-column layout -->
     <div v-else class="flex flex-col lg:flex-row gap-6 items-start">
-      <!-- Left column: playlist video list -->
+      <!-- Left column: playlist/channel video list -->
       <div class="flex-1 min-w-0 w-full">
         <PlaylistSelector
+          v-if="inputMode === 'playlist'"
           :playlist="playlistInfo"
           :loading="playlistLoading"
           :error="playlistError"
+          v-model:selected="selectedVideos"
+          @back="clearInput"
+        />
+        <PlaylistSelector
+          v-else-if="inputMode === 'channel'"
+          :playlist="channelAsPlaylist"
+          :loading="channelLoading"
+          :error="channelError"
           v-model:selected="selectedVideos"
           @back="clearInput"
         />
@@ -268,7 +277,14 @@ interface PlaylistInfo {
   videos: VideoInfo[]
 }
 
-type InputMode = 'detecting' | 'single' | 'playlist' | 'batch'
+interface ChannelInfo {
+  id: string
+  title: string
+  videoCount: number
+  videos: VideoInfo[]
+}
+
+type InputMode = 'detecting' | 'single' | 'playlist' | 'batch' | 'channel'
 
 const route = useRoute()
 const router = useRouter()
@@ -290,6 +306,11 @@ const playlistInfo = ref<PlaylistInfo | null>(null)
 const playlistLoading = ref(false)
 const playlistError = ref<string | null>(null)
 
+// Channel state
+const channelInfo = ref<ChannelInfo | null>(null)
+const channelLoading = ref(false)
+const channelError = ref<string | null>(null)
+
 // Batch/selection state
 const parsedUrls = ref<VideoInfo[]>([])
 const selectedVideos = ref<VideoInfo[]>([])
@@ -304,18 +325,30 @@ const isCompleted = computed(() => progress.value?.status === 'completed')
 const isFailed = computed(() => progress.value?.status === 'failed')
 const isCancelled = computed(() => progress.value?.status === 'cancelled')
 
+// Adapter to render channel info via PlaylistSelector
+const channelAsPlaylist = computed<PlaylistInfo | null>(() => {
+  if (!channelInfo.value) return null
+  return {
+    id: channelInfo.value.id,
+    title: channelInfo.value.title,
+    channel: channelInfo.value.title,
+    videoCount: channelInfo.value.videoCount,
+    videos: channelInfo.value.videos
+  }
+})
+
 const canTranscribe = computed(() => {
   if (inputMode.value === 'single') {
     return !!videoInfo.value && !videoLoading.value
   }
-  if (inputMode.value === 'playlist' || inputMode.value === 'batch') {
+  if (inputMode.value === 'playlist' || inputMode.value === 'batch' || inputMode.value === 'channel') {
     return selectedVideos.value.length > 0
   }
   return false
 })
 
 const transcribeButtonLabel = computed(() => {
-  if (inputMode.value === 'playlist' || inputMode.value === 'batch') {
+  if (inputMode.value === 'playlist' || inputMode.value === 'batch' || inputMode.value === 'channel') {
     const count = selectedVideos.value.length
     return count > 1 ? `Transcribe ${count} Videos` : 'Transcribe'
   }
@@ -332,6 +365,10 @@ function isSingleVideoUrl(url: string): boolean {
   return regex.test(url.trim())
 }
 
+function isChannelUrl(url: string): boolean {
+  return /^(https?:\/\/)?(www\.)?youtube\.com\/(channel\/|c\/|@|user\/)\S+/.test(url.trim())
+}
+
 function parseMultipleUrls(input: string): string[] {
   const lines = input.split(/[\n,]/).map(l => l.trim()).filter(Boolean)
   return lines.filter(line => isSingleVideoUrl(line) || isPlaylistUrl(line))
@@ -346,6 +383,8 @@ watch(youtubeUrl, (newUrl) => {
   videoError.value = null
   playlistInfo.value = null
   playlistError.value = null
+  channelInfo.value = null
+  channelError.value = null
   parsedUrls.value = []
   selectedVideos.value = []
 
@@ -360,6 +399,15 @@ watch(youtubeUrl, (newUrl) => {
 })
 
 async function detectAndFetch(input: string) {
+  const trimmed = input.trim()
+
+  // Check for channel URL first (before parseMultipleUrls which filters by video/playlist)
+  if (isChannelUrl(trimmed)) {
+    inputMode.value = 'channel'
+    await fetchChannelInfo(trimmed)
+    return
+  }
+
   const urls = parseMultipleUrls(input)
 
   if (urls.length === 0) {
@@ -429,6 +477,24 @@ async function fetchPlaylistInfo(url: string) {
   }
 }
 
+async function fetchChannelInfo(url: string) {
+  channelLoading.value = true
+  channelError.value = null
+
+  try {
+    const info = await authFetch<ChannelInfo>('/api/channel/info', {
+      method: 'POST',
+      body: { url }
+    })
+    channelInfo.value = info
+    selectedVideos.value = [...info.videos]
+  } catch (err: any) {
+    channelError.value = err.data?.message || 'Failed to fetch channel info'
+  } finally {
+    channelLoading.value = false
+  }
+}
+
 async function fetchBatchVideoInfo(urls: string[]) {
   const results: VideoInfo[] = []
 
@@ -475,8 +541,8 @@ async function startJob() {
       return
     }
 
-    // Batch mode (playlist or multiple URLs)
-    if ((inputMode.value === 'playlist' || inputMode.value === 'batch') && selectedVideos.value.length > 0) {
+    // Batch mode (playlist, channel, or multiple URLs)
+    if ((inputMode.value === 'playlist' || inputMode.value === 'batch' || inputMode.value === 'channel') && selectedVideos.value.length > 0) {
       const response = await authFetch<{ jobIds: string[] }>('/api/jobs/batch', {
         method: 'POST',
         body: {
@@ -515,6 +581,8 @@ function resetForm() {
   videoError.value = null
   playlistInfo.value = null
   playlistError.value = null
+  channelInfo.value = null
+  channelError.value = null
   parsedUrls.value = []
   selectedVideos.value = []
   inputMode.value = 'detecting'

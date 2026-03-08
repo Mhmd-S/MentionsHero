@@ -1,6 +1,6 @@
 # Transcript Generation
 
-Transcribes YouTube videos with speaker diarization using Gemini 2.0 Flash. Supports single videos, batch URLs, and playlists.
+Transcribes YouTube videos with speaker diarization using Gemini 2.0 Flash. Supports single videos, batch URLs, playlists, and YouTube channels.
 
 ## Data Flow
 
@@ -40,6 +40,12 @@ Each status update pushes `stage_progress` via SSE:
 - Each video becomes its own job with `playlist_id`, `playlist_name`, `playlist_index`
 - Concurrent batch limit: `MAX_CONCURRENT = 10` (semaphore)
 
+### Channel Support
+- YouTube channel URLs (`youtube.com/@handle`, `youtube.com/channel/...`, `youtube.com/c/...`, `youtube.com/user/...`) are detected automatically
+- `POST /api/channel/info` fetches the most recent 50 videos from a channel using yt-dlp `--flat-playlist --playlist-end 50`
+- Frontend reuses the PlaylistSelector component to display channel videos with search and multi-select
+- Selected channel videos are submitted via the same batch job endpoint (`POST /api/jobs/batch`)
+
 ## Transcript Format
 
 Gemini returns structured segments, formatted as text:
@@ -75,10 +81,11 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/jobs` | Create single transcription job |
-| `POST` | `/api/jobs/batch` | Create batch jobs (playlist or multiple URLs) |
+| `POST` | `/api/jobs/batch` | Create batch jobs (playlist, channel, or multiple URLs) |
 | `GET` | `/api/jobs` | List active jobs |
 | `GET` | `/api/jobs/{job_id}/stream` | SSE progress stream (accepts `?token=`) |
 | `POST` | `/api/jobs/{job_id}/cancel` | Cancel a running job |
+| `POST` | `/api/channel/info` | Get recent videos from a YouTube channel |
 | `GET` | `/api/transcripts` | List all transcripts |
 | `GET` | `/api/transcripts/{id}` | Get transcript (supports `?search=` and `?speakers=` filtering) |
 | `PATCH` | `/api/transcripts/{id}` | Update name or folder_id |
@@ -100,7 +107,8 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 | Service | `backend/services/transcript_service.py` | Transcript DB operations |
 | Service | `backend/services/job_service.py` | Job state management, SSE events |
 | Service | `backend/services/speaker_service.py` | Speaker extraction & storage |
-| Service | `backend/services/youtube_service.py` | YouTube metadata via yt-dlp |
+| Router | `backend/routers/channel.py` | Channel info endpoint |
+| Service | `backend/services/youtube_service.py` | YouTube/playlist/channel metadata via yt-dlp |
 | Model | `backend/models/job.py` | Job status enum, request/response models |
 | Model | `backend/models/transcript.py` | Transcript models with highlights |
 | Model | `backend/models/speaker.py` | Speaker records |
