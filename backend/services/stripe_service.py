@@ -42,12 +42,13 @@ def _get_stripe():
 async def create_checkout_session(
     user_id: str,
     email: str,
-    success_url: str = "http://localhost:3000/account?session_id={CHECKOUT_SESSION_ID}",
-    cancel_url: str = "http://localhost:3000/pricing",
 ) -> str:
     """Create a Stripe Checkout session for monthly subscription."""
     s = _get_stripe()
     settings = get_settings()
+    base = settings.frontend_url.rstrip("/")
+    success_url = f"{base}/account?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{base}/pricing"
     supabase = get_supabase()
 
     # Check if user already has a Stripe customer ID
@@ -225,7 +226,7 @@ async def create_portal_session(user_id: str) -> str | None:
 
     session = s.billing_portal.Session.create(
         customer=customer_id,
-        return_url="http://localhost:3000/account",
+        return_url=f"{get_settings().frontend_url.rstrip('/')}/account",
     )
 
     return session.url

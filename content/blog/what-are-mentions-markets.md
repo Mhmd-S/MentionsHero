@@ -5,8 +5,6 @@ date: "2026-03-06"
 tags: ["kalshi", "prediction-markets", "guide"]
 ---
 
-# What Are Kalshi Mentions Markets?
-
 Kalshi mentions markets are a unique type of prediction market where traders bet on whether a specific public figure will be mentioned during official events like press briefings, interviews, or congressional hearings.
 
 ## How Do They Work?

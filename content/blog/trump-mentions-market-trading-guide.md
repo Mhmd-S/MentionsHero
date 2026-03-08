@@ -5,8 +5,6 @@ date: "2026-03-08"
 tags: ["kalshi", "prediction-markets", "trump", "trading-strategy", "mentions-markets"]
 ---
 
-# How to Trade Trump Mentions Markets on Kalshi: A Pattern Recognition Guide
-
 Trading mentions markets for Donald Trump isn't about political science — it's about **pattern recognition, venue analysis, and understanding crowd psychology.** Whether you're new to Kalshi or looking to sharpen your edge, these battle-tested strategies will help you navigate one of the platform's most popular market categories.
 
 ## Context and Venue Analysis: Where He Speaks Matters Most
