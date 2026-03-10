@@ -3,27 +3,23 @@ definePageMeta({ layout: 'admin' })
 </script>
 
 <script setup lang="ts">
-import { useKalshi, type EventDetail, type PersonaEventMarket } from '~/composables/useKalshi'
+import { usePolymarket, type PolyEventDetail } from '~/composables/usePolymarket'
 import { usePersonas } from '~/composables/usePersonas'
 import { useFileTree } from '~/composables/useFileTree'
 
 const route = useRoute()
-const eventTicker = route.params.id as string
+const eventId = route.params.id as string
 
 const {
-  getEventDetailByTicker, refreshEvent,
-  linkPersonaToSeries, unlinkPersonaFromSeries,
-} = useKalshi()
+  getEventDetail, refreshEvent,
+  linkPersona, unlinkPersona,
+} = usePolymarket()
 const { personas, fetchPersonas } = usePersonas()
 const { folders, fetchFolders } = useFileTree()
 
-const detail = ref<EventDetail | null>(null)
+const detail = ref<PolyEventDetail | null>(null)
 const loading = ref(true)
 const refreshing = ref(false)
-
-// DB IDs derived from loaded detail
-const seriesId = computed(() => detail.value?.series?.id || '')
-const eventId = computed(() => detail.value?.event?.id || '')
 
 // Persona selection
 const selectedPersonaId = ref<string | null>(null)
@@ -41,7 +37,7 @@ const folderOptions = computed(() =>
 async function loadDetail() {
   loading.value = true
   try {
-    detail.value = await getEventDetailByTicker(eventTicker, selectedPersonaId.value || undefined)
+    detail.value = await getEventDetail(eventId, selectedPersonaId.value || undefined)
     if (detail.value?.persona_ids?.length && !selectedPersonaId.value) {
       selectedPersonaId.value = detail.value.persona_ids[0] ?? null
     }
@@ -53,17 +49,16 @@ async function loadDetail() {
 async function reloadWithPersona() {
   loading.value = true
   try {
-    detail.value = await getEventDetailByTicker(eventTicker, selectedPersonaId.value || undefined)
+    detail.value = await getEventDetail(eventId, selectedPersonaId.value || undefined)
   } finally {
     loading.value = false
   }
 }
 
 async function handleRefresh() {
-  if (!eventId.value || !seriesId.value) return
   refreshing.value = true
   try {
-    await refreshEvent(seriesId.value, eventId.value)
+    await refreshEvent(eventId)
     await reloadWithPersona()
   } finally {
     refreshing.value = false
@@ -71,10 +66,10 @@ async function handleRefresh() {
 }
 
 async function handleLinkPersona() {
-  if (!linkPersonaId.value || !seriesId.value) return
+  if (!linkPersonaId.value) return
   linking.value = true
   try {
-    await linkPersonaToSeries(seriesId.value, linkPersonaId.value, linkFolderId.value)
+    await linkPersona(eventId, linkPersonaId.value, linkFolderId.value)
     showLinkModal.value = false
     linkPersonaId.value = null
     linkFolderId.value = undefined
@@ -85,8 +80,7 @@ async function handleLinkPersona() {
 }
 
 async function handleUnlinkPersona(personaId: string) {
-  if (!seriesId.value) return
-  await unlinkPersonaFromSeries(seriesId.value, personaId)
+  await unlinkPersona(eventId, personaId)
   if (selectedPersonaId.value === personaId) {
     selectedPersonaId.value = null
   }
@@ -114,9 +108,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-6xl">
+  <div class="max-w-7xl">
     <!-- Back button -->
-    <NuxtLink to="/admin/markets"
+    <NuxtLink to="/admin/markets?tab=polymarket"
       class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4">
       <UIcon name="i-lucide-chevron-left" class="w-5 h-5" />
       <span class="text-base">Markets</span>
@@ -134,9 +128,18 @@ onMounted(async () => {
     <template v-else>
       <!-- Event header -->
       <div class="flex items-start gap-4 mb-6">
+        <img
+          v-if="detail.event.image"
+          :src="detail.event.image"
+          class="w-12 h-12 rounded object-cover shrink-0"
+          alt=""
+        />
         <div class="flex-1 min-w-0">
-          <h1 class="text-2xl sm:text-3xl font-bold truncate mb-1">{{ detail.event.title || eventTicker }}</h1>
-          <p v-if="detail.series" class="text-gray-500 text-sm">{{ detail.series.title }}</p>
+          <h1 class="text-2xl sm:text-3xl font-bold truncate mb-1">{{ detail.event.title || detail.event.slug }}</h1>
+          <div class="flex items-center gap-3 text-sm text-gray-500">
+            <UBadge color="info" variant="soft" size="xs">Polymarket</UBadge>
+            <span v-if="detail.event.end_date">Ends {{ new Date(detail.event.end_date).toLocaleDateString() }}</span>
+          </div>
         </div>
         <UButton
           size="xs"
@@ -176,7 +179,7 @@ onMounted(async () => {
       </div>
 
       <div v-else class="space-y-3">
-        <template v-for="m in detail.markets" :key="m.market?.id">
+        <template v-for="m in detail.markets" :key="m.market?.id || m.id">
           <!-- With persona analysis -->
           <template v-if="m.term_results">
             <TermSection
@@ -186,22 +189,22 @@ onMounted(async () => {
               :question="m.market.question"
               :search-term="term"
               :term-result="m.term_results?.find((tr: any) => tr.search_term === term) || null"
-              :last-price="m.market.last_price"
+              :last-price="m.market.last_trade_price != null ? m.market.last_trade_price * 100 : null"
               :persona-id="selectedPersonaId || ''"
               :result="m.market.result"
-              :close-time="m.market.close_time"
+              :close-time="m.market.closed_time"
             />
           </template>
           <!-- Without persona analysis -->
           <div v-else class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
-              <span class="text-sm font-medium truncate flex-1">{{ m.question || m.market?.question || '-' }}</span>
+              <span class="text-sm font-medium truncate flex-1">{{ m.question || '—' }}</span>
               <div class="flex items-center gap-2 shrink-0">
-                <UBadge v-if="m.result || m.market?.result" :color="(m.result || m.market?.result) === 'yes' ? 'success' : 'error'" variant="subtle" size="xs">
-                  {{ (m.result || m.market?.result).toUpperCase() }}
+                <UBadge v-if="m.result" :color="m.result === 'yes' ? 'success' : 'error'" variant="subtle" size="xs">
+                  {{ m.result.toUpperCase() }}
                 </UBadge>
-                <span v-if="m.last_price != null || m.market?.last_price != null" class="text-sm font-semibold text-primary">
-                  {{ ((m.last_price ?? m.market?.last_price)).toFixed(0) }}%
+                <span v-if="m.last_trade_price != null && !m.result" class="text-sm font-semibold text-primary">
+                  {{ (m.last_trade_price * 100).toFixed(0) }}%
                 </span>
               </div>
             </div>
@@ -217,7 +220,7 @@ onMounted(async () => {
     <UModal v-model:open="showLinkModal">
       <template #content>
         <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">Link Persona to Series</h3>
+          <h3 class="text-lg font-semibold mb-4">Link Persona to Event</h3>
 
           <div v-if="availablePersonas.length === 0" class="text-gray-500 text-sm">
             All personas are already linked.

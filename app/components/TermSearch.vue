@@ -1,24 +1,22 @@
 <script setup lang="ts">
-import { useAnalysis, type TermFrequency } from '~/composables/useAnalysis'
+import { useAnalysis, type TermFrequency, type SearchResult } from '~/composables/useAnalysis'
 
 const { getTermFrequency, searchTerm, loading } = useAnalysis()
 
 const searchQuery = ref('')
 const caseSensitive = ref(false)
 const result = ref<TermFrequency | null>(null)
-const searchResults = ref<{ query: string; total_matches: number; matches: any[] } | null>(null)
-const activeTab = ref<'frequency' | 'context'>('frequency')
+const searchResults = ref<SearchResult | null>(null)
 
 async function handleSearch() {
   if (!searchQuery.value.trim()) return
 
-  if (activeTab.value === 'frequency') {
-    result.value = await getTermFrequency(searchQuery.value, caseSensitive.value)
-    searchResults.value = null
-  } else {
-    searchResults.value = await searchTerm(searchQuery.value)
-    result.value = null
-  }
+  const [freq, context] = await Promise.all([
+    getTermFrequency(searchQuery.value, caseSensitive.value),
+    searchTerm(searchQuery.value),
+  ])
+  result.value = freq
+  searchResults.value = context
 }
 
 function getTrendIcon(trend: string) {
@@ -63,23 +61,14 @@ function highlightMatch(text: string, query: string): string {
     </div>
 
     <div class="flex items-center gap-4">
-      <UTabs
-        v-model="activeTab"
-        :items="[
-          { label: 'Frequency', value: 'frequency' },
-          { label: 'Context', value: 'context' }
-        ]"
-        class="w-auto"
-      />
       <UCheckbox
-        v-if="activeTab === 'frequency'"
         v-model="caseSensitive"
         label="Case sensitive"
       />
     </div>
 
     <!-- Frequency Results -->
-    <div v-if="result && activeTab === 'frequency'" class="space-y-4">
+    <div v-if="result" class="space-y-4">
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">
@@ -132,7 +121,7 @@ function highlightMatch(text: string, query: string): string {
     </div>
 
     <!-- Context Search Results -->
-    <div v-if="searchResults && activeTab === 'context'" class="space-y-4">
+    <div v-if="searchResults" class="space-y-4">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold">
           Found {{ searchResults.total_matches }} matches for "{{ searchResults.query }}"

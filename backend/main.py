@@ -17,6 +17,7 @@ from backend.routers import (
     kalshi,
     personas,
     playlist,
+    polymarket,
     profile,
     public,
     stripe_router,
@@ -58,6 +59,7 @@ app.include_router(video.router, dependencies=[Depends(require_admin)])
 app.include_router(playlist.router, dependencies=[Depends(require_admin)])
 app.include_router(channel.router, dependencies=[Depends(require_admin)])
 app.include_router(kalshi.router, dependencies=[Depends(require_admin)])
+app.include_router(polymarket.router, dependencies=[Depends(require_admin)])
 app.include_router(personas.router, dependencies=[Depends(require_admin)])
 
 # Public routers (no global auth — per-endpoint auth where needed)
