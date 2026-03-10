@@ -73,7 +73,8 @@
       "Read(//Users/moslmn/Library/Caches/**)",
       "Read(//private/tmp/**)",
       "Read(//Users/moslmn/**)",
-      "Bash(pip show yt-dlp)"
+      "Bash(pip show yt-dlp)",
+      "Bash(git log --oneline -10 -- supabase/migrations/*poly*)"
     ],
     "deny": [
       "**/.env*",

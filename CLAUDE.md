@@ -1,6 +1,6 @@
 # Transcript Analysis Platform
 
-A tool for transcribing YouTube videos (primarily press briefings), analyzing term frequency across transcripts, and tracking Kalshi prediction markets tied to speaker mentions. Includes a public-facing website with Stripe-powered paywall.
+A tool for transcribing YouTube videos (primarily press briefings), analyzing term frequency across transcripts, and tracking prediction markets (Kalshi & Polymarket) tied to speaker mentions. Includes a public-facing website with Stripe-powered paywall.
 
 ## Tech Stack
 
@@ -35,7 +35,8 @@ app/                          # Nuxt 3 frontend
       term-search.vue         # Term Search
       transcripts/            # Admin transcript listing & detail
       personas/               # Admin persona listing & detail
-      markets/                # Kalshi markets listing & detail
+      markets/                # Markets listing (Kalshi + Polymarket tabs) & detail
+        poly/                 # Polymarket event detail pages
   composables/                # API interaction layer
     useAuthFetch.ts           # Authenticated fetch wrapper (admin)
     usePublicApi.ts           # Public fetch wrapper (attaches token if logged in)
@@ -44,6 +45,7 @@ app/                          # Nuxt 3 frontend
     useAnalysis.ts            # Term search & analysis API
     usePersonas.ts            # Persona CRUD API
     useKalshi.ts              # Kalshi API
+    usePolymarket.ts          # Polymarket API
     useFileTree.ts            # Folder/transcript management
     useAuth.ts                # Authentication state
   components/                 # Reusable components
@@ -77,6 +79,7 @@ backend/                      # FastAPI backend
     playlist.py               # /api/playlist/* - Playlist metadata (admin)
     channel.py                # /api/channel/* - YouTube channel video listing (admin)
     kalshi.py                 # /api/kalshi/* - Series, events, markets (admin)
+    polymarket.py             # /api/polymarket/* - Polymarket events, markets (admin)
     personas.py               # /api/personas/* - Persona CRUD, aliases (admin)
     public.py                 # /api/public/* - Public personas & transcripts (no auth)
     stripe_router.py          # /api/stripe/* - Checkout, webhook, subscription
@@ -89,12 +92,13 @@ backend/                      # FastAPI backend
     folder_service.py         # Folder hierarchy operations
     persona_service.py        # Persona DB operations
     kalshi_service.py         # Kalshi API client, market analysis
+    polymarket_service.py     # Polymarket API client, market analysis
     youtube_service.py        # YouTube metadata via yt-dlp
     public_service.py         # Public data access, subscription checks
     stripe_service.py         # Stripe API integration
   models/                     # Pydantic request/response models
     job.py, transcript.py, folder.py, analysis.py,
-    speaker.py, persona.py, kalshi.py, video.py
+    speaker.py, persona.py, kalshi.py, polymarket.py, video.py
   utils/
     nlp.py                    # Term frequency, n-grams, text cleaning, context search
     transcript_filter.py      # Transcript parsing, highlighting, speaker extraction
@@ -176,8 +180,18 @@ What to update:
 | `kalshi_events` | Events within a series (event_ticker UNIQUE, status, strike_date) |
 | `kalshi_markets` | Markets within events (ticker UNIQUE, question, last_price, result) |
 | `persona_kalshi_series` | Junction: persona ↔ series with optional folder_id scoping |
-| `market_search_configs` | Auto-extracted search terms from market questions |
-| `market_term_results` | Per-persona, per-term analysis results (mentions, trend, context) |
+| `market_search_configs` | Auto-extracted search terms from Kalshi market questions |
+| `market_term_results` | Per-persona, per-term analysis results for Kalshi (mentions, trend, context) |
+
+### Polymarket Tables
+
+| Table | Purpose |
+|-------|---------|
+| `poly_events` | Polymarket events (poly_id UNIQUE, slug UNIQUE, title, volume, liquidity) |
+| `poly_markets` | Markets within events (poly_id UNIQUE, question, last_trade_price 0-1, result) |
+| `persona_poly_events` | Junction: persona ↔ poly_event with optional folder_id scoping |
+| `poly_market_search_configs` | Search terms for Polymarket markets (from groupItemTitle or question) |
+| `poly_market_term_results` | Per-persona, per-term analysis results for Polymarket |
 
 ### Key Relationships
 
@@ -191,6 +205,10 @@ kalshi_markets.event_id → kalshi_events (CASCADE)
 persona_kalshi_series → personas + kalshi_series + folders
 market_search_configs.market_id → kalshi_markets (CASCADE)
 market_term_results → kalshi_markets + personas
+poly_markets.event_id → poly_events (CASCADE)
+persona_poly_events → personas + poly_events + folders
+poly_market_search_configs.market_id → poly_markets (CASCADE)
+poly_market_term_results → poly_markets + personas
 ```
 
 ## API Overview
@@ -207,6 +225,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 | `/api/playlist` | `playlist.py` | Admin | YouTube playlist metadata |
 | `/api/channel` | `channel.py` | Admin | YouTube channel video listing |
 | `/api/kalshi` | `kalshi.py` | Admin | Series/events/markets CRUD, analysis |
+| `/api/polymarket` | `polymarket.py` | Admin | Polymarket events/markets, search, analysis |
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
 | `/api/public` | `public.py` | None/Optional | Public personas & transcript browsing |
 | `/api/stripe` | `stripe_router.py` | User/None | Checkout, webhook, subscription, portal |
@@ -228,6 +247,9 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 - **Speaker regex**: Pattern `^([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$` — supports "Name:", "SPEAKER_00:", etc.
 - **Idempotent upserts**: Kalshi events/markets use `event_ticker`/`ticker` as unique keys
 - **Kalshi event browsing**: Markets listing page fetches open Mentions events from Kalshi v1 search API (`/api/kalshi/series/browse`), grouped by tag (Politicians, Earnings, Sports). No manual add/delete. Events are lazily upserted into DB on first detail page visit via `ensure_event(event_ticker)`. Detail pages use event_ticker routing (`/markets/{event_ticker}`)
+- **Polymarket API**: Gamma API (`https://gamma-api.polymarket.com`), unauthenticated read-only. Events discovered via admin keyword search (`_q` param), manually added to DB. No series concept — events directly contain markets. Slug-based identification. Pricing is 0-1 decimal (multiply by 100 for display). Resolution derived from `closed` + `outcomePrices`
+- **Polymarket search terms**: Uses `groupItemTitle` (often the tracked term in multi-outcome events), falls back to `parse_market_criteria()` regex on question text. No `custom_strike.Word` equivalent
+- **Markets UI**: Tabbed layout (Kalshi | Polymarket) on `/admin/markets`. Tab state persisted via `?tab=polymarket` query param. Kalshi detail at `/admin/markets/{event_ticker}`, Polymarket detail at `/admin/markets/poly/{event_id}`
 - **Mandatory CLAUDE.md updates**: Any code change that affects project structure, conventions, API endpoints, database schema, key files, or development workflow MUST be reflected in this CLAUDE.md file
 
 ## Development

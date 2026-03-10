@@ -1,6 +1,6 @@
-# Markets (Kalshi Mentions Integration)
+# Markets (Kalshi & Polymarket Integration)
 
-Tracks Kalshi **Mentions** prediction markets — binary contracts that resolve based on whether a specific word/phrase is spoken during a public event (press briefing, earnings call, etc.). Links personas to market series and analyzes whether the tracked terms were mentioned in transcripts.
+Tracks prediction markets from **Kalshi** and **Polymarket** — binary contracts that can be linked to personas for term frequency analysis against transcripts. Kalshi focuses on **Mentions** markets (auto-browsed by category), while Polymarket events are discovered via admin search.
 
 ## Hierarchy
 
@@ -107,8 +107,8 @@ When analysis runs (on link, refresh, or alias change):
 
 | Layer | File | Purpose |
 |-------|------|---------|
-| Page | `app/pages/markets/index.vue` | Event listing grouped by tag (Politicians, Earnings, Sports), auto-fetched from Kalshi v1 search API. Client-side search across event titles, subtitles, series titles, and market words. Sorted by `strike_date` (most recent first) |
-| Page | `app/pages/markets/[id].vue` | Event detail by event_ticker: markets with persona analysis |
+| Page | `app/pages/admin/markets/index.vue` | Tabbed listing (Kalshi tab: events grouped by tag; Polymarket tab: search + stored events) |
+| Page | `app/pages/admin/markets/[id].vue` | Kalshi event detail by event_ticker: markets with persona analysis |
 | Composable | `app/composables/useKalshi.ts` | All Kalshi API calls (`browseEvents`, `getEventDetailByTicker`, etc.) |
 | Component | `app/components/TermSection.vue` | Per-market term analysis display |
 | Router | `backend/routers/kalshi.py` | All `/api/kalshi/*` endpoints |
@@ -135,5 +135,101 @@ When analysis runs (on link, refresh, or alias change):
 - UNIQUE(market_id)
 
 **market_term_results**
+- `id` (uuid PK), `market_id` (uuid FK CASCADE), `persona_id` (uuid FK CASCADE), `search_term` (text), `total_mentions` (int), `briefings_with_term` (int), `total_briefings` (int), `percentage` (numeric), `trend` (text), `mentions_by_date` (jsonb), `context_matches` (jsonb), `context_total_matches` (int), `context_transcripts_with_matches` (int), `last_updated`, `created_at`
+- UNIQUE(market_id, persona_id, search_term)
+
+---
+
+## Polymarket Integration
+
+### Hierarchy
+
+```
+PolyEvent (e.g., "Will Trump say Tariffs?")
+  ├─ PolyMarket ("Yes/No" — question text)
+  ├─ PolyMarket ("Yes/No" — question text)
+  └─ ...
+```
+
+Polymarket has no "series" level — events directly contain markets. Events are identified by slug (URL-based) and numeric `poly_id`.
+
+### Discovery & Storage
+
+Unlike Kalshi (auto-browsed by category), Polymarket events are discovered via admin keyword search and manually added:
+
+1. **Admin searches** on the Polymarket tab → backend calls Gamma `public-search` API with keyword, optionally filters to mentions-style events client-side. By default, only mentions-style events are shown (toggle available)
+2. **Admin clicks "Add"** → event + markets upserted into DB
+3. **Detail page** shows markets with persona analysis (identical UX to Kalshi)
+
+### Polymarket Gamma API
+
+**Base URL**: `https://gamma-api.polymarket.com` (unauthenticated, read-only)
+
+- `GET /public-search?q=...&limit=N` — Search events/markets by keyword (returns `{ events: [...] }` with nested markets)
+- `GET /events/slug/<slug>` — Fetch event by slug
+- **public-search** is the primary discovery endpoint; returns events with nested markets including `groupItemTitle`
+- **No `custom_strike.Word`** — markets have free-form questions
+- **Pricing**: `lastTradePrice` is 0-1 decimal (multiply by 100 for percentage display)
+- **Resolution**: Derived from `closed` + `outcomePrices` — if closed and first price ≈ 1 → "yes", second ≈ 1 → "no"
+
+### Search Term Extraction (`_extract_poly_search_terms()`)
+
+1. Check `groupItemTitle` — often contains the tracked term in multi-outcome events
+2. Split on " / " for compound terms
+3. Fallback: parse quoted terms from question text via `parse_market_criteria()` (shared with Kalshi)
+
+### Persona Linking
+
+Personas are linked directly to **events** (not series, since Polymarket has no series concept) via `persona_poly_events` junction table. Folder scoping works identically to Kalshi.
+
+### Analysis
+
+Identical pipeline to Kalshi — same NLP functions (`calculate_term_frequency`, `search_term_in_context`), same persona/transcript resolution, same `TermSection.vue` component for display.
+
+### UI
+
+The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is persisted via `?tab=polymarket` query param. Detail pages are at `/admin/markets/poly/{event_id}`.
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/polymarket/events/search?q=...&limit=20` | Search Polymarket API for events |
+| `GET` | `/api/polymarket/events` | List stored events |
+| `POST` | `/api/polymarket/events` | Add event by slug `{ slug }` |
+| `GET` | `/api/polymarket/events/{event_id}?persona_id=` | Event detail with optional analysis |
+| `POST` | `/api/polymarket/events/{event_id}/refresh` | Refresh from API |
+| `DELETE` | `/api/polymarket/events/{event_id}` | Delete event |
+| `POST` | `/api/polymarket/events/{event_id}/personas` | Link persona `{ persona_id, folder_id? }` |
+| `DELETE` | `/api/polymarket/events/{event_id}/personas/{persona_id}` | Unlink persona |
+
+### File Map
+
+| Layer | File | Purpose |
+|-------|------|---------|
+| Page | `app/pages/admin/markets/index.vue` | Tabbed listing (Kalshi tab + Polymarket tab with search & stored events) |
+| Page | `app/pages/admin/markets/poly/[id].vue` | Polymarket event detail with persona analysis |
+| Composable | `app/composables/usePolymarket.ts` | All Polymarket API calls |
+| Component | `app/components/TermSection.vue` | Per-market term analysis display (shared with Kalshi) |
+| Router | `backend/routers/polymarket.py` | All `/api/polymarket/*` endpoints |
+| Service | `backend/services/polymarket_service.py` | Polymarket API client, upsert logic, market analysis |
+| Model | `backend/models/polymarket.py` | Polymarket API models, DB record models |
+
+### Database Tables
+
+**poly_events**
+- `id` (uuid PK), `poly_id` (text UNIQUE), `slug` (text UNIQUE), `title`, `description`, `start_date`, `end_date`, `active` (bool), `closed` (bool), `volume` (numeric), `liquidity` (numeric), `image`, `neg_risk` (bool), `created_at`, `updated_at`
+
+**poly_markets**
+- `id` (uuid PK), `poly_id` (text UNIQUE), `event_id` (uuid FK → poly_events CASCADE), `slug`, `question`, `group_item_title`, `outcome_prices` (jsonb), `outcomes` (jsonb), `last_trade_price` (numeric, 0-1), `one_day_price_change` (numeric), `volume` (numeric), `active` (bool), `closed` (bool), `closed_time`, `neg_risk` (bool), `result` (text — derived "yes"/"no"/null), `created_at`, `updated_at`
+
+**persona_poly_events** (junction)
+- `id` (uuid PK), `persona_id` (uuid FK CASCADE), `poly_event_id` (uuid FK CASCADE), `folder_id` (uuid FK SET NULL), `created_at`
+- UNIQUE(persona_id, poly_event_id)
+
+**poly_market_search_configs**
+- `id` (uuid PK), `market_id` (uuid FK → poly_markets CASCADE, UNIQUE), `search_terms` (jsonb), `min_count` (int), `logic` (text), `created_at`, `updated_at`
+
+**poly_market_term_results**
 - `id` (uuid PK), `market_id` (uuid FK CASCADE), `persona_id` (uuid FK CASCADE), `search_term` (text), `total_mentions` (int), `briefings_with_term` (int), `total_briefings` (int), `percentage` (numeric), `trend` (text), `mentions_by_date` (jsonb), `context_matches` (jsonb), `context_total_matches` (int), `context_transcripts_with_matches` (int), `last_updated`, `created_at`
 - UNIQUE(market_id, persona_id, search_term)
