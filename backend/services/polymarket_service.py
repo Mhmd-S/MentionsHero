@@ -476,17 +476,19 @@ async def refresh_event(event_id: str) -> dict[str, Any] | None:
 
     # Rebuild search configs
     now = datetime.now(timezone.utc).isoformat()
-    for market_id in market_ids:
-        row = supabase.table("poly_markets").select("question, group_item_title").eq("id", market_id).single().execute()
-        data = row.data or {}
-        search_terms = _extract_poly_search_terms(data)
-        supabase.table("poly_market_search_configs").upsert({
-            "market_id": market_id,
-            "search_terms": search_terms,
-            "min_count": 0,
-            "logic": "any",
-            "updated_at": now,
-        }, on_conflict="market_id").execute()
+    if market_ids:
+        all_market_rows = supabase.table("poly_markets").select("id, question, group_item_title").in_("id", market_ids).execute()
+        market_data_map = {r["id"]: r for r in (all_market_rows.data or [])}
+        for market_id in market_ids:
+            data = market_data_map.get(market_id, {})
+            search_terms = _extract_poly_search_terms(data)
+            supabase.table("poly_market_search_configs").upsert({
+                "market_id": market_id,
+                "search_terms": search_terms,
+                "min_count": 0,
+                "logic": "any",
+                "updated_at": now,
+            }, on_conflict="market_id").execute()
 
     # Re-run analysis for all linked personas
     links = supabase.table("persona_poly_events").select("persona_id, folder_id").eq("poly_event_id", event_id).execute()
@@ -569,9 +571,11 @@ async def update_poly_market_analysis(persona_id: str, event_id: str, folder_id:
     transcripts = await transcript_service.get_transcripts_by_ids(transcript_ids) if transcript_ids else []
     print(f"[update_poly_market_analysis] full transcripts count={len(transcripts)}")
 
+    all_configs = supabase.table("poly_market_search_configs").select("*").in_("market_id", market_ids).execute()
+    config_map: dict[str, dict] = {c["market_id"]: c for c in (all_configs.data or [])}
+
     for market_id in market_ids:
-        cfg = supabase.table("poly_market_search_configs").select("*").eq("market_id", market_id).limit(1).execute()
-        cfg_data = cfg.data[0] if cfg.data and len(cfg.data) > 0 else None
+        cfg_data = config_map.get(market_id)
         search_terms = (cfg_data.get("search_terms") or []) if cfg_data else []
         if not search_terms:
             continue
