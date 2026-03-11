@@ -784,12 +784,10 @@ async def get_series_for_persona(persona_id: str) -> list[dict[str, Any]]:
     supabase = get_supabase()
     links = supabase.table("persona_kalshi_series").select("kalshi_series_id").eq("persona_id", persona_id).execute()
     series_ids = [r["kalshi_series_id"] for r in (links.data or [])]
-    result = []
-    for sid in series_ids:
-        row = supabase.table("kalshi_series").select("*").eq("id", sid).single().execute()
-        if row.data:
-            result.append(row.data)
-    return result
+    if not series_ids:
+        return []
+    rows = supabase.table("kalshi_series").select("*").in_("id", series_ids).execute()
+    return rows.data or []
 
 
 # ----- Event operations -----
@@ -846,16 +844,28 @@ async def _get_persona_event_internal(persona_id: str, event_id: str) -> dict[st
     event_data = event_row.data
     markets_rows = supabase.table("kalshi_markets").select("*").eq("event_id", event_id).order("created_at").execute()
     markets_data = markets_rows.data or []
+
+    if not markets_data:
+        return {"event": event_data, "markets": []}
+
+    market_ids = [m["id"] for m in markets_data]
+
+    # Batch fetch all configs and term results in 2 queries instead of 2N
+    all_configs = supabase.table("market_search_configs").select("*").in_("market_id", market_ids).execute()
+    all_terms = supabase.table("market_term_results").select("*").in_("market_id", market_ids).eq("persona_id", persona_id).execute()
+
+    config_map: dict[str, dict] = {c["market_id"]: c for c in (all_configs.data or [])}
+    terms_map: dict[str, list[dict]] = {}
+    for r in (all_terms.data or []):
+        terms_map.setdefault(r["market_id"], []).append(r)
+
     market_with_analysis = []
     for m in markets_data:
-        market_id = m["id"]
-        cfg = supabase.table("market_search_configs").select("*").eq("market_id", market_id).limit(1).execute()
-        cfg_data = cfg.data[0] if cfg.data and len(cfg.data) > 0 else None
-        term_rows = supabase.table("market_term_results").select("*").eq("market_id", market_id).eq("persona_id", persona_id).execute()
-        term_results = term_rows.data or []
+        mid = m["id"]
+        term_results = terms_map.get(mid, [])
         market_with_analysis.append({
             "market": m,
-            "search_config": cfg_data,
+            "search_config": config_map.get(mid),
             "term_results": [
                 {
                     "search_term": r["search_term"],
@@ -904,9 +914,10 @@ async def refresh_single_event(event_id: str) -> dict[str, Any] | None:
 
     # Build search configs for all markets using custom_strike.Word
     now = datetime.now(timezone.utc).isoformat()
+    all_market_rows = supabase.table("kalshi_markets").select("id, question, custom_strike").in_("id", market_ids).execute()
+    market_data_map = {r["id"]: r for r in (all_market_rows.data or [])}
     for market_id in market_ids:
-        row = supabase.table("kalshi_markets").select("question, custom_strike").eq("id", market_id).single().execute()
-        data = row.data or {}
+        data = market_data_map.get(market_id, {})
         search_terms = _extract_search_terms(data)
         supabase.table("market_search_configs").upsert({
             "market_id": market_id,
@@ -950,9 +961,11 @@ async def update_market_analysis(persona_id: str, event_id: str, folder_id: str 
     transcripts = await transcript_service.get_transcripts_by_ids(transcript_ids) if transcript_ids else []
     print(f"[update_market_analysis] full transcripts count={len(transcripts)}")
 
+    all_configs = supabase.table("market_search_configs").select("*").in_("market_id", market_ids).execute()
+    config_map: dict[str, dict] = {c["market_id"]: c for c in (all_configs.data or [])}
+
     for market_id in market_ids:
-        cfg = supabase.table("market_search_configs").select("*").eq("market_id", market_id).limit(1).execute()
-        cfg_data = cfg.data[0] if cfg.data and len(cfg.data) > 0 else None
+        cfg_data = config_map.get(market_id)
         search_terms = (cfg_data.get("search_terms") or []) if cfg_data else []
         if not search_terms:
             continue
@@ -1045,20 +1058,23 @@ async def fetch_past_events_for_series(series_id: str) -> dict[str, Any]:
 
         # Build search configs using custom_strike.Word (skip if already populated)
         now = datetime.now(timezone.utc).isoformat()
-        for market_id in market_ids:
-            existing_cfg = supabase.table("market_search_configs").select("id, search_terms").eq("market_id", market_id).limit(1).execute()
-            if existing_cfg.data and len(existing_cfg.data) > 0 and (existing_cfg.data[0].get("search_terms") or []):
-                continue
-            row = supabase.table("kalshi_markets").select("question, custom_strike").eq("id", market_id).single().execute()
-            data = row.data or {}
-            search_terms = _extract_search_terms(data)
-            supabase.table("market_search_configs").upsert({
-                "market_id": market_id,
-                "search_terms": search_terms,
-                "min_count": 0,
-                "logic": "any",
-                "updated_at": now,
-            }, on_conflict="market_id").execute()
+        if market_ids:
+            existing_cfgs = supabase.table("market_search_configs").select("id, market_id, search_terms").in_("market_id", market_ids).execute()
+            populated_ids = {c["market_id"] for c in (existing_cfgs.data or []) if c.get("search_terms")}
+            missing_ids = [mid for mid in market_ids if mid not in populated_ids]
+            if missing_ids:
+                all_market_rows = supabase.table("kalshi_markets").select("id, question, custom_strike").in_("id", missing_ids).execute()
+                market_data_map = {r["id"]: r for r in (all_market_rows.data or [])}
+                for market_id in missing_ids:
+                    data = market_data_map.get(market_id, {})
+                    search_terms = _extract_search_terms(data)
+                    supabase.table("market_search_configs").upsert({
+                        "market_id": market_id,
+                        "search_terms": search_terms,
+                        "min_count": 0,
+                        "logic": "any",
+                        "updated_at": now,
+                    }, on_conflict="market_id").execute()
         added += 1
 
     return {"added": added, "total_matching": len(closed_events)}
