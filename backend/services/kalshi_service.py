@@ -7,7 +7,7 @@ from typing import Any, Literal
 import httpx
 
 from backend.core.database import get_supabase
-from backend.utils.nlp import calculate_term_frequency, search_term_in_context
+from backend.utils.nlp import calculate_term_frequency, search_term_in_context, group_nearby_mentions
 
 
 KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
@@ -972,6 +972,18 @@ async def update_market_analysis(persona_id: str, event_id: str, folder_id: str 
         for term in search_terms:
             freq = calculate_term_frequency(transcripts, term, case_sensitive=False, speakers=aliases)
             ctx = search_term_in_context(transcripts, term, context_chars=300, speakers=aliases)
+            grouped = group_nearby_mentions(ctx.get("matches", []))
+            # Map grouped clusters back to the context_matches format the frontend expects
+            context_matches = [
+                {
+                    "transcript_id": g["transcript_id"],
+                    "transcript_name": g["transcript_name"],
+                    "date": g.get("date"),
+                    "context": g["merged_context"],
+                    "position": g["positions"][0] if g.get("positions") else 0,
+                }
+                for g in grouped
+            ]
             now = datetime.now(timezone.utc).isoformat()
             supabase.table("market_term_results").upsert({
                 "market_id": market_id,
@@ -983,7 +995,7 @@ async def update_market_analysis(persona_id: str, event_id: str, folder_id: str 
                 "percentage": freq.get("percentage", 0),
                 "trend": freq.get("trend", "stable"),
                 "mentions_by_date": freq.get("mentions_by_date", []),
-                "context_matches": ctx.get("matches", []),
+                "context_matches": context_matches,
                 "context_total_matches": ctx.get("total_matches", 0),
                 "context_transcripts_with_matches": ctx.get("transcripts_with_matches", 0),
                 "last_updated": now,

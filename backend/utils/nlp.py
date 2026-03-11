@@ -29,6 +29,21 @@ try:
 except LookupError:
     nltk.download('averaged_perceptron_tagger_eng', quiet=True)
 
+def build_market_pattern(term: str) -> str:
+    """Build regex pattern matching market resolution rules.
+
+    Matches the term plus:
+    - Plural forms: term + 's' or 'es'
+    - Possessive forms: term + "'s"
+    - Compound words: the term embedded in another word (e.g., 'killjoy' for 'joy')
+    """
+    escaped = re.escape(term)
+    # Match the term with optional plural/possessive suffix.
+    # No leading \b so compound words like 'killjoy' match 'joy'.
+    # Trailing allows: nothing, 's, 'es, possessive 's — then word boundary.
+    return escaped + r"(?:'?e?s)?\b"
+
+
 def clean_text(text: str) -> str:
     """Clean transcript text for analysis.
 
@@ -170,11 +185,10 @@ def calculate_term_frequency(
 
         # Filter to speaker(s) first if requested
         text_to_analyze = filter_by_speakers(transcript_text, speakers) if speakers else transcript_text
-        cleaned_text = clean_text(text_to_analyze)
-        text_to_search = cleaned_text if case_sensitive else cleaned_text.lower()
+        text_to_search = text_to_analyze if case_sensitive else text_to_analyze.lower()
 
-        # Count occurrences (whole word match)
-        count = len(re.findall(r'\b' + re.escape(search_term) + r'\b', text_to_search))
+        # Count occurrences (market resolution rules: plurals, possessives, compounds)
+        count = len(re.findall(build_market_pattern(search_term), text_to_search))
 
         if count > 0:
             briefings_with_term += 1
@@ -398,7 +412,7 @@ def search_term_in_context(
     total_count = 0
 
     query_lower = query.lower()
-    pattern = re.compile(r'\b' + re.escape(query) + r'\b', re.IGNORECASE)
+    pattern = re.compile(build_market_pattern(query), re.IGNORECASE)
 
     for t in transcripts:
         transcript_text = t.get("transcript", "")

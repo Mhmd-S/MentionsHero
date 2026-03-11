@@ -47,7 +47,11 @@ const groupedByTranscript = computed(() => {
     date: string | null
     snippets: string[]
   }>()
+  const seen = new Set<string>()
   for (const match of matches) {
+    const key = `${match.transcript_id}::${match.context}`
+    if (seen.has(key)) continue
+    seen.add(key)
     const existing = groups.get(match.transcript_id)
     if (existing) {
       existing.snippets.push(match.context)
@@ -60,7 +64,12 @@ const groupedByTranscript = computed(() => {
       })
     }
   }
-  return Array.from(groups.values())
+  return Array.from(groups.values()).sort((a, b) => {
+    if (!a.date && !b.date) return 0
+    if (!a.date) return 1
+    if (!b.date) return -1
+    return b.date.localeCompare(a.date)
+  })
 })
 
 const displayedTranscripts = computed(() => {
