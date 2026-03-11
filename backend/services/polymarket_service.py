@@ -9,7 +9,7 @@ import httpx
 
 from backend.core.database import get_supabase
 from backend.services.kalshi_service import parse_market_criteria
-from backend.utils.nlp import calculate_term_frequency, search_term_in_context
+from backend.utils.nlp import calculate_term_frequency, search_term_in_context, group_nearby_mentions
 
 
 POLY_API_BASE = "https://gamma-api.polymarket.com"
@@ -74,6 +74,11 @@ def _derive_result(market_data: dict[str, Any]) -> str | None:
     return None
 
 
+def _clean_search_term(term: str) -> str:
+    """Strip trailing numeric threshold patterns like '7+', '10+ times' from a term."""
+    return re.sub(r'\s+\d+\+?\s*(times?)?\s*$', '', term, flags=re.IGNORECASE).strip()
+
+
 def _extract_poly_search_terms(market_data: dict[str, Any]) -> list[str]:
     """
     Extract search terms from a Polymarket market.
@@ -82,7 +87,8 @@ def _extract_poly_search_terms(market_data: dict[str, Any]) -> list[str]:
     group_title = (market_data.get("groupItemTitle") or market_data.get("group_item_title") or "").strip()
     if group_title:
         # Split on " / " for compound terms, same as Kalshi
-        return [t.strip() for t in group_title.split(" / ") if t.strip()]
+        terms = [_clean_search_term(t) for t in group_title.split(" / ")]
+        return [t for t in terms if t]
     question = market_data.get("question") or ""
     criteria = parse_market_criteria(question)
     return criteria.get("search_terms") or []
@@ -582,6 +588,17 @@ async def update_poly_market_analysis(persona_id: str, event_id: str, folder_id:
         for term in search_terms:
             freq = calculate_term_frequency(transcripts, term, case_sensitive=False, speakers=aliases)
             ctx = search_term_in_context(transcripts, term, context_chars=300, speakers=aliases)
+            grouped = group_nearby_mentions(ctx.get("matches", []))
+            context_matches = [
+                {
+                    "transcript_id": g["transcript_id"],
+                    "transcript_name": g["transcript_name"],
+                    "date": g.get("date"),
+                    "context": g["merged_context"],
+                    "position": g["positions"][0] if g.get("positions") else 0,
+                }
+                for g in grouped
+            ]
             now = datetime.now(timezone.utc).isoformat()
             supabase.table("poly_market_term_results").upsert({
                 "market_id": market_id,
@@ -593,7 +610,7 @@ async def update_poly_market_analysis(persona_id: str, event_id: str, folder_id:
                 "percentage": freq.get("percentage", 0),
                 "trend": freq.get("trend", "stable"),
                 "mentions_by_date": freq.get("mentions_by_date", []),
-                "context_matches": ctx.get("matches", []),
+                "context_matches": context_matches,
                 "context_total_matches": ctx.get("total_matches", 0),
                 "context_transcripts_with_matches": ctx.get("transcripts_with_matches", 0),
                 "last_updated": now,
