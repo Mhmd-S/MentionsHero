@@ -21,7 +21,6 @@ export interface PolyEvent {
   created_at: string | null
   updated_at: string | null
   market_count?: number
-  persona_ids?: string[]
 }
 
 export interface PolyMarket {
@@ -52,7 +51,6 @@ export interface PolyPersonaMarket {
 export interface PolyEventDetail {
   event: PolyEvent
   markets: PolyPersonaMarket[] | PolyMarket[]
-  persona_ids: string[]
 }
 
 export interface PolySearchResult {
@@ -132,31 +130,6 @@ export function usePolymarket() {
     }
   }
 
-  async function linkPersona(eventId: string, personaId: string, folderId?: string | null): Promise<boolean> {
-    try {
-      await authFetch(`/api/polymarket/events/${eventId}/personas`, {
-        method: 'POST',
-        body: { persona_id: personaId, folder_id: folderId || null },
-      })
-      return true
-    } catch (e) {
-      console.error('Failed to link persona to Polymarket event:', e)
-      return false
-    }
-  }
-
-  async function unlinkPersona(eventId: string, personaId: string): Promise<boolean> {
-    try {
-      await authFetch(`/api/polymarket/events/${eventId}/personas/${personaId}`, {
-        method: 'DELETE',
-      })
-      return true
-    } catch (e) {
-      console.error('Failed to unlink persona from Polymarket event:', e)
-      return false
-    }
-  }
-
   function extractSlugFromInput(input: string): string {
     const trimmed = input.trim()
     if (!trimmed) return ''
@@ -177,8 +150,6 @@ export function usePolymarket() {
     getEventDetail,
     refreshEvent,
     deleteEvent,
-    linkPersona,
-    unlinkPersona,
     extractSlugFromInput,
   }
 }

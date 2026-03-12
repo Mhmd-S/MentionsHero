@@ -41,7 +41,6 @@ export interface KalshiSeries {
   tags: string[]
   status: string
   event_count?: number
-  persona_ids?: string[]
   created_at: string | null
   updated_at: string | null
 }
@@ -61,8 +60,6 @@ export interface KalshiEvent {
 export interface SeriesDetail {
   series: KalshiSeries
   events: KalshiEvent[]
-  persona_ids: string[]
-  persona_folder_map?: Record<string, string | null>
 }
 
 export interface DiscoveredSeries {
@@ -102,7 +99,6 @@ export interface EventDetail {
   event: KalshiEvent
   markets: PersonaEventMarket[] | any[]
   series: KalshiSeries | null
-  persona_ids: string[]
 }
 
 export interface LoadPastEventsResult {
@@ -205,31 +201,6 @@ export function useKalshi() {
     }
   }
 
-  async function linkPersonaToSeries(seriesId: string, personaId: string, folderId?: string | null): Promise<boolean> {
-    try {
-      await authFetch(`/api/kalshi/series/${seriesId}/personas`, {
-        method: 'POST',
-        body: { persona_id: personaId, folder_id: folderId || null },
-      })
-      return true
-    } catch (e) {
-      console.error('Failed to link persona to series:', e)
-      return false
-    }
-  }
-
-  async function unlinkPersonaFromSeries(seriesId: string, personaId: string): Promise<boolean> {
-    try {
-      await authFetch(`/api/kalshi/series/${seriesId}/personas/${personaId}`, {
-        method: 'DELETE',
-      })
-      return true
-    } catch (e) {
-      console.error('Failed to unlink persona from series:', e)
-      return false
-    }
-  }
-
   async function getEventWithAnalysis(
     seriesId: string,
     eventId: string,
@@ -292,8 +263,6 @@ export function useKalshi() {
     refreshSeries,
     deleteSeries,
     discoverSeries,
-    linkPersonaToSeries,
-    unlinkPersonaFromSeries,
     getEventWithAnalysis,
     refreshEvent,
     extractTickerFromInput,

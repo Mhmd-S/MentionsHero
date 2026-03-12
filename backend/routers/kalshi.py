@@ -4,11 +4,10 @@ from fastapi import APIRouter, HTTPException, Query
 
 from backend.models.kalshi import (
     AddSeriesRequest,
-    LinkPersonaToSeriesRequest,
     AnalyzeRequest,
     AnalyzeResponse,
 )
-from backend.services import kalshi_service, persona_service
+from backend.services import kalshi_service
 from backend.utils.nlp import calculate_term_frequency
 from backend.services import transcript_service
 
@@ -114,42 +113,6 @@ async def delete_series(series_id: str):
     if not removed:
         raise HTTPException(status_code=404, detail="Series not found")
     return {"ok": True}
-
-
-@router.post("/series/{series_id}/personas")
-async def link_persona_to_series(series_id: str, request: LinkPersonaToSeriesRequest):
-    """Link a persona to a series. series_id can be a UUID or a ticker."""
-    persona = await persona_service.get_persona_by_id(request.persona_id)
-    if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found")
-    # If series_id is not a UUID, treat it as a ticker and ensure it exists in DB
-    resolved_id = series_id
-    try:
-        import uuid
-        uuid.UUID(series_id)
-    except ValueError:
-        resolved_id = await kalshi_service.ensure_series(series_id)
-        if not resolved_id:
-            raise HTTPException(status_code=404, detail=f"Series not found: {series_id}")
-    linked = await kalshi_service.link_persona_to_series(request.persona_id, resolved_id, folder_id=request.folder_id)
-    if not linked:
-        raise HTTPException(status_code=409, detail="Already linked")
-    return {"ok": True}
-
-
-@router.delete("/series/{series_id}/personas/{persona_id}")
-async def unlink_persona_from_series(series_id: str, persona_id: str):
-    """Unlink a persona from a series."""
-    removed = await kalshi_service.unlink_persona_from_series(persona_id, series_id)
-    if not removed:
-        raise HTTPException(status_code=404, detail="Link not found")
-    return {"ok": True}
-
-
-@router.get("/series/{series_id}/personas")
-async def get_series_personas(series_id: str):
-    """Get persona IDs linked to a series."""
-    return await kalshi_service.get_personas_for_series(series_id)
 
 
 @router.get("/series/{series_id}/events/{event_id}")

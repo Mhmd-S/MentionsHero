@@ -183,18 +183,7 @@ CREATE TABLE public.poly_markets (
   CONSTRAINT poly_markets_event_fkey FOREIGN KEY (event_id) REFERENCES public.poly_events(id) ON DELETE CASCADE
 );
 
-CREATE TABLE public.persona_poly_events (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  persona_id uuid NOT NULL,
-  poly_event_id uuid NOT NULL,
-  folder_id uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT persona_poly_events_pkey PRIMARY KEY (id),
-  CONSTRAINT persona_poly_events_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
-  CONSTRAINT persona_poly_events_event_fkey FOREIGN KEY (poly_event_id) REFERENCES public.poly_events(id) ON DELETE CASCADE,
-  CONSTRAINT persona_poly_events_folder_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id) ON DELETE SET NULL,
-  CONSTRAINT persona_poly_events_unique UNIQUE (persona_id, poly_event_id)
-);
+-- persona_poly_events table DEPRECATED and removed
 
 CREATE TABLE public.poly_market_search_configs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -263,17 +252,7 @@ CREATE TABLE public.persona_aliases (
   CONSTRAINT persona_aliases_persona_id_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id)
 );
 
-CREATE TABLE public.persona_kalshi_series (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  persona_id uuid NOT NULL,
-  kalshi_series_id uuid NOT NULL,
-  folder_id uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT persona_kalshi_series_pkey PRIMARY KEY (id),
-  CONSTRAINT persona_kalshi_series_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id),
-  CONSTRAINT persona_kalshi_series_series_fkey FOREIGN KEY (kalshi_series_id) REFERENCES public.kalshi_series(id),
-  CONSTRAINT persona_kalshi_series_folder_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id)
-);
+-- persona_kalshi_series table DEPRECATED and removed
 
 CREATE TABLE public.personas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

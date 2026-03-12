@@ -201,9 +201,12 @@ async def get_channel_videos(url: str) -> "ChannelInfo":
 
 
 def validate_channel_url(url: str) -> bool:
-    """Validate that a URL is a YouTube channel URL."""
+    """Validate that a URL is a YouTube channel URL.
+
+    Accepts channel URLs with optional tab suffixes like /streams, /videos, /shorts.
+    """
     import re
-    pattern = r'^(https?:\/\/)?(www\.)?(youtube\.com\/(channel\/|c\/|@|user\/))[^\s\/]+'
+    pattern = r'^(https?:\/\/)?(www\.)?(youtube\.com\/(channel\/|c\/|@|user\/))[^\s\/]+(\/\w+)?'
     return bool(re.match(pattern, url))
 
 

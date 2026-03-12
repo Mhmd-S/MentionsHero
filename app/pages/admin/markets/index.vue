@@ -343,7 +343,6 @@ onMounted(() => {
                   <span class="font-semibold truncate block">{{ ev.title || ev.slug }}</span>
                   <div class="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
                     <span>{{ ev.market_count ?? 0 }} market{{ (ev.market_count ?? 0) !== 1 ? 's' : '' }}</span>
-                    <span v-if="ev.persona_ids?.length">{{ ev.persona_ids.length }} persona{{ ev.persona_ids.length !== 1 ? 's' : '' }}</span>
                     <span v-if="ev.end_date">Ends {{ new Date(ev.end_date).toLocaleDateString() }}</span>
                   </div>
                 </div>
@@ -387,8 +386,7 @@ onMounted(() => {
                     <span class="font-semibold truncate block">{{ ev.title || ev.slug }}</span>
                     <div class="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
                       <span>{{ ev.market_count ?? 0 }} market{{ (ev.market_count ?? 0) !== 1 ? 's' : '' }}</span>
-                      <span v-if="ev.persona_ids?.length">{{ ev.persona_ids.length }} persona{{ ev.persona_ids.length !== 1 ? 's' : '' }}</span>
-                      <span v-if="ev.end_date">Ended {{ new Date(ev.end_date).toLocaleDateString() }}</span>
+                        <span v-if="ev.end_date">Ended {{ new Date(ev.end_date).toLocaleDateString() }}</span>
                       <UBadge v-if="ev.closed" color="neutral" variant="soft" size="xs">Closed</UBadge>
                     </div>
                   </div>

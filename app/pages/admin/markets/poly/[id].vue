@@ -5,42 +5,28 @@ definePageMeta({ layout: 'admin' })
 <script setup lang="ts">
 import { usePolymarket, type PolyEventDetail } from '~/composables/usePolymarket'
 import { usePersonas } from '~/composables/usePersonas'
-import { useFileTree } from '~/composables/useFileTree'
 
 const route = useRoute()
 const eventId = route.params.id as string
 
-const {
-  getEventDetail, refreshEvent,
-  linkPersona, unlinkPersona,
-} = usePolymarket()
+const { getEventDetail, refreshEvent } = usePolymarket()
 const { personas, fetchPersonas } = usePersonas()
-const { folders, fetchFolders } = useFileTree()
 
 const detail = ref<PolyEventDetail | null>(null)
 const loading = ref(true)
 const refreshing = ref(false)
 
 // Persona selection
-const selectedPersonaId = ref<string | null>(null)
+const selectedPersonaId = ref<string | undefined>(undefined)
 
-// Link persona modal
-const showLinkModal = ref(false)
-const linkPersonaId = ref<string | null>(null)
-const linkFolderId = ref<string | undefined>(undefined)
-const linking = ref(false)
-
-const folderOptions = computed(() =>
-  folders.value.filter(f => !f.parent_id).map(f => ({ label: f.name, value: f.id }))
+const personaOptions = computed(() =>
+  personas.value.map(p => ({ label: p.name, value: p.id }))
 )
 
 async function loadDetail() {
   loading.value = true
   try {
     detail.value = await getEventDetail(eventId, selectedPersonaId.value || undefined)
-    if (detail.value?.persona_ids?.length && !selectedPersonaId.value) {
-      selectedPersonaId.value = detail.value.persona_ids[0] ?? null
-    }
   } finally {
     loading.value = false
   }
@@ -65,44 +51,12 @@ async function handleRefresh() {
   }
 }
 
-async function handleLinkPersona() {
-  if (!linkPersonaId.value) return
-  linking.value = true
-  try {
-    await linkPersona(eventId, linkPersonaId.value, linkFolderId.value)
-    showLinkModal.value = false
-    linkPersonaId.value = null
-    linkFolderId.value = undefined
-    await reloadWithPersona()
-  } finally {
-    linking.value = false
-  }
-}
-
-async function handleUnlinkPersona(personaId: string) {
-  await unlinkPersona(eventId, personaId)
-  if (selectedPersonaId.value === personaId) {
-    selectedPersonaId.value = null
-  }
-  await reloadWithPersona()
-}
-
-function getPersonaName(id: string): string {
-  const p = personas.value.find(p => p.id === id)
-  return p?.name || id.slice(0, 8)
-}
-
-const availablePersonas = computed(() => {
-  const linkedIds = new Set(detail.value?.persona_ids || [])
-  return personas.value.filter(p => !linkedIds.has(p.id))
-})
-
 watch(selectedPersonaId, () => {
   if (detail.value) reloadWithPersona()
 })
 
 onMounted(async () => {
-  await Promise.all([fetchPersonas(), fetchFolders()])
+  await fetchPersonas()
   await loadDetail()
 })
 </script>
@@ -152,25 +106,21 @@ onMounted(async () => {
 
       <!-- Persona selector -->
       <div class="flex flex-wrap items-center gap-3 mb-4">
-        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Personas:</span>
-        <div class="flex flex-wrap items-center gap-1">
-          <UBadge
-            v-for="pid in detail.persona_ids"
-            :key="pid"
-            :color="selectedPersonaId === pid ? 'primary' : 'neutral'"
-            :variant="selectedPersonaId === pid ? 'solid' : 'soft'"
-            class="cursor-pointer"
-            @click="selectedPersonaId = selectedPersonaId === pid ? null : pid"
-          >
-            {{ getPersonaName(pid) }}
-            <UIcon
-              name="i-lucide-x"
-              class="w-3 h-3 ml-1"
-              @click.stop="handleUnlinkPersona(pid)"
-            />
-          </UBadge>
-        </div>
-        <UButton size="xs" variant="ghost" icon="i-lucide-plus" @click="showLinkModal = true">Link Persona</UButton>
+        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Persona:</span>
+        <USelectMenu
+          v-model="selectedPersonaId"
+          :items="personaOptions"
+          value-key="value"
+          placeholder="Select persona for analysis"
+          class="w-64"
+        />
+        <UButton
+          v-if="selectedPersonaId"
+          size="xs"
+          variant="ghost"
+          icon="i-lucide-x"
+          @click="selectedPersonaId = undefined"
+        />
       </div>
 
       <!-- Markets -->
@@ -215,49 +165,5 @@ onMounted(async () => {
         </template>
       </div>
     </template>
-
-    <!-- Link Persona Modal -->
-    <UModal v-model:open="showLinkModal">
-      <template #content>
-        <div class="p-6">
-          <h3 class="text-lg font-semibold mb-4">Link Persona to Event</h3>
-
-          <div v-if="availablePersonas.length === 0" class="text-gray-500 text-sm">
-            All personas are already linked.
-          </div>
-          <div v-else class="space-y-4">
-            <div class="space-y-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Persona</label>
-              <div
-                v-for="p in availablePersonas"
-                :key="p.id"
-                class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-                :class="{ 'ring-2 ring-primary': linkPersonaId === p.id }"
-                @click="linkPersonaId = p.id"
-              >
-                <span class="font-medium text-sm">{{ p.name }}</span>
-                <span v-if="p.description" class="text-xs text-gray-500 truncate">{{ p.description }}</span>
-              </div>
-            </div>
-
-            <div class="space-y-1">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Transcript Folder (optional)</label>
-              <USelectMenu
-                v-model="linkFolderId"
-                :items="folderOptions"
-                value-key="value"
-                placeholder="All transcripts"
-                class="w-full"
-              />
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2 mt-6">
-            <UButton variant="ghost" @click="showLinkModal = false">Cancel</UButton>
-            <UButton :loading="linking" :disabled="!linkPersonaId" @click="handleLinkPersona">Link</UButton>
-          </div>
-        </div>
-      </template>
-    </UModal>
   </div>
 </template>

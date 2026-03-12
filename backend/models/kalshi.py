@@ -150,12 +150,6 @@ class AddSeriesRequest(BaseModel):
     ticker: str
 
 
-class LinkPersonaToSeriesRequest(BaseModel):
-    """Request to link a persona to a series."""
-    persona_id: str
-    folder_id: str | None = None
-
-
 class AnalyzeRequest(BaseModel):
     """Request model for market analysis."""
     market_ticker: str

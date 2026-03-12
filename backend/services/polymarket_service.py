@@ -369,31 +369,23 @@ async def add_event(slug: str, api_data: dict[str, Any] | None = None) -> dict[s
 
 
 async def get_stored_events() -> list[dict[str, Any]]:
-    """List all stored Polymarket events with market counts and linked persona IDs."""
+    """List all stored Polymarket events with market counts."""
     supabase = get_supabase()
     events = supabase.table("poly_events").select("*").order("updated_at", desc=True).execute()
     event_ids = [ev["id"] for ev in (events.data or [])]
     if not event_ids:
         return []
 
-    # Batch fetch all markets and persona links in 2 calls instead of 2*N
     all_markets = supabase.table("poly_markets").select("id, event_id").in_("event_id", event_ids).execute()
-    all_links = supabase.table("persona_poly_events").select("persona_id, poly_event_id").in_("poly_event_id", event_ids).execute()
 
-    # Build lookup maps
     market_counts: dict[str, int] = {}
     for m in (all_markets.data or []):
         market_counts[m["event_id"]] = market_counts.get(m["event_id"], 0) + 1
-
-    persona_map: dict[str, list[str]] = {}
-    for link in (all_links.data or []):
-        persona_map.setdefault(link["poly_event_id"], []).append(link["persona_id"])
 
     return [
         {
             **ev,
             "market_count": market_counts.get(ev["id"], 0),
-            "persona_ids": persona_map.get(ev["id"], []),
         }
         for ev in (events.data or [])
     ]
@@ -405,10 +397,6 @@ async def get_event_detail(event_id: str, persona_id: str | None = None) -> dict
     event_row = supabase.table("poly_events").select("*").eq("id", event_id).single().execute()
     if not event_row.data:
         return None
-
-    # Get linked personas
-    links = supabase.table("persona_poly_events").select("persona_id").eq("poly_event_id", event_id).execute()
-    persona_ids = [r["persona_id"] for r in (links.data or [])]
 
     # Get markets
     markets_rows = supabase.table("poly_markets").select("*").eq("event_id", event_id).order("created_at").execute()
@@ -453,13 +441,11 @@ async def get_event_detail(event_id: str, persona_id: str | None = None) -> dict
         return {
             "event": event_row.data,
             "markets": market_with_analysis,
-            "persona_ids": persona_ids,
         }
     else:
         return {
             "event": event_row.data,
             "markets": markets_data,
-            "persona_ids": persona_ids,
         }
 
 
@@ -496,11 +482,6 @@ async def refresh_event(event_id: str) -> dict[str, Any] | None:
                 "updated_at": now,
             }, on_conflict="market_id").execute()
 
-    # Re-run analysis for all linked personas
-    links = supabase.table("persona_poly_events").select("persona_id, folder_id").eq("poly_event_id", event_id).execute()
-    for link in (links.data or []):
-        await update_poly_market_analysis(link["persona_id"], event_id, folder_id=link.get("folder_id"))
-
     return await get_event_detail(event_id)
 
 
@@ -509,49 +490,6 @@ async def delete_event(event_id: str) -> bool:
     supabase = get_supabase()
     result = supabase.table("poly_events").delete().eq("id", event_id).execute()
     return bool(result.data)
-
-
-# ----- Persona linking -----
-
-
-async def link_persona(persona_id: str, event_id: str, folder_id: str | None = None) -> bool:
-    """Link a persona to a Polymarket event, optionally scoped to a folder."""
-    supabase = get_supabase()
-    try:
-        row: dict[str, Any] = {
-            "persona_id": persona_id,
-            "poly_event_id": event_id,
-        }
-        if folder_id:
-            row["folder_id"] = folder_id
-        supabase.table("persona_poly_events").insert(row).execute()
-
-        # Run initial analysis
-        folder = folder_id
-        await update_poly_market_analysis(persona_id, event_id, folder_id=folder)
-        return True
-    except Exception:
-        return False  # already linked
-
-
-async def unlink_persona(persona_id: str, event_id: str) -> bool:
-    """Unlink a persona from a Polymarket event."""
-    supabase = get_supabase()
-    result = (
-        supabase.table("persona_poly_events")
-        .delete()
-        .eq("persona_id", persona_id)
-        .eq("poly_event_id", event_id)
-        .execute()
-    )
-    return bool(result.data)
-
-
-async def get_personas_for_event(event_id: str) -> list[str]:
-    """Get persona IDs linked to a Polymarket event."""
-    supabase = get_supabase()
-    links = supabase.table("persona_poly_events").select("persona_id").eq("poly_event_id", event_id).execute()
-    return [r["persona_id"] for r in (links.data or [])]
 
 
 # ----- Market analysis -----
@@ -617,11 +555,3 @@ async def update_poly_market_analysis(persona_id: str, event_id: str, folder_id:
             }, on_conflict="market_id,persona_id,search_term").execute()
 
 
-async def reprocess_persona_poly_markets(persona_id: str) -> None:
-    """Reprocess all Polymarket analysis for a persona across all linked events."""
-    supabase = get_supabase()
-    links = supabase.table("persona_poly_events").select("poly_event_id, folder_id").eq("persona_id", persona_id).execute()
-    for link in (links.data or []):
-        event_id = link["poly_event_id"]
-        folder_id = link.get("folder_id")
-        await update_poly_market_analysis(persona_id, event_id, folder_id=folder_id)
