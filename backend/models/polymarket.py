@@ -100,12 +100,6 @@ class AddPolyEventRequest(BaseModel):
     slug: str
 
 
-class LinkPersonaToPolyEventRequest(BaseModel):
-    """Request to link a persona to a Polymarket event."""
-    persona_id: str
-    folder_id: str | None = None
-
-
 class PolySearchResult(BaseModel):
     """Lightweight search result for Polymarket event discovery."""
     poly_id: str

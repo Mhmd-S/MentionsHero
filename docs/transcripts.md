@@ -42,6 +42,7 @@ Each status update pushes `stage_progress` via SSE:
 
 ### Channel Support
 - YouTube channel URLs (`youtube.com/@handle`, `youtube.com/channel/...`, `youtube.com/c/...`, `youtube.com/user/...`) are detected automatically
+- Tab suffixes are supported: `/streams`, `/videos`, `/shorts` (e.g., `youtube.com/@handle/streams` lists stream VODs)
 - `POST /api/channel/info` fetches the most recent 50 videos from a channel using yt-dlp `--flat-playlist --playlist-end 50`
 - Frontend reuses the PlaylistSelector component to display channel videos with search and multi-select
 - Selected channel videos are submitted via the same batch job endpoint (`POST /api/jobs/batch`)

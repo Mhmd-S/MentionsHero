@@ -26,8 +26,7 @@ from backend.models.job import (
     BulkCancelResponse,
     CancelResponse,
 )
-from backend.services import job_service, speaker_service, kalshi_service
-from backend.utils.nlp import parse_transcript_segments
+from backend.services import job_service, speaker_service
 from backend.services.download_service import download_audio, cleanup_audio_file
 from backend.services.transcription_service import transcribe_audio
 from backend.services.youtube_service import validate_youtube_url, get_video_info
@@ -155,17 +154,6 @@ async def process_job(
                 )
             except Exception:
                 logger.warning("Job %s: speaker extraction failed", job_id, exc_info=True)
-
-        # Auto-reprocess market analysis for personas whose aliases appear in this transcript
-        if transcript_id and transcript:
-            try:
-                segments = parse_transcript_segments(transcript)
-                speaker_names = list({s['speaker'] for s in segments if s.get('speaker')})
-                affected_ids = await kalshi_service.find_affected_persona_ids(speaker_names)
-                for pid in affected_ids:
-                    await kalshi_service.reprocess_persona_markets(pid)
-            except Exception:
-                logger.warning("Job %s: market reprocessing failed", job_id, exc_info=True)
 
         # Mark job as completed
         logger.info("Job %s: completed (transcript_id=%s)", job_id, transcript_id)

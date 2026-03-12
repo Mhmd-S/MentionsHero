@@ -23,7 +23,7 @@ The markets listing page fetches ALL open Mentions events directly from the Kals
 ### Data Flow
 1. **Listing page** calls `GET /api/kalshi/series/browse` → backend calls Kalshi v1 search API (`/v1/search/series?category=Mentions&tag={tag}`) for each tag, returns events grouped by tag with nested market previews
 2. **Detail page** uses event_ticker routing (`/markets/{event_ticker}`). Calls `GET /api/kalshi/events/by-ticker/{event_ticker}` which lazily upserts the series + event + markets into DB via `ensure_event(event_ticker)` on first access
-3. **Persona linking** happens at the series level — personas are linked to series, and analysis runs across all events in that series
+3. **Persona selection** happens on market detail pages — select a persona from the dropdown to view analysis
 
 ### Key Functions (kalshi_service.py)
 - `_search_events_by_tag(tag)` → Fetches open events for a tag from Kalshi v1 search API
@@ -67,9 +67,9 @@ Kalshi provides explicit resolution via the `result` field:
 - `""` or `null` → unresolved
 
 ### Market Analysis Flow
-When analysis runs (on link, refresh, or alias change):
+When analysis runs (on demand via persona selection):
 1. For each market: extract search terms from `custom_strike.Word` → store in `market_search_configs`
-2. Get transcripts for persona (respecting folder scope)
+2. Get transcripts for persona
 3. For each search term:
    - Count mentions (case-insensitive, speaker-filtered)
    - Find context matches (300-char window)
@@ -90,15 +90,12 @@ When analysis runs (on link, refresh, or alias change):
 | `GET` | `/api/kalshi/events/by-ticker/{event_ticker}` | Get event detail by ticker (lazy upserts on first access) |
 | `GET` | `/api/kalshi/series/by-ticker/{ticker}` | Get series detail by ticker (lazy upserts on first access) |
 | `GET` | `/api/kalshi/series/discover` | Discover Mentions series (optional `?tags=` filter) |
-| `GET` | `/api/kalshi/series` | List stored series with event counts and persona links |
+| `GET` | `/api/kalshi/series` | List stored series with event counts |
 | `POST` | `/api/kalshi/series` | Add series by ticker (legacy) |
-| `GET` | `/api/kalshi/series/{id}` | Series detail with events and persona IDs |
+| `GET` | `/api/kalshi/series/{id}` | Series detail with events |
 | `POST` | `/api/kalshi/series/{id}/refresh` | Re-fetch from Kalshi |
 | `DELETE` | `/api/kalshi/series/{id}` | Delete series (cascades) |
 | `POST` | `/api/kalshi/series/{id}/load-past-events` | Fetch closed events by series_ticker |
-| `POST` | `/api/kalshi/series/{id}/personas` | Link persona to series (accepts ticker or UUID) |
-| `DELETE` | `/api/kalshi/series/{id}/personas/{pid}` | Unlink persona |
-| `GET` | `/api/kalshi/series/{id}/personas` | Get linked personas |
 | `GET` | `/api/kalshi/series/{id}/events/{eid}` | Event with market analysis |
 | `POST` | `/api/kalshi/series/{id}/events/{eid}/refresh` | Refresh single event |
 | `POST` | `/api/kalshi/analyze` | Analyze market opportunity |
@@ -125,10 +122,6 @@ When analysis runs (on link, refresh, or alias change):
 
 **kalshi_markets**
 - `id` (uuid PK), `ticker` (text UNIQUE), `event_id` (uuid FK → kalshi_events CASCADE), `event_ticker`, `question`, `market_type`, `status`, `result` (text — "yes"/"no"/""), `last_price` (numeric), `yes_bid`/`yes_ask`/`no_bid`/`no_ask` (numeric), `custom_strike` (jsonb — `{"Word": "term"}`), `close_time`, `rules_primary`, `rules_secondary`, `created_at`, `updated_at`
-
-**persona_kalshi_series** (junction)
-- `id` (uuid PK), `persona_id` (uuid FK CASCADE), `kalshi_series_id` (uuid FK CASCADE), `folder_id` (uuid FK SET NULL — scopes transcript search), `created_at`
-- UNIQUE(persona_id, kalshi_series_id)
 
 **market_search_configs**
 - `id` (uuid PK), `market_id` (uuid FK CASCADE), `search_terms` (jsonb), `min_count` (int), `logic` (text), `created_at`, `updated_at`
@@ -178,10 +171,6 @@ Unlike Kalshi (auto-browsed by category), Polymarket events are discovered via a
 2. Split on " / " for compound terms
 3. Fallback: parse quoted terms from question text via `parse_market_criteria()` (shared with Kalshi)
 
-### Persona Linking
-
-Personas are linked directly to **events** (not series, since Polymarket has no series concept) via `persona_poly_events` junction table. Folder scoping works identically to Kalshi.
-
 ### Analysis
 
 Identical pipeline to Kalshi — same NLP functions (`calculate_term_frequency`, `search_term_in_context`), same persona/transcript resolution, same `TermSection.vue` component for display.
@@ -200,8 +189,6 @@ The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is pe
 | `GET` | `/api/polymarket/events/{event_id}?persona_id=` | Event detail with optional analysis |
 | `POST` | `/api/polymarket/events/{event_id}/refresh` | Refresh from API |
 | `DELETE` | `/api/polymarket/events/{event_id}` | Delete event |
-| `POST` | `/api/polymarket/events/{event_id}/personas` | Link persona `{ persona_id, folder_id? }` |
-| `DELETE` | `/api/polymarket/events/{event_id}/personas/{persona_id}` | Unlink persona |
 
 ### File Map
 
@@ -222,10 +209,6 @@ The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is pe
 
 **poly_markets**
 - `id` (uuid PK), `poly_id` (text UNIQUE), `event_id` (uuid FK → poly_events CASCADE), `slug`, `question`, `group_item_title`, `outcome_prices` (jsonb), `outcomes` (jsonb), `last_trade_price` (numeric, 0-1), `one_day_price_change` (numeric), `volume` (numeric), `active` (bool), `closed` (bool), `closed_time`, `neg_risk` (bool), `result` (text — derived "yes"/"no"/null), `created_at`, `updated_at`
-
-**persona_poly_events** (junction)
-- `id` (uuid PK), `persona_id` (uuid FK CASCADE), `poly_event_id` (uuid FK CASCADE), `folder_id` (uuid FK SET NULL), `created_at`
-- UNIQUE(persona_id, poly_event_id)
 
 **poly_market_search_configs**
 - `id` (uuid PK), `market_id` (uuid FK → poly_markets CASCADE, UNIQUE), `search_terms` (jsonb), `min_count` (int), `logic` (text), `created_at`, `updated_at`

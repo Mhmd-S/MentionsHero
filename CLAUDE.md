@@ -179,7 +179,6 @@ What to update:
 | `kalshi_series` | Series wrapper (ticker UNIQUE, title, category, tags, frequency, status) |
 | `kalshi_events` | Events within a series (event_ticker UNIQUE, status, strike_date) |
 | `kalshi_markets` | Markets within events (ticker UNIQUE, question, last_price, result) |
-| `persona_kalshi_series` | Junction: persona ↔ series with optional folder_id scoping |
 | `market_search_configs` | Auto-extracted search terms from Kalshi market questions |
 | `market_term_results` | Per-persona, per-term analysis results for Kalshi (mentions, trend, context) |
 
@@ -189,7 +188,6 @@ What to update:
 |-------|---------|
 | `poly_events` | Polymarket events (poly_id UNIQUE, slug UNIQUE, title, volume, liquidity) |
 | `poly_markets` | Markets within events (poly_id UNIQUE, question, last_trade_price 0-1, result) |
-| `persona_poly_events` | Junction: persona ↔ poly_event with optional folder_id scoping |
 | `poly_market_search_configs` | Search terms for Polymarket markets (from groupItemTitle or question) |
 | `poly_market_term_results` | Per-persona, per-term analysis results for Polymarket |
 
@@ -202,11 +200,9 @@ transcript_speakers → transcripts + speakers
 persona_aliases → personas (CASCADE)
 kalshi_events.series_id → kalshi_series
 kalshi_markets.event_id → kalshi_events (CASCADE)
-persona_kalshi_series → personas + kalshi_series + folders
 market_search_configs.market_id → kalshi_markets (CASCADE)
 market_term_results → kalshi_markets + personas
 poly_markets.event_id → poly_events (CASCADE)
-persona_poly_events → personas + poly_events + folders
 poly_market_search_configs.market_id → poly_markets (CASCADE)
 poly_market_term_results → poly_markets + personas
 ```

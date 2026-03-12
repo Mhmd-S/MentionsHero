@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException, Query
 
 from backend.models.polymarket import (
     AddPolyEventRequest,
-    LinkPersonaToPolyEventRequest,
 )
 from backend.services import polymarket_service
 
@@ -82,27 +81,4 @@ async def delete_event(event_id: str):
     success = await polymarket_service.delete_event(event_id)
     if not success:
         raise HTTPException(status_code=404, detail="Event not found")
-    return {"ok": True}
-
-
-# ----- Persona linking -----
-
-
-@router.post("/events/{event_id}/personas")
-async def link_persona(event_id: str, request: LinkPersonaToPolyEventRequest):
-    """Link a persona to a Polymarket event."""
-    success = await polymarket_service.link_persona(
-        request.persona_id, event_id, folder_id=request.folder_id
-    )
-    if not success:
-        raise HTTPException(status_code=409, detail="Already linked or invalid IDs")
-    return {"ok": True}
-
-
-@router.delete("/events/{event_id}/personas/{persona_id}")
-async def unlink_persona(event_id: str, persona_id: str):
-    """Unlink a persona from a Polymarket event."""
-    success = await polymarket_service.unlink_persona(persona_id, event_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Link not found")
     return {"ok": True}

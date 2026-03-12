@@ -46,7 +46,6 @@ from backend.models.video import (
 )
 from backend.models.kalshi import (
     AddSeriesRequest,
-    LinkPersonaToSeriesRequest,
     AnalyzeRequest,
     AnalyzeResponse,
 )
@@ -93,7 +92,6 @@ __all__ = [
     "PlaylistInfoRequest",
     # Kalshi models
     "AddSeriesRequest",
-    "LinkPersonaToSeriesRequest",
     "AnalyzeRequest",
     "AnalyzeResponse",
 ]

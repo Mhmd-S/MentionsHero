@@ -521,7 +521,7 @@ async def add_series(ticker: str) -> tuple[dict[str, Any] | None, str | None]:
 
 
 async def get_series_detail(series_id: str) -> dict[str, Any] | None:
-    """Get series with events and linked persona IDs."""
+    """Get series with events."""
     supabase = get_supabase()
     series_row = supabase.table("kalshi_series").select("*").eq("id", series_id).single().execute()
     if not series_row.data:
@@ -530,21 +530,14 @@ async def get_series_detail(series_id: str) -> dict[str, Any] | None:
     events = supabase.table("kalshi_events").select("*").eq("series_id", series_id).order("strike_date", desc=True).execute()
     events_data = events.data or []
 
-    # Get linked persona IDs with folder_id
-    links = supabase.table("persona_kalshi_series").select("persona_id, folder_id").eq("kalshi_series_id", series_id).execute()
-    persona_ids = [r["persona_id"] for r in (links.data or [])]
-    persona_folder_map = {r["persona_id"]: r.get("folder_id") for r in (links.data or [])}
-
     return {
         "series": series_row.data,
         "events": events_data,
-        "persona_ids": persona_ids,
-        "persona_folder_map": persona_folder_map,
     }
 
 
 async def get_all_series() -> list[dict[str, Any]]:
-    """List all stored series with event counts and persona IDs."""
+    """List all stored series with event counts."""
     supabase = get_supabase()
     series_rows = supabase.table("kalshi_series").select("*").order("updated_at", desc=True).execute()
     result = []
@@ -552,12 +545,9 @@ async def get_all_series() -> list[dict[str, Any]]:
         sid = s["id"]
         events = supabase.table("kalshi_events").select("id").eq("series_id", sid).execute()
         event_count = len(events.data or [])
-        links = supabase.table("persona_kalshi_series").select("persona_id").eq("kalshi_series_id", sid).execute()
-        persona_ids = [r["persona_id"] for r in (links.data or [])]
         result.append({
             **s,
             "event_count": event_count,
-            "persona_ids": persona_ids,
         })
     return result
 
@@ -714,14 +704,10 @@ async def get_event_detail_by_ticker(
     event_row = result.get("event") or {}
     series_id = event_row.get("series_id")
     series_data = None
-    persona_ids: list[str] = []
     if series_id:
         series_row = supabase.table("kalshi_series").select("*").eq("id", series_id).limit(1).execute()
         series_data = series_row.data[0] if series_row.data else None
-        links = supabase.table("persona_kalshi_series").select("persona_id").eq("kalshi_series_id", series_id).execute()
-        persona_ids = [r["persona_id"] for r in (links.data or [])]
     result["series"] = series_data
-    result["persona_ids"] = persona_ids
     return result
 
 
@@ -744,56 +730,6 @@ async def refresh_series(series_id: str) -> dict[str, Any] | None:
         _upsert_event_and_markets(ev, series_id=series_id)
 
     return await get_series_detail(series_id)
-
-
-# ----- Persona-series linking -----
-
-
-async def link_persona_to_series(persona_id: str, series_id: str, folder_id: str | None = None) -> bool:
-    """Link a persona to a series, optionally scoped to a folder."""
-    supabase = get_supabase()
-    try:
-        row: dict[str, Any] = {
-            "persona_id": persona_id,
-            "kalshi_series_id": series_id,
-        }
-        if folder_id:
-            row["folder_id"] = folder_id
-        supabase.table("persona_kalshi_series").insert(row).execute()
-        return True
-    except Exception:
-        return False  # already linked
-
-
-async def unlink_persona_from_series(persona_id: str, series_id: str) -> bool:
-    """Unlink a persona from a series."""
-    supabase = get_supabase()
-    result = (
-        supabase.table("persona_kalshi_series")
-        .delete()
-        .eq("persona_id", persona_id)
-        .eq("kalshi_series_id", series_id)
-        .execute()
-    )
-    return bool(result.data)
-
-
-async def get_personas_for_series(series_id: str) -> list[str]:
-    """Get persona IDs linked to a series."""
-    supabase = get_supabase()
-    links = supabase.table("persona_kalshi_series").select("persona_id").eq("kalshi_series_id", series_id).execute()
-    return [r["persona_id"] for r in (links.data or [])]
-
-
-async def get_series_for_persona(persona_id: str) -> list[dict[str, Any]]:
-    """Get series records linked to a persona."""
-    supabase = get_supabase()
-    links = supabase.table("persona_kalshi_series").select("kalshi_series_id").eq("persona_id", persona_id).execute()
-    series_ids = [r["kalshi_series_id"] for r in (links.data or [])]
-    if not series_ids:
-        return []
-    rows = supabase.table("kalshi_series").select("*").in_("id", series_ids).execute()
-    return rows.data or []
 
 
 # ----- Event operations -----
@@ -933,14 +869,6 @@ async def refresh_single_event(event_id: str) -> dict[str, Any] | None:
             "updated_at": now,
         }, on_conflict="market_id").execute()
 
-    # Re-run analysis for all personas linked to this event's series
-    if series_id:
-        links = supabase.table("persona_kalshi_series").select("persona_id, folder_id").eq("kalshi_series_id", series_id).execute()
-        for link in (links.data or []):
-            persona_id = link["persona_id"]
-            folder_id = link.get("folder_id")
-            await update_market_analysis(persona_id, event_id, folder_id=folder_id)
-
     return await get_event_markets(event_id)
 
 
@@ -1006,20 +934,6 @@ async def update_market_analysis(persona_id: str, event_id: str, folder_id: str 
                 "context_transcripts_with_matches": ctx.get("transcripts_with_matches", 0),
                 "last_updated": now,
             }, on_conflict="market_id,persona_id,search_term").execute()
-
-
-async def reprocess_persona_markets(persona_id: str) -> None:
-    """Reprocess all market analysis for a persona across all linked series/events."""
-    supabase = get_supabase()
-    # Get all series linked to this persona
-    links = supabase.table("persona_kalshi_series").select("kalshi_series_id, folder_id").eq("persona_id", persona_id).execute()
-    for link in (links.data or []):
-        series_id = link["kalshi_series_id"]
-        folder_id = link.get("folder_id")
-        # Get all events in this series
-        events = supabase.table("kalshi_events").select("id").eq("series_id", series_id).execute()
-        for ev in (events.data or []):
-            await update_market_analysis(persona_id, ev["id"], folder_id=folder_id)
 
 
 async def find_affected_persona_ids(speaker_names: list[str]) -> list[str]:

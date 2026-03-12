@@ -8,20 +8,14 @@ A persona is a unified speaker identity that groups name variations (aliases) to
 - **Aliases**: Unique text strings mapped to a persona. Used for transcript matching
 - **SEO**: Each persona can have custom `meta_title` and `meta_description` for search engine optimization. Falls back to persona name/description when not set. Persona pages are indexed (`index, follow`), transcript pages are not (`noindex, nofollow`)
 - **Transcript matching**: Finds transcripts containing ANY of the persona's aliases via case-insensitive text search
-- **Series linking**: Personas can be linked to Kalshi series for market analysis (see `docs/markets.md`)
 
 ## Data Flow
 
 ```
 Create persona with aliases
   → persona + persona_aliases rows in DB
-  → Link to Kalshi series (optional, with folder scoping)
   → View persona's transcripts (alias-matched)
-  → Market analysis uses persona's aliases as speaker filter
 ```
-
-### Alias Changes Trigger Reprocessing
-When aliases are added/removed, `kalshi_service.reprocess_persona_markets()` runs as a background task. This recalculates term frequencies in all linked market analyses for the affected persona.
 
 ## API Endpoints
 
@@ -41,7 +35,7 @@ When aliases are added/removed, `kalshi_service.reprocess_persona_markets()` run
 | Layer | File | Purpose |
 |-------|------|---------|
 | Page | `app/pages/personas/index.vue` | Persona listing, create/edit/delete modals |
-| Page | `app/pages/personas/[id].vue` | Persona detail, linked series, alias management |
+| Page | `app/pages/personas/[id].vue` | Persona detail, alias management |
 | Composable | `app/composables/usePersonas.ts` | All persona API calls |
 | Router | `backend/routers/personas.py` | Persona endpoints |
 | Service | `backend/services/persona_service.py` | Persona DB operations, alias management, transcript matching |
@@ -65,7 +59,3 @@ When aliases are added/removed, `kalshi_service.reprocess_persona_markets()` run
 
 **persona_aliases**
 - `id` (uuid PK), `persona_id` (uuid FK → personas CASCADE), `alias` (text UNIQUE), `created_at`
-
-**persona_kalshi_series** (junction — see `docs/markets.md`)
-- `persona_id` (uuid FK → personas CASCADE), `kalshi_series_id` (uuid FK), `folder_id` (uuid FK → folders SET NULL)
-- UNIQUE(persona_id, kalshi_series_id)
