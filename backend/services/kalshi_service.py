@@ -194,6 +194,11 @@ async def discover_series(
 # ----- Search term extraction -----
 
 
+def _clean_search_term(term: str) -> str:
+    """Strip trailing numeric threshold patterns like '7+', '10+ times' from a term."""
+    return re.sub(r'\s+\d+\+?\s*(times?)?\s*$', '', term, flags=re.IGNORECASE).strip()
+
+
 def _extract_search_terms(market_data: dict[str, Any]) -> list[str]:
     """
     Extract search terms from a market row.
@@ -204,7 +209,8 @@ def _extract_search_terms(market_data: dict[str, Any]) -> list[str]:
         word = custom_strike.get("Word")
         if word and isinstance(word, str) and word.strip():
             # Split on " / " to handle compound terms like "Shutdown / Shut Down"
-            return [t.strip() for t in word.split(" / ") if t.strip()]
+            terms = [_clean_search_term(t) for t in word.split(" / ")]
+            return [t for t in terms if t]
     # Fallback: parse quoted terms from question text
     question = market_data.get("question") or ""
     criteria = parse_market_criteria(question)

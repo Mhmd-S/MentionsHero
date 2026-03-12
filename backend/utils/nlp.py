@@ -33,12 +33,18 @@ def build_market_pattern(term: str) -> str:
     """Build regex pattern matching market resolution rules.
 
     Matches the term plus:
-    - Plural forms: term + 's' or 'es'
+    - Plural forms: term + 's', 'es', or 'y' → 'ies'
     - Possessive forms: term + "'s"
     - Compound words: the term embedded in another word (e.g., 'killjoy' for 'joy')
     """
     escaped = re.escape(term)
-    # Match the term with optional plural/possessive suffix.
+    # Handle words ending in 'y' preceded by a consonant: "policy" → "policies"
+    # Build alternation: (term|term_without_y + "ies") + optional possessive/plural suffix
+    if re.search(r'[^aeiou]y$', term, re.IGNORECASE):
+        base = escaped[:-1]  # Remove the escaped 'y'
+        # Match: base+y (original), base+ies (plural), with optional possessive 's
+        return r"(?:" + escaped + r"(?:'s)?" + r"|" + base + r"ies(?:'s)?)\b"
+    # Default: match the term with optional plural/possessive suffix.
     # No leading \b so compound words like 'killjoy' match 'joy'.
     # Trailing allows: nothing, 's, 'es, possessive 's — then word boundary.
     return escaped + r"(?:'?e?s)?\b"

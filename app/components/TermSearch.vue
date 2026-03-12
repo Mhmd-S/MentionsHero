@@ -36,7 +36,15 @@ function getTrendColor(trend: string) {
 }
 
 function highlightMatch(text: string, query: string): string {
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  let pattern: string
+  if (/[^aeiou]y$/i.test(query)) {
+    const base = escaped.slice(0, -1)
+    pattern = `(${escaped}(?:'s)?|${base}ies(?:'s)?)`
+  } else {
+    pattern = `(${escaped}(?:'?e?s)?)`
+  }
+  const regex = new RegExp(pattern, 'gi')
   return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>')
 }
 </script>
