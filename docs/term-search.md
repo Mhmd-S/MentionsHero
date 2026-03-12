@@ -37,7 +37,7 @@ User enters search term on /term-search
 ### Term Frequency (`calculate_term_frequency()`)
 1. Filter transcripts by folder/speakers
 2. Clean text: remove speaker labels and timestamps via `clean_text()`
-3. Whole-word regex matching: `\bterm\b`
+3. Regex matching via `build_market_pattern()` — matches plurals (s, es, y→ies), possessives ('s), and compound words
 4. Count total mentions per transcript, track by date
 5. Calculate trend: compare first half vs second half of chronological mentions
 6. Return: `{ term, total_mentions, briefings_with_term, percentage, trend, mentions_by_date }`
@@ -56,7 +56,7 @@ User enters search term on /term-search
 4. Cached for 1 hour
 
 ### Context Search (`search_term_in_context()`)
-1. Regex with word boundary: `\bterm\b`
+1. Regex via `build_market_pattern()` — matches plurals (s, es, y→ies), possessives, compound words
 2. Extract `context_chars` before and after each match
 3. Return: `{ query, total_matches, transcripts_with_matches, matches[] }`
 4. Not cached (real-time)

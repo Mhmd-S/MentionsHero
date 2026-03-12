@@ -85,9 +85,20 @@ const summaryLine = computed(() => {
   return `${total} mention${total !== 1 ? 's' : ''} across ${transcriptCount} transcript${transcriptCount !== 1 ? 's' : ''}`
 })
 
+function buildPluralPattern(term: string): string {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // Words ending in consonant + y: match "ies" plural (e.g., policy → policies)
+  if (/[^aeiou]y$/i.test(term)) {
+    const base = escaped.slice(0, -1)
+    return `\\b(${escaped}(?:'s)?|${base}ies(?:'s)?)\\b`
+  }
+  // Default: match optional plural 's'/'es' and possessive "'s"
+  return `\\b(${escaped}(?:'?e?s)?)\\b`
+}
+
 function highlightTerm(text: string): string {
   if (!props.searchTerm) return text
-  const regex = new RegExp(`\\b(${props.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi')
+  const regex = new RegExp(buildPluralPattern(props.searchTerm), 'gi')
   return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>')
 }
 </script>
