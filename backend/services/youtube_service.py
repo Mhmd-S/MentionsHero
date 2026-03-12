@@ -8,11 +8,12 @@ from backend.models.video import VideoInfo, PlaylistInfo, PlaylistVideo
 from backend.services.yt_dlp_utils import get_yt_dlp_base_args
 
 
-def format_duration(seconds: int) -> str:
+def format_duration(seconds: int | float) -> str:
     """Format duration in seconds to human-readable string."""
     if not seconds:
         return "0:00"
 
+    seconds = int(seconds)
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
     secs = seconds % 60
