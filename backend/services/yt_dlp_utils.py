@@ -13,10 +13,7 @@ def get_yt_dlp_base_args() -> list[str]:
 
     cookies_path = Path(__file__).resolve().parents[1] / 'cookies.txt'
     if cookies_path.exists():
-        args.extend([
-            '--cookies', str(cookies_path),
-            '--extractor-args', 'youtube:player_client=web'
-        ])
+        args.extend(['--cookies', str(cookies_path)])
     else:
         args.extend(['--extractor-args', 'youtube:player_client=android'])
 

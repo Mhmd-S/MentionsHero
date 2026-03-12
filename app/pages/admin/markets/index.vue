@@ -124,6 +124,24 @@ function isAlreadyStored(slug: string): boolean {
   return polyStoredEvents.value.some(ev => ev.slug === slug)
 }
 
+// Split stored events into active vs expired
+function isExpired(ev: PolyEvent): boolean {
+  if (ev.closed) return true
+  if (ev.end_date) {
+    const end = new Date(ev.end_date)
+    const today = new Date()
+    // Only expired if end_date is strictly before today (not same day)
+    end.setHours(0, 0, 0, 0)
+    today.setHours(0, 0, 0, 0)
+    if (end < today) return true
+  }
+  return false
+}
+
+const polyActiveEvents = computed(() => polyStoredEvents.value.filter(ev => !isExpired(ev)))
+const polyExpiredEvents = computed(() => polyStoredEvents.value.filter(ev => isExpired(ev)))
+const showExpired = ref(false)
+
 // ----- Load on mount -----
 onMounted(() => {
   loadKalshi()
@@ -305,31 +323,80 @@ onMounted(() => {
           No Polymarket events added yet. Search above to find and add events.
         </div>
 
-        <div v-else class="space-y-3">
-          <NuxtLink
-            v-for="ev in polyStoredEvents"
-            :key="ev.id"
-            :to="`/admin/markets/poly/${ev.id}`"
-            class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
-          >
-            <div class="flex items-center gap-3">
-              <img
-                v-if="ev.image"
-                :src="ev.image"
-                class="w-10 h-10 rounded object-cover shrink-0"
-                alt=""
-              />
-              <div class="flex-1 min-w-0">
-                <span class="font-semibold truncate block">{{ ev.title || ev.slug }}</span>
-                <div class="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                  <span>{{ ev.market_count ?? 0 }} market{{ (ev.market_count ?? 0) !== 1 ? 's' : '' }}</span>
-                  <span v-if="ev.persona_ids?.length">{{ ev.persona_ids.length }} persona{{ ev.persona_ids.length !== 1 ? 's' : '' }}</span>
-                  <span v-if="ev.end_date">Ends {{ new Date(ev.end_date).toLocaleDateString() }}</span>
+        <template v-else>
+          <!-- Active events -->
+          <div v-if="polyActiveEvents.length" class="space-y-3">
+            <NuxtLink
+              v-for="ev in polyActiveEvents"
+              :key="ev.id"
+              :to="`/admin/markets/poly/${ev.id}`"
+              class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
+            >
+              <div class="flex items-center gap-3">
+                <img
+                  v-if="ev.image"
+                  :src="ev.image"
+                  class="w-10 h-10 rounded object-cover shrink-0"
+                  alt=""
+                />
+                <div class="flex-1 min-w-0">
+                  <span class="font-semibold truncate block">{{ ev.title || ev.slug }}</span>
+                  <div class="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                    <span>{{ ev.market_count ?? 0 }} market{{ (ev.market_count ?? 0) !== 1 ? 's' : '' }}</span>
+                    <span v-if="ev.persona_ids?.length">{{ ev.persona_ids.length }} persona{{ ev.persona_ids.length !== 1 ? 's' : '' }}</span>
+                    <span v-if="ev.end_date">Ends {{ new Date(ev.end_date).toLocaleDateString() }}</span>
+                  </div>
                 </div>
               </div>
+            </NuxtLink>
+          </div>
+
+          <div v-else class="text-gray-500 text-sm p-4 border border-dashed rounded-lg">
+            No active events. All stored events have expired.
+          </div>
+
+          <!-- Expired events toggle -->
+          <div v-if="polyExpiredEvents.length" class="mt-6">
+            <button
+              class="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              @click="showExpired = !showExpired"
+            >
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="w-4 h-4 transition-transform"
+                :class="{ 'rotate-90': showExpired }"
+              />
+              Expired events ({{ polyExpiredEvents.length }})
+            </button>
+
+            <div v-if="showExpired" class="space-y-3 mt-3">
+              <NuxtLink
+                v-for="ev in polyExpiredEvents"
+                :key="ev.id"
+                :to="`/admin/markets/poly/${ev.id}`"
+                class="block p-4 border rounded-lg hover:border-primary-500 transition-colors cursor-pointer opacity-60"
+              >
+                <div class="flex items-center gap-3">
+                  <img
+                    v-if="ev.image"
+                    :src="ev.image"
+                    class="w-10 h-10 rounded object-cover shrink-0"
+                    alt=""
+                  />
+                  <div class="flex-1 min-w-0">
+                    <span class="font-semibold truncate block">{{ ev.title || ev.slug }}</span>
+                    <div class="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                      <span>{{ ev.market_count ?? 0 }} market{{ (ev.market_count ?? 0) !== 1 ? 's' : '' }}</span>
+                      <span v-if="ev.persona_ids?.length">{{ ev.persona_ids.length }} persona{{ ev.persona_ids.length !== 1 ? 's' : '' }}</span>
+                      <span v-if="ev.end_date">Ended {{ new Date(ev.end_date).toLocaleDateString() }}</span>
+                      <UBadge v-if="ev.closed" color="neutral" variant="soft" size="xs">Closed</UBadge>
+                    </div>
+                  </div>
+                </div>
+              </NuxtLink>
             </div>
-          </NuxtLink>
-        </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>

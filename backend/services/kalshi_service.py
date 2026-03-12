@@ -610,7 +610,7 @@ async def browse_events() -> dict[str, list[dict[str, Any]]]:
             for m in (item.get("markets") or []):
                 markets.append({
                     "ticker": m.get("ticker") or "",
-                    "word": (m.get("custom_strike") or {}).get("Word") or m.get("yes_subtitle") or "",
+                    "word": _clean_search_term((m.get("custom_strike") or {}).get("Word") or m.get("yes_subtitle") or ""),
                     "yes_bid": m.get("yes_bid"),
                     "yes_ask": m.get("yes_ask"),
                     "last_price": m.get("last_price"),
