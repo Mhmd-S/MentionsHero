@@ -392,7 +392,7 @@ async def get_stored_events() -> list[dict[str, Any]]:
 
 
 async def get_event_detail(event_id: str, persona_id: str | None = None) -> dict[str, Any] | None:
-    """Get event + markets + optional persona analysis."""
+    """Get event + markets + optional persona analysis. Auto-runs analysis if missing."""
     supabase = get_supabase()
     event_row = supabase.table("poly_events").select("*").eq("id", event_id).single().execute()
     if not event_row.data:
@@ -405,7 +405,14 @@ async def get_event_detail(event_id: str, persona_id: str | None = None) -> dict
     if persona_id and markets_data:
         market_ids = [m["id"] for m in markets_data]
 
-        # Batch fetch all configs and term results in 2 calls instead of 2*N
+        # Check if analysis exists for this persona
+        all_terms = supabase.table("poly_market_term_results").select("id").in_("market_id", market_ids).eq("persona_id", persona_id).limit(1).execute()
+
+        # Auto-run analysis if no results exist yet
+        if not all_terms.data:
+            await update_poly_market_analysis(persona_id, event_id)
+
+        # Batch fetch all configs and term results
         all_configs = supabase.table("poly_market_search_configs").select("*").in_("market_id", market_ids).execute()
         all_terms = supabase.table("poly_market_term_results").select("*").in_("market_id", market_ids).eq("persona_id", persona_id).execute()
 
@@ -534,6 +541,7 @@ async def update_poly_market_analysis(persona_id: str, event_id: str, folder_id:
                     "date": g.get("date"),
                     "context": g["merged_context"],
                     "position": g["positions"][0] if g.get("positions") else 0,
+                    "mention_count": g.get("mention_count", 1),
                 }
                 for g in grouped
             ]

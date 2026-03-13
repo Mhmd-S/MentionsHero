@@ -35,7 +35,9 @@ def build_market_pattern(term: str) -> str:
     Matches the term plus:
     - Plural forms: term + 's', 'es', or 'y' → 'ies'
     - Possessive forms: term + "'s"
-    - Compound words: the term embedded in another word (e.g., 'killjoy' for 'joy')
+
+    Uses word boundaries on both ends to avoid partial matches
+    (e.g., 'ass' won't match 'assessment' or 'mass').
     """
     escaped = re.escape(term)
     # Handle words ending in 'y' preceded by a consonant: "policy" → "policies"
@@ -43,11 +45,10 @@ def build_market_pattern(term: str) -> str:
     if re.search(r'[^aeiou]y$', term, re.IGNORECASE):
         base = escaped[:-1]  # Remove the escaped 'y'
         # Match: base+y (original), base+ies (plural), with optional possessive 's
-        return r"(?:" + escaped + r"(?:'s)?" + r"|" + base + r"ies(?:'s)?)\b"
+        return r"\b(?:" + escaped + r"(?:'s)?" + r"|" + base + r"ies(?:'s)?)\b"
     # Default: match the term with optional plural/possessive suffix.
-    # No leading \b so compound words like 'killjoy' match 'joy'.
     # Trailing allows: nothing, 's, 'es, possessive 's — then word boundary.
-    return escaped + r"(?:'?e?s)?\b"
+    return r"\b" + escaped + r"(?:'?e?s)?\b"
 
 
 def clean_text(text: str) -> str:

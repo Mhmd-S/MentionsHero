@@ -915,6 +915,7 @@ async def update_market_analysis(persona_id: str, event_id: str, folder_id: str 
                     "date": g.get("date"),
                     "context": g["merged_context"],
                     "position": g["positions"][0] if g.get("positions") else 0,
+                    "mention_count": g.get("mention_count", 1),
                 }
                 for g in grouped
             ]

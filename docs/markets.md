@@ -71,10 +71,18 @@ When analysis runs (on demand via persona selection):
 1. For each market: extract search terms from `custom_strike.Word` → store in `market_search_configs`
 2. Get transcripts for persona
 3. For each search term:
-   - Count mentions (case-insensitive, speaker-filtered)
+   - Count mentions (case-insensitive, speaker-filtered, whole-word matching via `\b` boundaries)
    - Find context matches (300-char window)
+   - Group nearby mentions (within 800 chars) into clusters, preserving `mention_count` per cluster
    - Calculate trend (rising/falling/stable)
-   - Upsert `market_term_results` record
+   - Upsert `market_term_results` record (context_matches JSONB includes `mention_count` per entry)
+
+### Sort & Filter (Event Detail Pages)
+When a persona is selected, term sections can be sorted and filtered via a toolbar:
+- **Sort by**: Mentions (most/least), Percentage, Alphabetical (by term), Price
+- **Filter**: "Has mentions" (hide zero-mention terms), "Active only" (hide resolved markets), Trend (Increasing/Decreasing/Stable)
+- Shows "X of Y terms" count
+- Applied on both Kalshi (`/admin/markets/[id]`) and Polymarket (`/admin/markets/poly/[id]`) detail pages
 
 ### Market Opportunity Analysis
 `analyze_market_opportunity(yes_price, historical_percentage)` calculates:

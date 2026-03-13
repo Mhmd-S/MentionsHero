@@ -74,6 +74,9 @@ export function useChat() {
   const { authFetch } = useAuthFetch()
   const supabase = useSupabaseClient()
 
+  // SSE streams bypass Nuxt proxy to avoid body timeout (UND_ERR_BODY_TIMEOUT)
+  const { backendUrl: backendBase } = useRuntimeConfig().public
+
   const conversations = useState<Conversation[]>('chat-conversations', () => [])
   const currentConversation = useState<Conversation | null>('chat-current', () => null)
   const messages = useState<ChatMessage[]>('chat-messages', () => [])
@@ -186,7 +189,7 @@ export function useChat() {
 
     try {
       let token = await getToken()
-      let response = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
+      let response = await fetch(`${backendBase}/api/chat/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -202,7 +205,7 @@ export function useChat() {
         console.log('[useChat] 401 — refreshing token and retrying...')
         token = await getToken(true)
         if (token) {
-          response = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
+          response = await fetch(`${backendBase}/api/chat/conversations/${conversationId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
