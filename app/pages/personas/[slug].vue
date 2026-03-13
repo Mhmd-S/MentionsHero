@@ -2,6 +2,8 @@
 const route = useRoute()
 const slug = route.params.slug as string
 const { publicFetch } = usePublicApi()
+const { isSubscribed, fetchSubscription } = useSubscription()
+const { session } = useAuth()
 
 interface Persona {
   id: string
@@ -111,6 +113,67 @@ function formatDate(dateString: string | null, fallback?: string) {
   })
 }
 
+// --- Keyword Search ---
+interface KeywordMatch {
+  transcript_id: string
+  transcript_name: string
+  date: string | null
+  context: string
+  position: number
+}
+
+interface KeywordSearchResult {
+  query: string
+  total_matches: number
+  transcripts_with_matches: number
+  matches: KeywordMatch[]
+  is_limited: boolean
+}
+
+const keywordQuery = ref('')
+const keywordResults = ref<KeywordSearchResult | null>(null)
+const keywordLoading = ref(false)
+const keywordError = ref('')
+
+let keywordTimer: ReturnType<typeof setTimeout> | null = null
+
+async function searchKeywords() {
+  const q = keywordQuery.value.trim()
+  if (!q || q.length < 2) {
+    keywordResults.value = null
+    keywordError.value = ''
+    return
+  }
+  keywordLoading.value = true
+  keywordError.value = ''
+  try {
+    keywordResults.value = await publicFetch<KeywordSearchResult>(
+      `/api/public/personas/${slug}/keyword-search?q=${encodeURIComponent(q)}`
+    )
+  } catch (err: any) {
+    keywordError.value = err?.data?.detail || 'Search failed'
+    keywordResults.value = null
+  } finally {
+    keywordLoading.value = false
+  }
+}
+
+watch(keywordQuery, () => {
+  if (keywordTimer) clearTimeout(keywordTimer)
+  keywordTimer = setTimeout(() => searchKeywords(), 500)
+})
+
+function highlightContext(context: string, query: string): string {
+  if (!query) return context
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escaped})`, 'gi')
+  return context.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5">$1</mark>')
+}
+
+onMounted(() => {
+  if (session.value) fetchSubscription()
+})
+
 // SEO meta tags (rendered during SSR thanks to useFetch above)
 useSeoMeta({
   title: () => persona.value?.meta_title || persona.value?.name || 'Persona',
@@ -200,6 +263,84 @@ onMounted(() => loadTranscripts())
         <UButton to="/pricing" icon="i-lucide-crown" variant="soft" color="warning" size="sm">
           View Pricing
         </UButton>
+      </div>
+
+      <!-- Keyword Search Section -->
+      <div class="space-y-4 pt-6">
+        <h2 class="text-lg font-semibold">Keyword Search</h2>
+        <p class="text-sm text-muted">Search for keywords across all of {{ persona.name }}'s transcripts.</p>
+
+        <UInput
+          v-model="keywordQuery"
+          icon="i-lucide-search"
+          placeholder="Search keywords (e.g. tariffs, economy, trade)..."
+          size="md"
+          class="max-w-lg"
+        />
+
+        <!-- Loading -->
+        <div v-if="keywordLoading" class="flex items-center gap-2 py-4">
+          <UIcon name="i-lucide-loader" class="size-4 animate-spin text-muted" />
+          <span class="text-sm text-muted">Searching transcripts...</span>
+        </div>
+
+        <!-- Error -->
+        <div v-else-if="keywordError" class="text-sm text-red-500 py-2">{{ keywordError }}</div>
+
+        <!-- Results -->
+        <div v-else-if="keywordResults" class="space-y-3">
+          <!-- Summary -->
+          <div class="text-sm text-muted">
+            <span class="font-medium text-default">{{ keywordResults.total_matches }}</span> mention{{ keywordResults.total_matches !== 1 ? 's' : '' }}
+            across
+            <span class="font-medium text-default">{{ keywordResults.transcripts_with_matches }}</span> transcript{{ keywordResults.transcripts_with_matches !== 1 ? 's' : '' }}
+          </div>
+
+          <!-- No matches -->
+          <div v-if="keywordResults.matches.length === 0 && keywordResults.total_matches === 0" class="py-6 text-center text-muted">
+            <UIcon name="i-lucide-search-x" class="size-8 mx-auto mb-2 opacity-40" />
+            <p class="text-sm">No matches found for "{{ keywordResults.query }}"</p>
+          </div>
+
+          <!-- Match list -->
+          <div v-else class="space-y-2">
+            <NuxtLink
+              v-for="(m, i) in keywordResults.matches"
+              :key="i"
+              :to="`/transcripts/${m.transcript_id}?search=${encodeURIComponent(keywordResults.query)}`"
+              class="block rounded-lg border border-default p-3 hover:bg-elevated transition-colors"
+            >
+              <div class="flex items-center gap-2 mb-1.5">
+                <UIcon name="i-lucide-file-text" class="size-3.5 text-muted shrink-0" />
+                <span class="text-sm font-medium truncate">{{ m.transcript_name }}</span>
+                <span v-if="m.date" class="text-xs text-muted tabular-nums shrink-0 ml-auto">{{ m.date }}</span>
+              </div>
+              <p class="text-xs text-muted leading-relaxed" v-html="highlightContext(m.context, keywordResults.query)" />
+            </NuxtLink>
+          </div>
+
+          <!-- Paywall: limited results -->
+          <div
+            v-if="keywordResults.is_limited"
+            class="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+          >
+            <div class="flex-1">
+              <p class="text-sm font-medium">Unlock full search results</p>
+              <p class="text-sm text-muted mt-0.5">
+                Subscribe to see all {{ keywordResults.total_matches }} matches across {{ keywordResults.transcripts_with_matches }} transcripts.
+              </p>
+            </div>
+            <UButton to="/pricing" icon="i-lucide-crown" variant="soft" color="warning" size="sm">
+              View Pricing
+            </UButton>
+          </div>
+        </div>
+
+        <!-- Empty state (before searching) -->
+        <div v-else-if="!keywordQuery.trim()" class="py-4 text-center text-muted">
+          <UIcon name="i-lucide-text-search" class="size-8 mx-auto mb-2 opacity-30" />
+          <p class="text-xs">Enter a keyword above to search across all transcripts</p>
+        </div>
       </div>
 
       <!-- Transcripts Section -->
