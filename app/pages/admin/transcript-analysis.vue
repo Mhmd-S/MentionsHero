@@ -1,200 +1,232 @@
-<script setup lang="ts">
+<script lang="ts">
 definePageMeta({ layout: 'admin' })
+</script>
 
-const { authFetch } = useAuthFetch()
-const { folders, fetchFolders } = useFileTree()
+<script setup lang="ts">
+const {
+  conversations,
+  currentConversation,
+  messages,
+  status,
+  error,
+  fetchConversations,
+  createConversation,
+  loadConversation,
+  deleteConversation,
+  sendMessage,
+  stop,
+  regenerate,
+} = useChat()
 
-interface Report {
-  id: string
-  folder_id: string | null
-  transcript_count: number
-  report?: string
-  created_at: string
+const input = ref('')
+const showSidebar = ref(true)
+
+const chatExamples = [
+  'What are the top terms this week?',
+  'How often is "tariff" mentioned?',
+  'Show me open Kalshi mention events',
+]
+
+const toolLabels: Record<string, string> = {
+  search_term: 'Term Frequency',
+  search_term_in_context: 'Context Search',
+  get_top_terms: 'Top Terms',
+  get_ngrams: 'N-gram Analysis',
+  list_speakers: 'Speakers',
+  list_personas: 'Personas',
+  get_persona: 'Persona Detail',
+  browse_kalshi_events: 'Kalshi Events',
+  get_kalshi_event: 'Kalshi Event',
+  search_polymarket: 'Polymarket Search',
+  get_polymarket_event: 'Polymarket Event',
+  list_folders: 'Folders',
 }
 
-const folderId = ref<string | null>(null)
-const jobId = ref<string | null>(null)
-const analyzing = ref(false)
-const result = ref<string | null>(null)
-const launchError = ref<string | null>(null)
-const reports = ref<Report[]>([])
-const selectedReportId = ref<string | null>(null)
-const loadingReports = ref(false)
+function getToolLabel(part: any): string {
+  return toolLabels[part.toolName] || part.toolName || 'Tool'
+}
 
-const { progress, error: sseError, isActive, statusLabel } = useJobProgress(jobId)
+function isToolStreaming(part: any): boolean {
+  return part.state === 'call'
+}
 
-// Fetch past reports + folders on mount
-onMounted(async () => {
-  await Promise.all([loadReports(), fetchFolders()])
+async function handleSubmit() {
+  const content = input.value.trim()
+  if (!content) return
+
+  if (!currentConversation.value) {
+    const conv = await createConversation()
+    if (!conv) return
+    input.value = ''
+    await sendMessage(conv.id, content)
+  } else {
+    input.value = ''
+    await sendMessage(currentConversation.value.id, content)
+  }
+}
+
+async function handleExampleClick(q: string) {
+  input.value = q
+  await handleSubmit()
+}
+
+async function handleSelectConversation(id: string) {
+  if (currentConversation.value?.id === id) return
+  await loadConversation(id)
+}
+
+async function handleDeleteConversation(id: string, e: Event) {
+  e.stopPropagation()
+  await deleteConversation(id)
+}
+
+onMounted(() => {
+  fetchConversations()
 })
-
-async function loadReports() {
-  loadingReports.value = true
-  try {
-    reports.value = await authFetch<Report[]>('/api/analysis/transcript-analysis/reports')
-  } catch { /* ignore */ } finally {
-    loadingReports.value = false
-  }
-}
-
-function folderName(fId: string | null): string {
-  if (!fId) return 'Unknown'
-  return folders.value.find(f => f.id === fId)?.name || fId.slice(0, 8)
-}
-
-// Watch for completion — extract result from stage_progress and refresh list
-watch(progress, async (p) => {
-  if (p?.status === 'completed' && p.stage_progress) {
-    const sp = p.stage_progress as Record<string, any>
-    if (sp.result) {
-      result.value = sp.result
-      await loadReports()
-    }
-  }
-})
-
-const progressDetail = computed(() => {
-  if (!progress.value?.stage_progress) return null
-  const sp = progress.value.stage_progress as Record<string, any>
-  const detail = sp.substep_detail || ''
-  const current = sp.current_chunk
-  const total = sp.total_chunks
-  if (current && total) {
-    return `${detail} (${current}/${total})`
-  }
-  return detail
-})
-
-async function startAnalysis() {
-  if (!folderId.value) return
-
-  analyzing.value = true
-  launchError.value = null
-  result.value = null
-  selectedReportId.value = null
-
-  try {
-    const data = await authFetch<{ jobId: string }>('/api/analysis/transcript-analysis', {
-      method: 'POST',
-      body: { folderId: folderId.value }
-    })
-    jobId.value = data.jobId
-  } catch (e: any) {
-    launchError.value = e?.data?.detail || e?.message || 'Failed to start analysis'
-  } finally {
-    analyzing.value = false
-  }
-}
-
-async function viewReport(reportId: string) {
-  selectedReportId.value = reportId
-  result.value = null
-  try {
-    const report = await authFetch<Report>(`/api/analysis/transcript-analysis/reports/${reportId}`)
-    result.value = report.report || null
-  } catch {
-    result.value = null
-  }
-}
-
-async function deleteReport(reportId: string) {
-  try {
-    await authFetch(`/api/analysis/transcript-analysis/reports/${reportId}`, { method: 'DELETE' })
-    reports.value = reports.value.filter(r => r.id !== reportId)
-    if (selectedReportId.value === reportId) {
-      selectedReportId.value = null
-      result.value = null
-    }
-  } catch { /* ignore */ }
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  })
-}
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto p-6 space-y-6">
-    <h1 class="text-2xl font-bold">Transcript Analysis</h1>
-    <p class="text-sm text-gray-500">
-      Select a folder of transcripts to analyze with AI. Extracts trading style, strategies, tips, and common mistakes.
-    </p>
-
-    <!-- Folder picker + launch -->
-    <div class="flex items-end gap-4">
-      <div class="w-80">
-        <FolderPicker v-model="folderId" />
-      </div>
-      <UButton
-        label="Analyze"
-        icon="i-lucide-brain"
-        :loading="analyzing"
-        :disabled="!folderId || !!isActive"
-        @click="startAnalysis"
-      />
-    </div>
-
-    <!-- Errors -->
-    <div v-if="launchError" class="text-red-500 text-sm">{{ launchError }}</div>
-    <div v-if="sseError" class="text-red-500 text-sm">{{ sseError }}</div>
-
-    <!-- Progress -->
-    <div v-if="isActive" class="space-y-2 p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin text-primary" />
-        <span class="font-medium">{{ statusLabel }}</span>
-      </div>
-      <p v-if="progressDetail" class="text-sm text-gray-600 dark:text-gray-400">
-        {{ progressDetail }}
-      </p>
-      <div
-        v-if="progress?.stage_progress?.current_chunk && progress?.stage_progress?.total_chunks"
-        class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2"
-      >
-        <div
-          class="bg-primary rounded-full h-2 transition-all duration-300"
-          :style="{ width: `${(progress.stage_progress.current_chunk / progress.stage_progress.total_chunks) * 100}%` }"
+  <div class="flex h-full">
+    <!-- Conversation sidebar -->
+    <div
+      v-if="showSidebar"
+      class="w-64 border-r border-default flex flex-col shrink-0"
+    >
+      <div class="p-3 border-b border-default flex items-center justify-between">
+        <h2 class="text-sm font-semibold">Conversations</h2>
+        <UButton
+          icon="i-lucide-plus"
+          size="xs"
+          variant="ghost"
+          @click="createConversation()"
         />
       </div>
-    </div>
-
-    <!-- Failed -->
-    <div v-if="progress?.status === 'failed'" class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20">
-      <p class="text-red-600 dark:text-red-400 font-medium">Analysis failed</p>
-      <p v-if="progress.error_message" class="text-sm text-red-500 mt-1">{{ progress.error_message }}</p>
-    </div>
-
-    <!-- Past reports -->
-    <div v-if="reports.length > 0" class="space-y-3">
-      <h2 class="text-lg font-semibold">Past Reports</h2>
-      <div class="space-y-2">
+      <div class="flex-1 overflow-y-auto">
         <div
-          v-for="r in reports"
-          :key="r.id"
-          class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          :class="{ 'ring-2 ring-primary': selectedReportId === r.id }"
+          v-for="conv in conversations"
+          :key="conv.id"
+          class="group flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-elevated transition-colors"
+          :class="currentConversation?.id === conv.id ? 'bg-elevated' : ''"
+          @click="handleSelectConversation(conv.id)"
         >
-          <button class="flex-1 text-left" @click="viewReport(r.id)">
-            <span class="font-medium text-sm">{{ folderName(r.folder_id) }}</span>
-            <span class="text-xs text-gray-500 ml-2">{{ r.transcript_count }} transcripts</span>
-            <span class="text-xs text-gray-400 ml-2">{{ formatDate(r.created_at) }}</span>
-          </button>
+          <UIcon name="i-lucide-message-square" class="size-4 text-muted shrink-0" />
+          <span class="truncate flex-1">
+            {{ conv.title || 'New conversation' }}
+          </span>
           <UButton
             icon="i-lucide-trash-2"
-            variant="ghost"
-            color="red"
             size="xs"
-            @click.stop="deleteReport(r.id)"
+            variant="ghost"
+            color="error"
+            class="opacity-0 group-hover:opacity-100 shrink-0"
+            @click="handleDeleteConversation(conv.id, $event)"
           />
+        </div>
+        <div
+          v-if="!conversations.length"
+          class="px-3 py-6 text-center text-sm text-muted"
+        >
+          No conversations yet
         </div>
       </div>
     </div>
 
-    <!-- Result -->
-    <div v-if="result" class="p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-      <pre class="whitespace-pre-wrap text-sm leading-relaxed">{{ result }}</pre>
+    <!-- Main chat area -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Header -->
+      <div class="flex items-center gap-2 px-4 py-3 border-b border-default">
+        <UButton
+          :icon="showSidebar ? 'i-lucide-panel-left-close' : 'i-lucide-panel-left-open'"
+          size="xs"
+          variant="ghost"
+          @click="showSidebar = !showSidebar"
+        />
+        <h1 class="text-lg font-semibold truncate">
+          {{ currentConversation?.title || 'AI Chat' }}
+        </h1>
+      </div>
+
+      <!-- Chat messages -->
+      <UChatMessages :status="status" class="flex-1">
+        <!-- Empty state -->
+        <div
+          v-if="!messages.length"
+          class="flex flex-col items-center justify-center h-full text-center"
+        >
+          <UIcon name="i-lucide-bot" class="size-12 text-muted mb-4" />
+          <h2 class="text-lg font-semibold mb-2">AI Transcript Assistant</h2>
+          <p class="text-sm text-muted max-w-md">
+            Ask questions about press briefing transcripts, term frequency, market data, and more.
+          </p>
+          <div class="flex flex-wrap gap-2 mt-4 justify-center">
+            <UButton
+              v-for="q in chatExamples"
+              :key="q"
+              variant="outline"
+              size="sm"
+              @click="handleExampleClick(q)"
+            >
+              {{ q }}
+            </UButton>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <UChatMessage
+          v-for="msg in messages"
+          :key="msg.id"
+          :id="msg.id"
+          :role="msg.role"
+          :parts="msg.parts"
+          :variant="msg.role === 'user' ? 'soft' : 'naked'"
+          :side="msg.role === 'user' ? 'right' : 'left'"
+        >
+          <template #content>
+            <template
+              v-for="(part, index) in msg.parts"
+              :key="`${msg.id}-${part.type}-${index}`"
+            >
+              <UChatTool
+                v-if="part.type === 'tool-invocation'"
+                :text="getToolLabel(part)"
+                :streaming="isToolStreaming(part)"
+                icon="i-lucide-wrench"
+              >
+                <div v-if="part.result" class="text-xs">
+                  <pre class="overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto">{{ JSON.stringify(part.result, null, 2) }}</pre>
+                </div>
+              </UChatTool>
+
+              <div
+                v-else-if="part.type === 'text' && part.text"
+                class="text-sm whitespace-pre-wrap break-words"
+              >
+                {{ part.text }}
+              </div>
+            </template>
+          </template>
+        </UChatMessage>
+      </UChatMessages>
+
+      <!-- Error bar -->
+      <div v-if="error" class="px-4 py-2 bg-error/10 text-error text-sm flex items-center gap-2">
+        <UIcon name="i-lucide-alert-circle" class="size-4" />
+        {{ error }}
+      </div>
+
+      <!-- Chat prompt -->
+      <UChatPrompt
+        v-model="input"
+        placeholder="Ask about transcripts, terms, markets..."
+        :error="error ? new Error(error) : undefined"
+        @submit="handleSubmit"
+      >
+        <UChatPromptSubmit
+          :status="status"
+          @stop="stop()"
+          @reload="regenerate()"
+        />
+      </UChatPrompt>
     </div>
   </div>
 </template>

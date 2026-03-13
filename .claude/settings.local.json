@@ -74,7 +74,8 @@
       "Read(//private/tmp/**)",
       "Read(//Users/moslmn/**)",
       "Bash(pip show yt-dlp)",
-      "Bash(git log --oneline -10 -- supabase/migrations/*poly*)"
+      "Bash(git log --oneline -10 -- supabase/migrations/*poly*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [
       "**/.env*",
