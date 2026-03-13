@@ -7,7 +7,7 @@ export interface TermResult {
   percentage: number
   trend: string
   mentions_by_date: { date: string | null; name: string; count: number }[]
-  context_matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number }[]
+  context_matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number; mention_count?: number }[]
   context_total_matches: number
   context_transcripts_with_matches: number
   last_updated?: string | null
@@ -46,6 +46,7 @@ const groupedByTranscript = computed(() => {
     transcript_name: string
     date: string | null
     snippets: string[]
+    mentionCount: number
   }>()
   const seen = new Set<string>()
   for (const match of matches) {
@@ -55,12 +56,14 @@ const groupedByTranscript = computed(() => {
     const existing = groups.get(match.transcript_id)
     if (existing) {
       existing.snippets.push(match.context)
+      existing.mentionCount += (match.mention_count ?? 1)
     } else {
       groups.set(match.transcript_id, {
         transcript_id: match.transcript_id,
         transcript_name: match.transcript_name,
         date: match.date,
-        snippets: [match.context]
+        snippets: [match.context],
+        mentionCount: match.mention_count ?? 1,
       })
     }
   }
@@ -151,7 +154,7 @@ function highlightTerm(text: string): string {
               </div>
               <div class="flex items-center gap-2 shrink-0 text-gray-400">
                 <span v-if="group.date">{{ group.date }}</span>
-                <span class="font-medium">{{ group.snippets.length }}x</span>
+                <span class="font-medium">{{ group.mentionCount }}x</span>
               </div>
             </div>
             <!-- Expanded context snippets -->

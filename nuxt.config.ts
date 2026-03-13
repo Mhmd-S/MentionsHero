@@ -68,6 +68,7 @@ export default defineNuxtConfig({
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabasePublishableKey: process.env.SUPABASE_KEY,
+      backendUrl: process.env.BACKEND_URL || 'http://localhost:8001',
     },
   },
 })

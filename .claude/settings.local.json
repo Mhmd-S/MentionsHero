@@ -81,7 +81,8 @@
       "Bash(do sed:*)",
       "Bash(echo \"Updated $f\")",
       "Bash(done)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [
       "**/.env*",

@@ -10,7 +10,7 @@ export interface TermResult {
   percentage: number
   trend: string
   mentions_by_date: { date: string | null; name: string; count: number }[]
-  context_matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number }[]
+  context_matches: { transcript_id: string; transcript_name: string; date: string | null; context: string; position: number; mention_count?: number }[]
   context_total_matches: number
   context_transcripts_with_matches: number
   last_updated?: string | null
