@@ -2,10 +2,11 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from backend.core.database import get_cached_analysis, set_cached_analysis
-from backend.services import transcript_service, speaker_service
+from backend.services import transcript_service, speaker_service, transcript_analysis_service
+from backend.services import job_service
 from backend.utils.nlp import (
     calculate_term_frequency,
     calculate_all_term_frequencies,
@@ -22,9 +23,49 @@ from backend.models.analysis import (
     SearchRequest,
     SearchResponse,
     SpeakersResponse,
+    TranscriptAnalysisRequest,
 )
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
+
+
+@router.post("/transcript-analysis")
+async def run_transcript_analysis_endpoint(
+    request: TranscriptAnalysisRequest,
+    background_tasks: BackgroundTasks
+) -> dict[str, str]:
+    """Launch a background LLM analysis of all transcripts in a folder."""
+    job = await job_service.create_job(youtube_url=f"analysis:{request.folder_id}")
+    background_tasks.add_task(
+        transcript_analysis_service.run_transcript_analysis,
+        job["id"],
+        request.folder_id
+    )
+    return {"jobId": job["id"]}
+
+
+@router.get("/transcript-analysis/reports")
+async def list_reports() -> list[dict[str, Any]]:
+    """List all saved transcript analysis reports."""
+    return await transcript_analysis_service.get_reports()
+
+
+@router.get("/transcript-analysis/reports/{report_id}")
+async def get_report(report_id: str) -> dict[str, Any]:
+    """Get a single saved report."""
+    report = await transcript_analysis_service.get_report(report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report
+
+
+@router.delete("/transcript-analysis/reports/{report_id}")
+async def delete_report(report_id: str) -> dict[str, str]:
+    """Delete a saved report."""
+    deleted = await transcript_analysis_service.delete_report(report_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"status": "deleted"}
 
 
 async def _get_transcripts_for_folder(folder_id: str | None) -> list[dict[str, Any]]:

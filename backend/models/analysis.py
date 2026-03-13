@@ -116,3 +116,11 @@ class Speaker(BaseModel):
 class SpeakersResponse(BaseModel):
     """Response model for speakers list."""
     speakers: list[Speaker]
+
+
+class TranscriptAnalysisRequest(BaseModel):
+    """Request model for LLM transcript analysis."""
+    folder_id: str = Field(alias="folderId")
+
+    class Config:
+        populate_by_name = True
