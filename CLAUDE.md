@@ -33,6 +33,7 @@ app/                          # Nuxt 3 frontend
     admin/                    # Admin-only pages (require admin role)
       index.vue               # New Transcript creation
       term-search.vue         # Term Search
+      transcript-analysis.vue # AI Chat (Gemini agent, replaces old Transcript Analysis)
       transcripts/            # Admin transcript listing & detail
       personas/               # Admin persona listing & detail
       markets/                # Markets listing (Kalshi + Polymarket tabs) & detail
@@ -43,12 +44,14 @@ app/                          # Nuxt 3 frontend
     useSubscription.ts        # Stripe subscription state management
     useJobProgress.ts         # SSE job streaming
     useAnalysis.ts            # Term search & analysis API
+    useChat.ts                # AI chat agent composable (conversations, SSE streaming)
     usePersonas.ts            # Persona CRUD API
     useKalshi.ts              # Kalshi API
     usePolymarket.ts          # Polymarket API
     useFileTree.ts            # Folder/transcript management
     useAuth.ts                # Authentication state
   components/                 # Reusable components
+    chat/                     # AI chat components (ChatMessage, ChatToolCall, ChatInput)
     FileTree/                 # Sidebar file tree (FileTree.vue, FileTreeFolder.vue, FileTreeItem.vue)
     TermSearch.vue            # Term search interface
     TermSection.vue           # Per-market term analysis display
@@ -81,6 +84,7 @@ backend/                      # FastAPI backend
     kalshi.py                 # /api/kalshi/* - Series, events, markets (admin)
     polymarket.py             # /api/polymarket/* - Polymarket events, markets (admin)
     personas.py               # /api/personas/* - Persona CRUD, aliases (admin)
+    chat.py                   # /api/chat/* - AI chat agent conversations (admin)
     public.py                 # /api/public/* - Public personas & transcripts (no auth)
     stripe_router.py          # /api/stripe/* - Checkout, webhook, subscription
   services/                   # Business logic
@@ -93,6 +97,9 @@ backend/                      # FastAPI backend
     persona_service.py        # Persona DB operations
     kalshi_service.py         # Kalshi API client, market analysis
     polymarket_service.py     # Polymarket API client, market analysis
+    agent_service.py          # Gemini agent loop with SSE streaming
+    agent_tools.py            # Agent tool declarations and executors
+    chat_service.py           # Chat conversation/message persistence
     youtube_service.py        # YouTube metadata via yt-dlp
     public_service.py         # Public data access, subscription checks
     stripe_service.py         # Stripe API integration
@@ -129,6 +136,7 @@ Each feature has detailed documentation in `docs/`. Read the relevant file befor
 | Personas | `docs/personas.md` | Speaker identity management with aliases, Kalshi links |
 | Markets (Kalshi) | `docs/markets.md` | Mentions markets: Series → Events → Markets, custom_strike.Word, analysis |
 | Sidebar & Directory | `docs/sidebar.md` | FileTree component, folder hierarchy, drag-and-drop |
+| AI Chat Agent | `docs/chat.md` | Gemini-powered chat for transcript analysis & market browsing |
 | SEO & Blog | `docs/seo.md` | OG images, structured data, sitemap, @nuxt/content blog |
 
 ## Mandatory: Update Documentation on Feature Changes
@@ -141,6 +149,7 @@ When you edit code that belongs to a feature, you MUST also update the correspon
 - Markets/Kalshi changes → update `docs/markets.md`
 - Sidebar/FileTree/folder changes → update `docs/sidebar.md`
 - SEO/OG images/blog/sitemap changes → update `docs/seo.md`
+- AI Chat/agent changes → update `docs/chat.md`
 - Database schema changes → update the relevant feature doc AND the Database section below
 - New features → create a new `docs/<feature>.md` and add it to the table above
 
@@ -164,6 +173,8 @@ What to update:
 | `speakers` | Normalized speaker names (unique) |
 | `transcript_speakers` | Junction: transcript ↔ speaker with segment_count |
 | `analysis_cache` | Cached analysis results with TTL (cache_key, result JSONB, expires_at) |
+| `chat_conversations` | AI chat conversations (id, title, created_at, updated_at) |
+| `chat_messages` | Chat messages (conversation_id, role, content, tool_calls JSONB) |
 
 ### Persona Tables
 
@@ -223,6 +234,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 | `/api/kalshi` | `kalshi.py` | Admin | Series/events/markets CRUD, analysis |
 | `/api/polymarket` | `polymarket.py` | Admin | Polymarket events/markets, search, analysis |
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
+| `/api/chat` | `chat.py` | Admin | AI chat agent conversations, SSE streaming |
 | `/api/public` | `public.py` | None/Optional | Public personas & transcript browsing |
 | `/api/stripe` | `stripe_router.py` | User/None | Checkout, webhook, subscription, portal |
 | `/api/profile` | `profile.py` | User/None | Profile CRUD, signup init |

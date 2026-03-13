@@ -12,6 +12,7 @@ from backend.core.auth import require_admin
 from backend.routers import (
     analysis,
     channel,
+    chat,
     folders,
     jobs,
     kalshi,
@@ -61,6 +62,7 @@ app.include_router(channel.router, dependencies=[Depends(require_admin)])
 app.include_router(kalshi.router, dependencies=[Depends(require_admin)])
 app.include_router(polymarket.router, dependencies=[Depends(require_admin)])
 app.include_router(personas.router, dependencies=[Depends(require_admin)])
+app.include_router(chat.router, dependencies=[Depends(require_admin)])
 
 # Public routers (no global auth — per-endpoint auth where needed)
 app.include_router(public.router)
