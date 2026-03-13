@@ -83,6 +83,7 @@ Prefix: `/api/public`
 | `GET /personas` | None | List all personas |
 | `GET /personas/{slug}` | None | Get persona by slug |
 | `GET /personas/{slug}/transcripts` | None | List public transcripts for persona |
+| `GET /personas/{slug}/keyword-search` | `optional_auth` | Search keywords across persona's transcripts |
 | `GET /transcripts/{id}` | `optional_auth` | View public transcript |
 
 ### Query Parameters
@@ -93,6 +94,12 @@ Prefix: `/api/public`
 - `sort_by` — `date` or `name`
 - `sort_order` — `asc` or `desc`
 - `page`, `page_size` — pagination
+
+**`GET /personas/{slug}/keyword-search`**:
+- `q` (required) — keyword to search (1-100 chars)
+- Returns matches with context snippets, total counts, and `is_limited` flag
+- Free users: 3 transcript matches, 1 snippet each; subscribed users: full results (up to 100 matches)
+- Links to transcript viewer with `?search=` param for highlighting
 
 **`GET /transcripts/{id}`**:
 - `search` — highlight search term, returns per-speaker frequency breakdown in `speakerFrequencies`

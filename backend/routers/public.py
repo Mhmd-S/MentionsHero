@@ -53,6 +53,7 @@ async def get_persona_transcripts(
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    user: dict | None = Depends(optional_auth),
 ) -> dict[str, Any]:
     """List public transcripts for a persona (alias-based matching)."""
     persona = await public_service.get_persona_by_slug(slug)
@@ -68,6 +69,9 @@ async def get_persona_transcripts(
             "total_pages": 0,
         }
 
+    user_id = user["sub"] if user else None
+    is_subscribed = await public_service.check_user_subscription(user_id) if user_id else False
+
     return await public_service.get_public_transcripts_for_persona(
         aliases=persona["aliases"],
         folder_id=folder_id,
@@ -76,7 +80,44 @@ async def get_persona_transcripts(
         sort_order=sort_order,
         page=page,
         page_size=page_size,
+        is_subscribed=is_subscribed,
     )
+
+
+@router.get("/personas/{slug}/keyword-search")
+async def persona_keyword_search(
+    slug: str,
+    q: str = Query(..., min_length=1, max_length=100),
+    user: dict | None = Depends(optional_auth),
+) -> dict[str, Any]:
+    """
+    Search for a keyword across all of a persona's transcripts.
+
+    Free users: limited to 3 matching transcripts and 1 context snippet each.
+    Subscribed users: full results (up to 100 matches).
+    """
+    persona = await public_service.get_persona_by_slug(slug)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    if not persona.get("aliases"):
+        return {
+            "query": q,
+            "total_matches": 0,
+            "transcripts_with_matches": 0,
+            "matches": [],
+            "is_limited": False,
+        }
+
+    user_id = user["sub"] if user else None
+    is_subscribed = await public_service.check_user_subscription(user_id) if user_id else False
+
+    result = await public_service.keyword_search_for_persona(
+        aliases=persona["aliases"],
+        query=q,
+        is_subscribed=is_subscribed,
+    )
+    return result
 
 
 @router.get("/transcripts/{transcript_id}")

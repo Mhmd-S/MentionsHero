@@ -117,6 +117,7 @@ async def get_public_transcripts_for_persona(
     sort_order: str = "desc",
     page: int = 1,
     page_size: int = 20,
+    is_subscribed: bool = False,
 ) -> dict[str, Any]:
     """Find public transcripts where the persona is an actual speaker."""
     supabase = get_supabase()
@@ -152,12 +153,14 @@ async def get_public_transcripts_for_persona(
     response = query.execute()
     all_transcripts = response.data or []
 
-    # Apply search filter if provided
+    # Apply search filter if provided — only search non-premium transcripts
+    # for non-subscribers to prevent probing premium content via search
     if search:
         search_lower = search.lower()
         all_transcripts = [
             t for t in all_transcripts
             if search_lower in (t.get("transcript") or "").lower()
+            and (is_subscribed or not t.get("is_premium", False))
         ]
 
     total = len(all_transcripts)
@@ -182,21 +185,24 @@ async def get_public_transcripts_for_persona(
     # Build summaries (strip full transcript text, add preview)
     items = []
     for t in page_items:
+        is_premium = t.get("is_premium", False)
         transcript_text = t.get("transcript", "")
-        # Get first non-empty line as preview
+
+        # Don't leak premium transcript text as preview to non-subscribers
         preview = ""
-        for line in transcript_text.split("\n"):
-            stripped = line.strip()
-            if stripped:
-                preview = stripped[:200]
-                break
+        if not is_premium or is_subscribed:
+            for line in transcript_text.split("\n"):
+                stripped = line.strip()
+                if stripped:
+                    preview = stripped[:200]
+                    break
 
         items.append({
             "id": t["id"],
             "name": t.get("name"),
             "created_at": t["created_at"],
             "upload_date": t.get("upload_date"),
-            "is_premium": t.get("is_premium", False),
+            "is_premium": is_premium,
             "folder_id": t.get("folder_id"),
             "folder_name": folder_names.get(t.get("folder_id", ""), None),
             "preview": preview,
@@ -208,6 +214,98 @@ async def get_public_transcripts_for_persona(
         "page": page,
         "page_size": page_size,
         "total_pages": total_pages,
+    }
+
+
+async def keyword_search_for_persona(
+    aliases: list[str],
+    query: str,
+    is_subscribed: bool = False,
+) -> dict[str, Any]:
+    """Search for a keyword across all of a persona's public transcripts.
+
+    Free users: only non-premium transcripts are searched, limited to 3 matches with 1 snippet each.
+    Subscribed: all public transcripts (including premium), full results up to 100 matches.
+    """
+    from backend.utils.nlp import search_term_in_context
+
+    supabase = get_supabase()
+
+    # Find transcript IDs for this persona
+    matching_ids = await _find_transcript_ids_by_aliases(aliases)
+    if not matching_ids:
+        return {
+            "query": query,
+            "total_matches": 0,
+            "transcripts_with_matches": 0,
+            "matches": [],
+            "is_limited": False,
+        }
+
+    # Fetch public transcripts — exclude premium for non-subscribers
+    id_list = list(matching_ids)
+    batch_size = 200
+    all_transcripts: list[dict[str, Any]] = []
+    for i in range(0, len(id_list), batch_size):
+        batch = id_list[i:i + batch_size]
+        q = (
+            supabase.table("transcripts")
+            .select("id, name, upload_date, transcript")
+            .eq("is_public", True)
+            .in_("id", batch)
+        )
+        if not is_subscribed:
+            q = q.eq("is_premium", False)
+        resp = q.execute()
+        all_transcripts.extend(resp.data or [])
+
+    if not all_transcripts:
+        return {
+            "query": query,
+            "total_matches": 0,
+            "transcripts_with_matches": 0,
+            "matches": [],
+            "is_limited": False,
+        }
+
+    result = search_term_in_context(all_transcripts, query, context_chars=150)
+
+    total_matches = result["total_matches"]
+    transcripts_with_matches = result["transcripts_with_matches"]
+    matches = result["matches"]
+
+    # Apply snippet limits for free users
+    is_limited = False
+    if not is_subscribed:
+        FREE_TRANSCRIPT_LIMIT = 3
+        FREE_SNIPPET_LIMIT = 1
+
+        # Limit transcripts shown and snippets per transcript
+        seen_transcripts: dict[str, int] = {}
+        limited_matches: list[dict[str, Any]] = []
+        for m in matches:
+            tid = m["transcript_id"]
+            if tid not in seen_transcripts:
+                if len(seen_transcripts) >= FREE_TRANSCRIPT_LIMIT:
+                    is_limited = True
+                    continue
+                seen_transcripts[tid] = 0
+            if seen_transcripts[tid] >= FREE_SNIPPET_LIMIT:
+                is_limited = True
+                continue
+            seen_transcripts[tid] += 1
+            limited_matches.append(m)
+
+        if len(seen_transcripts) < transcripts_with_matches or total_matches > len(limited_matches):
+            is_limited = True
+        matches = limited_matches
+
+    return {
+        "query": query,
+        "total_matches": total_matches,
+        "transcripts_with_matches": transcripts_with_matches,
+        "matches": matches,
+        "is_limited": is_limited,
     }
 
 
