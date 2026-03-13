@@ -88,15 +88,20 @@ async def run_agent_stream(
     user_message: str,
 ) -> AsyncGenerator[str, None]:
     """Run the agent loop and yield SSE events."""
+    logger.info(f"run_agent_stream START: conversation_id={conversation_id}, message={user_message[:100]!r}")
+
     settings = get_settings()
     client = genai.Client(api_key=settings.gemini_api_key)
+    logger.info("Gemini client created")
 
     # Load conversation history (limited)
     history = await chat_service.get_messages(conversation_id)
     history = history[-MAX_HISTORY_MESSAGES:]
+    logger.info(f"Loaded {len(history)} history messages")
 
     # Build Gemini contents from history
     contents = _build_contents_from_history(history)
+    logger.info(f"Built {len(contents)} content blocks from history")
 
     # Add new user message
     contents.append(types.Content(
@@ -106,6 +111,7 @@ async def run_agent_stream(
 
     # Save user message to DB
     await chat_service.add_message(conversation_id, "user", content=user_message)
+    logger.info("User message saved to DB")
 
     # Agent loop: call Gemini, handle tool calls, repeat
     all_tool_calls: list[dict[str, Any]] = []
@@ -113,12 +119,14 @@ async def run_agent_stream(
     loop = asyncio.get_event_loop()
 
     for iteration in range(MAX_TOOL_LOOPS):
+        logger.info(f"Agent loop iteration {iteration + 1}/{MAX_TOOL_LOOPS}")
         try:
             config = types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
                 tools=[TOOL_DECLARATIONS],
             )
 
+            logger.info("Calling Gemini API...")
             response = await loop.run_in_executor(
                 None,
                 lambda: client.models.generate_content(
@@ -127,17 +135,21 @@ async def run_agent_stream(
                     config=config,
                 ),
             )
+            logger.info("Gemini API responded")
         except Exception as e:
-            logger.error(f"Gemini API error: {e}")
+            logger.error(f"Gemini API error: {e}", exc_info=True)
             yield _format_sse("error", {"message": f"AI model error: {str(e)}"})
             return
 
         if not response.candidates:
+            logger.warning(f"No candidates in response. Prompt feedback: {response.prompt_feedback}")
             yield _format_sse("error", {"message": "No response from AI model"})
             return
 
         candidate = response.candidates[0]
+        logger.info(f"Candidate finish_reason: {candidate.finish_reason}")
         parts = candidate.content.parts if candidate.content else []
+        logger.info(f"Response parts: {len(parts)} (types: {[('function_call' if p.function_call else 'text') for p in parts]})")
 
         # Check for function calls
         function_calls = [p for p in parts if p.function_call]
@@ -153,6 +165,8 @@ async def run_agent_stream(
                 call_id = str(uuid.uuid4())[:8]
                 args = dict(fc.args) if fc.args else {}
 
+                logger.info(f"Tool call: {fc.name}({args})")
+
                 # Yield tool_call_start
                 yield _format_sse("tool_call_start", {
                     "id": call_id,
@@ -162,6 +176,7 @@ async def run_agent_stream(
 
                 # Execute the tool
                 result = await execute_tool(fc.name, args)
+                logger.info(f"Tool {fc.name} returned ({type(result).__name__})")
 
                 # Yield tool_call_result
                 yield _format_sse("tool_call_result", {
@@ -203,6 +218,7 @@ async def run_agent_stream(
         break
 
     # Stream the final text in chunks for perceived streaming
+    logger.info(f"Final text length: {len(final_text)}, tool_calls: {len(all_tool_calls)}")
     if final_text:
         chunk_size = 20  # ~20 chars per chunk for smooth streaming
         for i in range(0, len(final_text), chunk_size):
@@ -217,5 +233,7 @@ async def run_agent_stream(
         content=final_text or None,
         tool_calls=all_tool_calls if all_tool_calls else None,
     )
+    logger.info(f"Assistant message saved: {saved_msg['id']}")
 
     yield _format_sse("done", {"message_id": saved_msg["id"]})
+    logger.info("run_agent_stream DONE")

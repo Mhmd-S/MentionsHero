@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.91.1",
     "better-sqlite3": "^12.6.2",
     "eslint": "^9.39.2",
+    "marked": "^17.0.4",
     "nuxt": "^4.3.0",
     "replicate": "^1.4.0",
     "tailwindcss": "^4.1.18",
@@ -35,6 +36,9 @@
     "@types/node": "^25.0.10"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "sharp"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "sharp"
+    ]
   }
 }
