@@ -94,15 +94,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
         </template>
       </UDashboardSidebar>
 
-      <UDashboardPanel :ui="{ root: 'max-h-svh' }">
-        <template #header>
-          <UDashboardNavbar title="MentionsHero" icon="i-lucide-message-circle">
-            <template #right>
-              <UColorModeButton size="sm" />
-            </template>
-          </UDashboardNavbar>
-        </template>
-
+      <UDashboardPanel :ui="{ root: 'max-h-svh', body: 'p-0' }">
         <template #body>
           <slot />
         </template>

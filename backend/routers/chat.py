@@ -1,5 +1,7 @@
 """Chat API routes for AI agent conversations."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
@@ -9,6 +11,8 @@ from backend.models.chat import (
     UpdateConversationRequest,
 )
 from backend.services import chat_service, agent_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -57,13 +61,18 @@ async def update_conversation(conversation_id: str, request: UpdateConversationR
 @router.post("/conversations/{conversation_id}/messages")
 async def send_message(conversation_id: str, request: SendMessageRequest):
     """Send a message and stream the agent's response via SSE."""
+    logger.info(f"send_message called: conversation_id={conversation_id}, content={request.content[:100]!r}")
+
     conversation = await chat_service.get_conversation(conversation_id)
     if not conversation:
+        logger.warning(f"Conversation not found: {conversation_id}")
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     if not request.content.strip():
+        logger.warning("Empty message content")
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
+    logger.info(f"Starting SSE stream for conversation {conversation_id}")
     return StreamingResponse(
         agent_service.run_agent_stream(conversation_id, request.content),
         media_type="text/event-stream",

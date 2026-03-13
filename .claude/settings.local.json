@@ -75,7 +75,13 @@
       "Read(//Users/moslmn/**)",
       "Bash(pip show yt-dlp)",
       "Bash(git log --oneline -10 -- supabase/migrations/*poly*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm view:*)",
+      "Bash(for f:*)",
+      "Bash(do sed:*)",
+      "Bash(echo \"Updated $f\")",
+      "Bash(done)",
+      "Bash(npm install:*)"
     ],
     "deny": [
       "**/.env*",

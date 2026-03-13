@@ -80,7 +80,11 @@ export function useChat() {
   const status = useState<ChatStatus>('chat-status', () => 'ready')
   const error = useState<string | null>('chat-error', () => null)
 
-  async function getToken(): Promise<string | null> {
+  async function getToken(forceRefresh = false): Promise<string | null> {
+    if (forceRefresh) {
+      const { data } = await supabase.auth.refreshSession()
+      return data.session?.access_token ?? null
+    }
     const { data } = await supabase.auth.getSession()
     return data.session?.access_token ?? null
   }
@@ -151,7 +155,11 @@ export function useChat() {
   }
 
   async function sendMessage(conversationId: string, content: string) {
-    if (status.value === 'streaming' || status.value === 'submitted') return
+    console.log('[useChat] sendMessage called:', { conversationId, content: content.slice(0, 100) })
+    if (status.value === 'streaming' || status.value === 'submitted') {
+      console.log('[useChat] sendMessage blocked — status is:', status.value)
+      return
+    }
     error.value = null
     status.value = 'submitted'
 
@@ -177,8 +185,8 @@ export function useChat() {
     messages.value = [...messages.value, assistantMsg]
 
     try {
-      const token = await getToken()
-      const response = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
+      let token = await getToken()
+      let response = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,11 +195,33 @@ export function useChat() {
         body: JSON.stringify({ content }),
       })
 
+      console.log('[useChat] fetch response:', response.status, response.statusText)
+
+      // Retry once with refreshed token on 401
+      if (response.status === 401) {
+        console.log('[useChat] 401 — refreshing token and retrying...')
+        token = await getToken(true)
+        if (token) {
+          response = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ content }),
+          })
+          console.log('[useChat] retry response:', response.status, response.statusText)
+        }
+      }
+
       if (!response.ok) {
+        const body = await response.text()
+        console.error('[useChat] fetch error body:', body)
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       status.value = 'streaming'
+      console.log('[useChat] starting SSE read loop')
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -213,9 +243,10 @@ export function useChat() {
             const dataStr = line.slice(6)
             try {
               const data = JSON.parse(dataStr)
+              console.log('[useChat] SSE event:', eventType, data)
               handleSSEEvent(eventType, data, assistantMsg)
             } catch {
-              // Ignore malformed data
+              console.warn('[useChat] malformed SSE data:', dataStr)
             }
           }
         }
@@ -229,6 +260,7 @@ export function useChat() {
 
       status.value = 'ready'
     } catch (e: any) {
+      console.error('[useChat] sendMessage error:', e)
       error.value = e?.message || 'Failed to send message'
       status.value = 'error'
       // Remove empty placeholder on error
@@ -237,6 +269,13 @@ export function useChat() {
         messages.value = messages.value.filter((m) => m.id !== assistantMsg.id)
       }
     }
+  }
+
+  /** Replace the assistant message in the array with a shallow clone to trigger Vue reactivity. */
+  function updateAssistantMsg(assistantMsg: ChatMessage) {
+    messages.value = messages.value.map((m) =>
+      m.id === assistantMsg.id ? { ...assistantMsg, parts: [...assistantMsg.parts] } : m
+    )
   }
 
   function handleSSEEvent(eventType: string, data: any, assistantMsg: ChatMessage) {
@@ -250,7 +289,7 @@ export function useChat() {
         } else {
           assistantMsg.parts.push({ type: 'text', text: assistantMsg._content })
         }
-        messages.value = [...messages.value]
+        updateAssistantMsg(assistantMsg)
         break
       }
 
@@ -268,7 +307,7 @@ export function useChat() {
           state: 'call',
           args: data.args || {},
         })
-        messages.value = [...messages.value]
+        updateAssistantMsg(assistantMsg)
         break
       }
 
@@ -286,14 +325,14 @@ export function useChat() {
           part.state = 'result'
           part.result = data.result
         }
-        messages.value = [...messages.value]
+        updateAssistantMsg(assistantMsg)
         break
       }
 
       case 'done':
         if (data.message_id) {
           assistantMsg.id = data.message_id
-          messages.value = [...messages.value]
+          updateAssistantMsg(assistantMsg)
         }
         break
 

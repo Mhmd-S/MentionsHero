@@ -38,6 +38,9 @@ importers:
       eslint:
         specifier: ^9.39.2
         version: 9.39.2(jiti@2.6.1)
+      marked:
+        specifier: ^17.0.4
+        version: 17.0.4
       nuxt:
         specifier: ^4.3.0
         version: 4.3.0(@parcel/watcher@2.5.6)(@types/node@25.1.0)(@vue/compiler-sfc@3.5.27)(better-sqlite3@12.6.2)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.6.2))(eslint@9.39.2(jiti@2.6.1))(ioredis@5.9.2)(lightningcss@1.31.1)(magicast@0.5.1)(optionator@0.9.4)(rollup@4.57.1)(terser@5.46.0)(typescript@5.9.3)(vite@7.3.1(@types/node@25.1.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(yaml@2.8.2))(yaml@2.8.2)
@@ -4773,8 +4776,8 @@ packages:
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
-  marked@17.0.1:
-    resolution: {integrity: sha512-boeBdiS0ghpWcSwoNm/jJBwdpFaMnZWRzjA6SkUMYb40SVaN1x7mmfGKp0jvexGcx+7y2La5zRZsYFZI6Qpypg==}
+  marked@17.0.4:
+    resolution: {integrity: sha512-NOmVMM+KAokHMvjWmC5N/ZOvgmSWuqJB8FoYI019j4ogb/PeRMKoKIjReZ2w3376kkA8dSJIP8uD993Kxc0iRQ==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -9417,7 +9420,7 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.18.0(@tiptap/pm@3.18.0)
       '@tiptap/pm': 3.18.0
-      marked: 17.0.1
+      marked: 17.0.4
 
   '@tiptap/pm@3.18.0':
     dependencies:
@@ -12050,7 +12053,7 @@ snapshots:
 
   markdown-table@3.0.4: {}
 
-  marked@17.0.1: {}
+  marked@17.0.4: {}
 
   marky@1.3.0: {}
 
