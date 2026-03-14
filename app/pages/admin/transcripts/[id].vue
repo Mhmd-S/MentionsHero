@@ -63,6 +63,7 @@ definePageMeta({ layout: 'admin', ssr: false })
         </UButton>
 
         <div class="w-full sm:w-auto sm:ml-auto flex items-center gap-3">
+          <USwitch v-model="showTimestamps" label="Timestamps" />
           <USwitch v-model="isPublic" label="Public" @update:model-value="updateVisibility" />
           <USwitch v-model="isPremium" label="Premium" @update:model-value="updateVisibility" />
         </div>
@@ -110,9 +111,9 @@ definePageMeta({ layout: 'admin', ssr: false })
           <div class="whitespace-pre-wrap text-sm leading-relaxed">
             <div
               v-if="hasHighlights"
-              v-html="transcript.transcript"
+              v-html="displayTranscript"
             />
-            <div v-else>{{ transcript.transcript }}</div>
+            <div v-else>{{ displayTranscript }}</div>
           </div>
         </UCard>
 
@@ -168,6 +169,19 @@ const copied = ref(false)
 const deleting = ref(false)
 const isPublic = ref(false)
 const isPremium = ref(false)
+const showTimestamps = ref(true)
+
+const timestampPattern = /\[\d{1,3}:\d{2}\]\s*/g
+
+function stripTimestamps(text: string): string {
+  return text.replace(timestampPattern, '')
+}
+
+const displayTranscript = computed(() => {
+  if (!transcript.value) return ''
+  const raw = transcript.value.transcript
+  return showTimestamps.value ? raw : stripTimestamps(raw)
+})
 const searchInput = ref('')
 const debouncedSearch = ref('')
 const selectedSpeakers = ref<string[]>([])
@@ -254,7 +268,7 @@ async function updateVisibility() {
 watch(transcript, (newTranscript) => {
   if (newTranscript && !newTranscript.availableSpeakers && newTranscript.transcript) {
     // Extract speakers from transcript if not provided
-    const speakerPattern = /^([A-Z][a-zA-Z'-]*(?:\s+[A-Z][a-zA-Z'-]*)?|[A-Z_0-9]+|Character\d+):/gm
+    const speakerPattern = /^(?:\[\d{1,3}:\d{2}\]\s+)?([A-Z][a-zA-Z'-]*(?:\s+[A-Z][a-zA-Z'-]*)?|[A-Z_0-9]+|Character\d+):/gm
     const speakers = new Set<string>()
     const matches = newTranscript.transcript.matchAll(speakerPattern)
     for (const match of matches) {

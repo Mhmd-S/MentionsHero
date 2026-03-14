@@ -42,7 +42,7 @@ async def process_job(
     job_id: str,
     url: str,
     folder_id: str | None = None,
-    speaker_hint: str | None = None
+    speaker_hint: str | None = None,
 ) -> None:
     """
     Process a transcription job in the background.
@@ -120,7 +120,7 @@ async def process_job(
             cancel_event=cancel_event,
             speaker_hint=speaker_hint,
             video_title=video_title,
-            progress_callback=on_transcription_progress
+            progress_callback=on_transcription_progress,
         )
 
         # Clean up audio file
@@ -256,7 +256,7 @@ async def create_job(
     # Create job in database
     job = await job_service.create_job(
         youtube_url=request.url,
-        video_title=request.video_title
+        video_title=request.video_title,
     )
 
     # Trigger processing in background
@@ -265,7 +265,7 @@ async def create_job(
         job["id"],
         request.url,
         request.folder_id,
-        request.speaker_hint
+        request.speaker_hint,
     )
 
     return CreateJobResponse(jobId=job["id"], status=JobStatus(job["status"]))
@@ -294,7 +294,7 @@ async def create_batch_jobs(
             video_title=video.title,
             playlist_id=request.playlist_id,
             playlist_name=request.playlist_name,
-            playlist_index=i if request.playlist_id else None
+            playlist_index=i if request.playlist_id else None,
         )
         job_ids.append(job["id"])
 
@@ -305,7 +305,7 @@ async def create_batch_jobs(
                 job_ids[i],
                 request.videos[i].url,
                 request.folder_id,
-                request.speaker_hint
+                request.speaker_hint,
             )
 
     async def process_batch() -> None:

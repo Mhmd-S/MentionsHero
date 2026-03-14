@@ -25,6 +25,7 @@ interface TranscriptDetail {
 interface Segment {
   speaker: string
   content: string
+  timestamp?: string
 }
 
 useSeoMeta({
@@ -78,6 +79,11 @@ async function refresh() {
 watch(searchQuery, () => refresh())
 onMounted(() => refresh())
 
+const showTimestamps = ref(true)
+const inlineTimestampPattern = /\[\d{1,3}:\d{2}\]\s*/g
+function stripInlineTimestamps(text: string): string {
+  return text.replace(inlineTimestampPattern, '')
+}
 const hasHighlights = computed(() => transcript.value?.hasHighlights || false)
 const matchCount = computed(() => transcript.value?.matchCount ?? null)
 const speakerFrequencies = computed(() => transcript.value?.speakerFrequencies || [])
@@ -92,13 +98,14 @@ const totalSearchMatches = computed(() => {
   return speakerFrequencies.value.reduce((sum, f) => sum + f.count, 0)
 })
 
-// Parse transcript text into speaker segments
-const speakerPattern = /^([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$/
+// Parse transcript text into speaker segments (with optional [MM:SS] timestamps)
+const speakerPattern = /^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$/
 
 function parseSegments(text: string): Segment[] {
   const lines = text.split('\n')
   const result: Segment[] = []
   let currentSpeaker: string | null = null
+  let currentTimestamp: string | undefined = undefined
   let currentContent: string[] = []
 
   for (const line of lines) {
@@ -107,16 +114,17 @@ function parseSegments(text: string): Segment[] {
     const match = trimmed.match(speakerPattern)
     if (match) {
       if (currentSpeaker && currentContent.length) {
-        result.push({ speaker: currentSpeaker, content: currentContent.join(' ') })
+        result.push({ speaker: currentSpeaker, content: currentContent.join(' '), timestamp: currentTimestamp })
       }
-      currentSpeaker = match[1] ?? null
-      currentContent = match[2] ? [match[2]] : []
+      currentTimestamp = match[1] || undefined
+      currentSpeaker = match[2] ?? null
+      currentContent = match[3] ? [match[3]] : []
     } else if (currentSpeaker) {
       currentContent.push(trimmed)
     }
   }
   if (currentSpeaker && currentContent.length) {
-    result.push({ speaker: currentSpeaker, content: currentContent.join(' ') })
+    result.push({ speaker: currentSpeaker, content: currentContent.join(' '), timestamp: currentTimestamp })
   }
   return result
 }
@@ -133,10 +141,11 @@ const highlightedSegments = computed(() => {
   const lines = text.split('\n')
   const result: Segment[] = []
   let currentSpeaker: string | null = null
+  let currentTimestamp: string | undefined = undefined
   let currentContent: string[] = []
 
   // In highlighted mode, speaker names are HTML-escaped but follow the same pattern
-  const htmlSpeakerPattern = /^([A-Z0-9][\w\s\-&#;'._()]{1,80}?):\s*(.*)$/
+  const htmlSpeakerPattern = /^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-&#;'._()]{1,80}?):\s*(.*)$/
 
   for (const line of lines) {
     const trimmed = line.trim()
@@ -144,16 +153,17 @@ const highlightedSegments = computed(() => {
     const match = trimmed.match(htmlSpeakerPattern)
     if (match) {
       if (currentSpeaker && currentContent.length) {
-        result.push({ speaker: currentSpeaker, content: currentContent.join(' ') })
+        result.push({ speaker: currentSpeaker, content: currentContent.join(' '), timestamp: currentTimestamp })
       }
-      currentSpeaker = match[1] ?? null
-      currentContent = match[2] ? [match[2]] : []
+      currentTimestamp = match[1] || undefined
+      currentSpeaker = match[2] ?? null
+      currentContent = match[3] ? [match[3]] : []
     } else if (currentSpeaker) {
       currentContent.push(trimmed)
     }
   }
   if (currentSpeaker && currentContent.length) {
-    result.push({ speaker: currentSpeaker, content: currentContent.join(' ') })
+    result.push({ speaker: currentSpeaker, content: currentContent.join(' '), timestamp: currentTimestamp })
   }
   return result
 })
@@ -279,6 +289,7 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
             icon="i-lucide-x"
             @click="clearSearch"
           />
+          <USwitch v-model="showTimestamps" label="Timestamps" />
         </div>
       </div>
 
@@ -294,18 +305,19 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
               class="border-l-2 border-primary/30 pl-4"
             >
               <div class="text-md underline font-semibold tracking-wide uppercase text-primary mb-1">
+                <span v-if="showTimestamps && seg.timestamp" class="text-muted font-normal text-xs mr-1.5 no-underline">[{{ seg.timestamp }}]</span>
                 {{ hasHighlights ? '' : seg.speaker }}
                 <span v-if="hasHighlights" v-html="seg.speaker" />
               </div>
               <p
                 v-if="hasHighlights"
                 class="text-[0.9375rem] leading-7 text-dimmed"
-                v-html="seg.content"
+                v-html="showTimestamps ? seg.content : stripInlineTimestamps(seg.content)"
               />
               <p
                 v-else
                 class="text-[0.9375rem] leading-7"
-              >{{ seg.content }}</p>
+              >{{ showTimestamps ? seg.content : stripInlineTimestamps(seg.content) }}</p>
             </div>
 
             <!-- Pagination controls (hidden for locked transcripts) -->

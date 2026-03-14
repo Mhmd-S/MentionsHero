@@ -157,12 +157,11 @@ def parse_transcript_segments(transcript: str) -> list[dict[str, Any]]:
     segments: list[dict[str, Any]] = []
     lines = transcript.split('\n')
 
-    # Pattern: speaker name followed by colon
-    # Starts with Uppercase letter or digit
-    # Followed by word chars, spaces, hyphens, apostrophes, dots, parentheses, underscores
+    # Pattern: optional [MM:SS] timestamp, then speaker name followed by colon
+    # Supports: "[00:00] Gabe:", "Caroline:", "[12:34] SPEAKER_00:"
     # Max length 60
     speaker_pattern = re.compile(
-        r'^([A-Z0-9][\w\s\-\'._()]{1,60}?):\s*(.*)$'
+        r'^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-\'._()]{1,60}?):\s*(.*)$'
     )
 
     current_speaker: str | None = None
@@ -180,8 +179,8 @@ def parse_transcript_segments(transcript: str) -> list[dict[str, Any]]:
                     'speaker': current_speaker,
                     'content': ' '.join(current_content).strip()
                 })
-            current_speaker = match.group(1)
-            current_content = [match.group(2)] if match.group(2) else []
+            current_speaker = match.group(2)
+            current_content = [match.group(3)] if match.group(3) else []
         elif current_speaker is not None:
             current_content.append(trimmed)
 
