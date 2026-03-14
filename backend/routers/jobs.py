@@ -97,17 +97,30 @@ async def process_job(
             JobStatus.TRANSCRIBING,
             stage_progress={
                 "substep": "Transcribing with speaker identification",
-                "substep_detail": "Gemini 2.0 Flash",
+                "substep_detail": "Preparing audio...",
                 "current_chunk": 1,
                 "total_chunks": 1
             }
         )
 
+        async def on_transcription_progress(detail: str) -> None:
+            await job_service.update_job_progress(
+                job_id,
+                JobStatus.TRANSCRIBING,
+                stage_progress={
+                    "substep": "Transcribing with speaker identification",
+                    "substep_detail": detail,
+                    "current_chunk": 1,
+                    "total_chunks": 1
+                }
+            )
+
         transcript = await transcribe_audio(
             audio_path=audio_path,
             cancel_event=cancel_event,
             speaker_hint=speaker_hint,
-            video_title=video_title
+            video_title=video_title,
+            progress_callback=on_transcription_progress
         )
 
         # Clean up audio file

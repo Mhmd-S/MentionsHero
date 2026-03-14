@@ -66,6 +66,15 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 - Stored in `transcripts.speakers` JSONB (legacy, denormalized)
 - Normalized into `speakers` + `transcript_speakers` tables with segment counts
 
+## Audio Download
+
+**File**: `backend/services/download_service.py`
+
+- Uses yt-dlp to extract audio as MP3
+- Audio quality: `--audio-quality 5` (medium, optimized for speech transcription)
+- Mono audio: `--postprocessor-args "-ac 1"` (speech doesn't need stereo)
+- Supports cancellation via asyncio.Event (terminates subprocess)
+
 ## Gemini Integration
 
 **File**: `backend/services/transcription_service.py`
@@ -76,6 +85,15 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 - Retry logic: 3 attempts with exponential backoff (2^attempt seconds) for 429/502/503/504
 - Video title context: the YouTube video title (fetched via yt-dlp) is passed to the Gemini prompt to help with topic understanding, speaker identification, and domain-specific terminology
 - Speaker hint: optional user-provided context passed to Gemini prompt to improve speaker identification
+- Progress callback: reports substep updates ("Uploading audio to Gemini...", "Waiting for Gemini transcription...", "Processing transcript...") via SSE to the frontend
+
+## Job Service (Async)
+
+**File**: `backend/services/job_service.py`
+
+- All Supabase calls run in `asyncio.run_in_executor()` to avoid blocking the event loop
+- SSE events use `threading.Event` for cross-thread notification
+- This ensures SSE status updates are delivered promptly to the frontend
 
 ## API Endpoints
 

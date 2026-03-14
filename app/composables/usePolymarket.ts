@@ -120,6 +120,17 @@ export function usePolymarket() {
     }
   }
 
+  async function reanalyzeEvent(eventId: string, personaId: string): Promise<any> {
+    try {
+      return await authFetch(`/api/polymarket/events/${eventId}/reanalyze?persona_id=${personaId}`, {
+        method: 'POST',
+      })
+    } catch (e) {
+      console.error('Failed to reanalyze Polymarket event:', e)
+      return null
+    }
+  }
+
   async function deleteEvent(eventId: string): Promise<boolean> {
     try {
       await authFetch(`/api/polymarket/events/${eventId}`, { method: 'DELETE' })
@@ -149,6 +160,7 @@ export function usePolymarket() {
     addEvent,
     getEventDetail,
     refreshEvent,
+    reanalyzeEvent,
     deleteEvent,
     extractSlugFromInput,
   }

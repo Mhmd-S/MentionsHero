@@ -89,14 +89,33 @@ const summaryLine = computed(() => {
 })
 
 function buildPluralPattern(term: string): string {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // Words ending in consonant + y: match "ies" plural (e.g., policy → policies)
-  if (/[^aeiou]y$/i.test(term)) {
-    const base = escaped.slice(0, -1)
-    return `\\b(${escaped}(?:'s)?|${base}ies(?:'s)?)\\b`
+  const words = term.trim().split(/\s+/)
+
+  if (words.length > 1) {
+    // Compound: "Mr Speaker" / "shut down" — match spaced, hyphenated, joined forms
+    const cleaned = words.map(w => w.replace(/\.+$/, ''))
+    const escaped = cleaned.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    const suffix = "(?:'?s)?"
+    const spaced = escaped.join('\\.?\\s+') + suffix
+    const hyphenated = escaped.join('\\.?-') + suffix
+    const forms = [spaced, hyphenated]
+    if (words.length === 2) forms.push(escaped.join('') + suffix)
+    return `\\b(${forms.join('|')})\\b`
   }
-  // Default: match optional plural 's'/'es' and possessive "'s"
-  return `\\b(${escaped}(?:'?e?s)?)\\b`
+
+  const word = words[0] ?? term
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\./g, '\\.?')
+  const poss = "(?:'s)?"
+
+  // Consonant+y: ally → allies
+  if (/[^aeiou]y$/i.test(word)) {
+    const base = escaped.slice(0, -1)
+    return `\\b(${escaped}${poss}|${base}ies${poss})\\b`
+  }
+
+  // Words ending in s, sh, ch, x, z take +es plural
+  const plural = /(?:s|sh|ch|x|z)$/i.test(word) ? 'es' : 's'
+  return `\\b(${escaped}${poss}|${escaped}${plural}${poss})\\b`
 }
 
 function highlightTerm(text: string): string {

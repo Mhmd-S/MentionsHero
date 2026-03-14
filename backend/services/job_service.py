@@ -1,7 +1,9 @@
 """Job service for database operations."""
 
+import asyncio
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
 
@@ -9,6 +11,9 @@ from backend.core.database import get_supabase
 from backend.models.job import JobStatus, StageProgress
 
 logger = logging.getLogger(__name__)
+
+# Single-worker executor to serialize Supabase calls (httpx client is not thread-safe)
+_db_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="job-db")
 
 # Thread-safe events for SSE: wait() in thread pool, set() from async main thread
 _jobs_list_event: threading.Event | None = None
@@ -58,15 +63,19 @@ async def create_job(
     """Create a new job in the database."""
     supabase = get_supabase()
 
-    response = supabase.table("jobs").insert({
-        "youtube_url": youtube_url,
-        "status": JobStatus.PENDING.value,
-        "stage_progress": {},
-        "video_title": video_title,
-        "playlist_id": playlist_id,
-        "playlist_name": playlist_name,
-        "playlist_index": playlist_index
-    }).execute()
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").insert({
+            "youtube_url": youtube_url,
+            "status": JobStatus.PENDING.value,
+            "stage_progress": {},
+            "video_title": video_title,
+            "playlist_id": playlist_id,
+            "playlist_name": playlist_name,
+            "playlist_index": playlist_index
+        }).execute()
+    )
 
     notify_jobs_list_changed()
     return response.data[0]
@@ -76,7 +85,11 @@ async def get_job(job_id: str) -> dict[str, Any] | None:
     """Get a job by ID."""
     supabase = get_supabase()
 
-    response = supabase.table("jobs").select("*").eq("id", job_id).single().execute()
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").select("*").eq("id", job_id).single().execute()
+    )
     return response.data
 
 
@@ -85,12 +98,17 @@ async def get_active_jobs() -> list[dict[str, Any]]:
     supabase = get_supabase()
 
     terminal_statuses = f"({JobStatus.COMPLETED.value},{JobStatus.FAILED.value},{JobStatus.CANCELLED.value})"
-    response = (
-        supabase.table("jobs")
-        .select("*")
-        .filter("status", "not.in", terminal_statuses)
-        .order("created_at", desc=True)
-        .execute()
+
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(
+        _db_executor,
+        lambda: (
+            supabase.table("jobs")
+            .select("*")
+            .filter("status", "not.in", terminal_statuses)
+            .order("created_at", desc=True)
+            .execute()
+        )
     )
 
     return response.data or []
@@ -120,7 +138,11 @@ async def update_job_progress(
     if transcript_id is not None:
         update_data["transcript_id"] = transcript_id
 
-    supabase.table("jobs").update(update_data).eq("id", job_id).execute()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").update(update_data).eq("id", job_id).execute()
+    )
     logger.info("Job %s: status -> %s", job_id, status.value)
     notify_job_changed(job_id)
     notify_jobs_list_changed()
@@ -130,12 +152,16 @@ async def check_cancellation(job_id: str) -> bool:
     """Check if cancellation has been requested for a job."""
     supabase = get_supabase()
 
-    response = (
-        supabase.table("jobs")
-        .select("cancel_requested")
-        .eq("id", job_id)
-        .single()
-        .execute()
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(
+        _db_executor,
+        lambda: (
+            supabase.table("jobs")
+            .select("cancel_requested")
+            .eq("id", job_id)
+            .single()
+            .execute()
+        )
     )
 
     if response.data:
@@ -147,10 +173,14 @@ async def mark_job_cancelled(job_id: str) -> None:
     """Mark a job as cancelled."""
     supabase = get_supabase()
 
-    supabase.table("jobs").update({
-        "status": JobStatus.CANCELLED.value,
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }).eq("id", job_id).execute()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").update({
+            "status": JobStatus.CANCELLED.value,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", job_id).execute()
+    )
     notify_job_changed(job_id)
     notify_jobs_list_changed()
 
@@ -177,9 +207,13 @@ async def request_cancellation(job_id: str) -> bool:
         return False
 
     # Set cancel_requested flag
-    supabase.table("jobs").update({
-        "cancel_requested": True
-    }).eq("id", job_id).execute()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").update({
+            "cancel_requested": True
+        }).eq("id", job_id).execute()
+    )
     notify_job_changed(job_id)
     notify_jobs_list_changed()
 
@@ -190,11 +224,15 @@ async def force_cancel_job(job_id: str) -> bool:
     """Force cancel a job regardless of its current state."""
     supabase = get_supabase()
 
-    supabase.table("jobs").update({
-        "status": JobStatus.CANCELLED.value,
-        "cancel_requested": True,
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }).eq("id", job_id).execute()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").update({
+            "status": JobStatus.CANCELLED.value,
+            "cancel_requested": True,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", job_id).execute()
+    )
     notify_job_changed(job_id)
     notify_jobs_list_changed()
 
@@ -211,13 +249,18 @@ async def bulk_cancel_playlist_jobs(playlist_id: str) -> int:
 
     terminal_statuses = f"({JobStatus.COMPLETED.value},{JobStatus.FAILED.value},{JobStatus.CANCELLED.value})"
 
+    loop = asyncio.get_running_loop()
+
     # Get all pending/active jobs for this playlist
-    jobs_response = (
-        supabase.table("jobs")
-        .select("id, status")
-        .eq("playlist_id", playlist_id)
-        .filter("status", "not.in", terminal_statuses)
-        .execute()
+    jobs_response = await loop.run_in_executor(
+        _db_executor,
+        lambda: (
+            supabase.table("jobs")
+            .select("id, status")
+            .eq("playlist_id", playlist_id)
+            .filter("status", "not.in", terminal_statuses)
+            .execute()
+        )
     )
 
     jobs = jobs_response.data or []
@@ -225,13 +268,16 @@ async def bulk_cancel_playlist_jobs(playlist_id: str) -> int:
         return 0
 
     # Mark all as cancelled
-    supabase.table("jobs").update({
-        "cancel_requested": True,
-        "status": JobStatus.CANCELLED.value,
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }).eq("playlist_id", playlist_id).filter(
-        "status", "not.in", terminal_statuses
-    ).execute()
+    await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").update({
+            "cancel_requested": True,
+            "status": JobStatus.CANCELLED.value,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("playlist_id", playlist_id).filter(
+            "status", "not.in", terminal_statuses
+        ).execute()
+    )
 
     for job in jobs:
         notify_job_changed(job["id"])

@@ -10,7 +10,7 @@ import type { TermResult } from '~/components/TermSection.vue'
 const route = useRoute()
 const eventId = route.params.id as string
 
-const { getEventDetail, refreshEvent } = usePolymarket()
+const { getEventDetail, refreshEvent, reanalyzeEvent } = usePolymarket()
 const { personas, fetchPersonas } = usePersonas()
 
 const detail = ref<PolyEventDetail | null>(null)
@@ -130,6 +130,9 @@ async function handleRefresh() {
   refreshing.value = true
   try {
     await refreshEvent(eventId)
+    if (selectedPersonaId.value) {
+      await reanalyzeEvent(eventId, selectedPersonaId.value)
+    }
     detail.value = await getEventDetail(eventId, selectedPersonaId.value || undefined)
   } finally {
     refreshing.value = false

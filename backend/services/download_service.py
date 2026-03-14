@@ -34,7 +34,8 @@ async def download_audio(
         '--format', 'bestaudio/best',
         '-x',
         '--audio-format', 'mp3',
-        '--audio-quality', '0',
+        '--audio-quality', '5',
+        '--postprocessor-args', '-ac 1',
         '-o', output_template,
         '--print', 'after_move:filepath',
         url

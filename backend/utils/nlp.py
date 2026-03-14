@@ -29,26 +29,102 @@ try:
 except LookupError:
     nltk.download('averaged_perceptron_tagger_eng', quiet=True)
 
-def build_market_pattern(term: str) -> str:
-    """Build regex pattern matching market resolution rules.
+def normalize_text(text: str) -> str:
+    """Normalize unicode characters for consistent matching.
 
-    Matches the term plus:
-    - Plural forms: term + 's', 'es', or 'y' → 'ies'
-    - Possessive forms: term + "'s"
-
-    Uses word boundaries on both ends to avoid partial matches
-    (e.g., 'ass' won't match 'assessment' or 'mass').
+    Converts curly quotes/apostrophes to straight versions and
+    typographic dashes to plain hyphens so regex patterns match reliably.
     """
-    escaped = re.escape(term)
-    # Handle words ending in 'y' preceded by a consonant: "policy" → "policies"
-    # Build alternation: (term|term_without_y + "ies") + optional possessive/plural suffix
-    if re.search(r'[^aeiou]y$', term, re.IGNORECASE):
-        base = escaped[:-1]  # Remove the escaped 'y'
-        # Match: base+y (original), base+ies (plural), with optional possessive 's
-        return r"\b(?:" + escaped + r"(?:'s)?" + r"|" + base + r"ies(?:'s)?)\b"
-    # Default: match the term with optional plural/possessive suffix.
-    # Trailing allows: nothing, 's, 'es, possessive 's — then word boundary.
-    return r"\b" + escaped + r"(?:'?e?s)?\b"
+    text = text.replace('\u2019', "'")   # right single quote → apostrophe
+    text = text.replace('\u2018', "'")   # left single quote → apostrophe
+    text = text.replace('\u201c', '"')   # left double quote
+    text = text.replace('\u201d', '"')   # right double quote
+    text = text.replace('\u2013', '-')   # en-dash → hyphen
+    text = text.replace('\u2014', '-')   # em-dash → hyphen
+    return text
+
+
+def _build_single_word_pattern(word: str) -> str:
+    """Build regex for a single word with plural and possessive variants.
+
+    Only matches the base word, its plural, and possessive forms.
+    No verb conjugations (-ed, -ing).
+    """
+    escaped = re.escape(word)
+    # Make periods optional for abbreviations (Mr. → Mr)
+    escaped = escaped.replace(r'\.', r'\.?')
+
+    poss = r"(?:'s)?"
+
+    # Consonant+y: ally → allies
+    if re.search(r'[^aeiou]y$', word, re.IGNORECASE):
+        base = escaped[:-1]  # strip 'y'
+        return (
+            r"\b(?:"
+            + escaped + poss
+            + r"|" + base + r"ies" + poss
+            + r")\b"
+        )
+
+    # Words ending in s, sh, ch, x, z take +es plural; others take +s
+    if re.search(r'(?:s|sh|ch|x|z)$', word, re.IGNORECASE):
+        plural_suffix = r"es"
+    else:
+        plural_suffix = r"s"
+    return (
+        r"\b(?:"
+        + escaped + poss
+        + r"|" + escaped + plural_suffix + poss
+        + r")\b"
+    )
+
+
+def _build_compound_pattern(words: list[str]) -> str:
+    """Build regex for multi-word terms with space/hyphen/joined variants.
+
+    'shut down' matches 'shut down', 'shut-down', and 'shutdown'.
+    'Mr Speaker' matches 'Mr. Speaker' and vice versa (optional periods between words).
+    Only plural/possessive suffixes are added (no -ed/-ing on compounds).
+    """
+    # Strip trailing periods from words (handled by \.? separators)
+    cleaned_words = [w.rstrip('.') for w in words]
+    escaped_words = [re.escape(w) for w in cleaned_words]
+    suffix = r"(?:'?s)?"
+
+    # Spaced form: Mr\.?\s+Speaker (optional period after each word for abbreviations)
+    spaced = r"\.?\s+".join(escaped_words) + suffix
+    # Hyphenated form: shut-down
+    hyphenated = r"\.?\-".join(escaped_words) + suffix
+
+    forms = [spaced, hyphenated]
+
+    # Joined form only for 2-word terms: shutdown
+    if len(words) == 2:
+        joined = "".join(escaped_words) + suffix
+        forms.append(joined)
+
+    return r"\b(?:" + r"|".join(forms) + r")\b"
+
+
+def build_market_pattern(term: str) -> str:
+    """Build regex pattern matching a term with plural and possessive variants.
+
+    Handles:
+    - Plural forms (+s, +es, y→ies)
+    - Possessive forms (+'s)
+    - Compound terms: space/hyphen/joined variants (shut down ↔ shutdown)
+    - Abbreviation periods: Mr. matches Mr
+
+    Uses word boundaries to avoid partial matches.
+    """
+    term = normalize_text(term.strip())
+    if not term:
+        return r'(?!)'  # never matches
+
+    words = term.split()
+    if len(words) > 1:
+        return _build_compound_pattern(words)
+    return _build_single_word_pattern(term)
 
 
 def clean_text(text: str) -> str:
@@ -193,6 +269,7 @@ def calculate_term_frequency(
         # Filter to speaker(s) first if requested
         text_to_analyze = filter_by_speakers(transcript_text, speakers) if speakers else transcript_text
         text_to_search = text_to_analyze if case_sensitive else text_to_analyze.lower()
+        text_to_search = normalize_text(text_to_search)
 
         # Count occurrences (market resolution rules: plurals, possessives, compounds)
         count = len(re.findall(build_market_pattern(search_term), text_to_search))
@@ -418,7 +495,6 @@ def search_term_in_context(
     matches: list[dict[str, Any]] = []
     total_count = 0
 
-    query_lower = query.lower()
     pattern = re.compile(build_market_pattern(query), re.IGNORECASE)
 
     for t in transcripts:
@@ -427,32 +503,51 @@ def search_term_in_context(
             continue
 
         text_to_search = filter_by_speakers(transcript_text, speakers) if speakers else transcript_text
+        text_to_search = normalize_text(text_to_search)
 
-        # Find all matches
+        # Collect all match spans, then merge overlapping context windows
+        raw_spans = []
         for match in pattern.finditer(text_to_search):
-            start = max(0, match.start() - context_chars)
-            end = min(len(text_to_search), match.end() + context_chars)
+            ctx_start = max(0, match.start() - context_chars)
+            ctx_end = min(len(text_to_search), match.end() + context_chars)
+            raw_spans.append((ctx_start, ctx_end, match.start()))
 
+        if not raw_spans:
+            continue
+
+        # Merge overlapping spans
+        raw_spans.sort()
+        merged = [list(raw_spans[0])]
+        mention_counts = [1]
+        for ctx_start, ctx_end, pos in raw_spans[1:]:
+            if ctx_start <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], ctx_end)
+                mention_counts[-1] += 1
+            else:
+                merged.append([ctx_start, ctx_end, pos])
+                mention_counts.append(1)
+
+        # Use upload_date (YouTube upload) if available, format YYYYMMDD -> YYYY-MM-DD
+        upload_date = t.get("upload_date")
+        if upload_date and len(upload_date) == 8:
+            formatted_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
+        else:
+            formatted_date = None
+
+        total_count += len(raw_spans)
+        for (start, end, pos), mention_count in zip(merged, mention_counts):
             context = text_to_search[start:end]
-            # Clean up context edges
             if start > 0:
                 context = "..." + context
             if end < len(text_to_search):
                 context = context + "..."
-
-            # Use upload_date (YouTube upload) if available, format YYYYMMDD -> YYYY-MM-DD
-            upload_date = t.get("upload_date")
-            if upload_date and len(upload_date) == 8:
-                formatted_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
-            else:
-                formatted_date = None
-            total_count += 1
             matches.append({
                 "transcript_id": t.get("id"),
                 "transcript_name": t.get("name") or "Unknown",
                 "date": formatted_date,
                 "context": context,
-                "position": match.start()
+                "position": pos,
+                "mention_count": mention_count,
             })
 
     # Group matches by transcript

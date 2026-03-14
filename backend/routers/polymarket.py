@@ -75,6 +75,16 @@ async def refresh_event(event_id: str):
     return result
 
 
+@router.post("/events/{event_id}/reanalyze")
+async def reanalyze_event(
+    event_id: str,
+    persona_id: str = Query(..., description="Persona to re-analyze for"),
+):
+    """Re-run term analysis for all markets in an event with a specific persona."""
+    await polymarket_service.update_poly_market_analysis(persona_id, event_id)
+    return {"ok": True}
+
+
 @router.delete("/events/{event_id}")
 async def delete_event(event_id: str):
     """Delete a stored Polymarket event."""
