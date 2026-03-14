@@ -82,7 +82,9 @@
       "Bash(echo \"Updated $f\")",
       "Bash(done)",
       "Bash(npm install:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,v\\) for k,v in d.items\\(\\) if ''''mcp'''' in k.lower\\(\\) or ''''polymarket'''' in k.lower\\(\\)]\")",
+      "mcp__polymarket__search_polymarket_documentation"
     ],
     "deny": [
       "**/.env*",

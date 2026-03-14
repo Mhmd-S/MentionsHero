@@ -63,6 +63,41 @@ export interface PolySearchResult {
   end_date: string | null
 }
 
+// ----- Swing Analysis types -----
+
+export interface SwingEvent {
+  term: string
+  transcript_name: string
+  transcript_date: string
+  mention_count: number
+  price_before: number
+  price_after: number
+  swing: number
+  co_terms: string[]
+}
+
+export interface SwingProfile {
+  term: string
+  market_question: string | null
+  event_title: string
+  total_briefings: number
+  mentioned_in: number
+  avg_swing_when_mentioned: number
+  avg_swing_when_absent: number
+  edge: number
+  max_swing: number
+  min_swing: number
+  consistency: number
+  swing_events: SwingEvent[]
+  top_co_terms: { term: string; co_count: number; avg_combined_swing: number }[]
+}
+
+export interface SwingAnalysisResult {
+  profiles: SwingProfile[]
+  total_markets_analyzed: number
+  total_briefings: number
+}
+
 export function usePolymarket() {
   const { authFetch } = useAuthFetch()
 
@@ -154,6 +189,20 @@ export function usePolymarket() {
     return trimmed
   }
 
+  async function analyzeSwings(params?: {
+    event_id?: string
+    persona_id?: string
+  }): Promise<SwingAnalysisResult | null> {
+    try {
+      return await authFetch<SwingAnalysisResult>('/api/polymarket/swing', {
+        query: params,
+      })
+    } catch (e) {
+      console.error('Failed to analyze swings:', e)
+      return null
+    }
+  }
+
   return {
     searchEvents,
     listStoredEvents,
@@ -163,5 +212,6 @@ export function usePolymarket() {
     reanalyzeEvent,
     deleteEvent,
     extractSlugFromInput,
+    analyzeSwings,
   }
 }

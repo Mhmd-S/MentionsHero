@@ -90,6 +90,38 @@ When a persona is selected, term sections can be sorted and filtered via a toolb
 - Recommendation: "yes" (EV > 0.15), "no" (EV > 0.15), or "skip"
 - Confidence score and reasoning
 
+## Swing Analysis
+
+Correlates term mentions in transcripts with Polymarket price movements. Instead of predicting binary outcomes, measures how prices swing when specific words are said — enabling profit from price movement rather than resolution.
+
+### How It Works
+1. For each market's search terms, fetches CLOB price history via `clobTokenIds` (Gamma API → CLOB `/prices-history`)
+2. For each transcript, checks if the term was mentioned (using `build_market_pattern` for plurals/possessives)
+3. Finds the price before the briefing and 6 hours after
+4. Calculates swing = `price_after - price_before`
+5. Builds per-term swing profiles:
+   - **avg_swing_when_mentioned** — average price change when the word is said
+   - **avg_swing_when_absent** — baseline price change when word is NOT said
+   - **edge** — difference between mentioned and absent (the signal)
+   - **consistency** — standard deviation of swings (lower = more predictable)
+6. Tracks **co-occurring terms** — which other words appear in the same briefing and how they correlate with swing amplitude
+
+### CLOB Price History
+- `clobTokenIds` from Gamma API is a **JSON string** (must `json.loads()`)
+- YES token is index 0 of the parsed array
+- `/prices-history?market={yes_token_id}&interval=all&fidelity=30` for 30-min resolution
+- Price matching: finds closest data point within 12h of the target timestamp
+
+### Filters
+- **Persona**: Filter transcripts to a specific persona (speaker)
+- **Event**: Filter to markets within a specific Polymarket event
+
+### Key Files
+- `backend/services/swing_service.py` — Core swing analysis engine, CLOB price fetching, co-occurrence tracking
+- `backend/routers/polymarket.py` — `GET /api/polymarket/swing` endpoint
+- `app/pages/admin/backtest.vue` — Swing analysis page with sortable profiles, expandable detail with per-briefing swings and co-terms
+- `app/composables/usePolymarket.ts` — `analyzeSwings()` function, `SwingProfile`/`SwingEvent`/`SwingAnalysisResult` types
+
 ## API Endpoints
 
 | Method | Path | Description |
@@ -114,6 +146,7 @@ When a persona is selected, term sections can be sorted and filtered via a toolb
 |-------|------|---------|
 | Page | `app/pages/admin/markets/index.vue` | Tabbed listing (Kalshi tab: events grouped by tag; Polymarket tab: search + stored events) |
 | Page | `app/pages/admin/markets/[id].vue` | Kalshi event detail by event_ticker: markets with persona analysis |
+| Page | `app/pages/admin/backtest.vue` | Backtest dashboard: run backtests, view accuracy/PnL, threshold sensitivity |
 | Composable | `app/composables/useKalshi.ts` | All Kalshi API calls (`browseEvents`, `getEventDetailByTicker`, etc.) |
 | Component | `app/components/TermSection.vue` | Per-market term analysis display |
 | Router | `backend/routers/kalshi.py` | All `/api/kalshi/*` endpoints |
@@ -191,6 +224,7 @@ The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is pe
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/api/polymarket/swing` | Swing analysis: correlate term mentions with price movements (optional `?event_id=`, `?persona_id=`) |
 | `GET` | `/api/polymarket/events/search?q=...&limit=20` | Search Polymarket API for events |
 | `GET` | `/api/polymarket/events` | List stored events |
 | `POST` | `/api/polymarket/events` | Add event by slug `{ slug }` |
@@ -204,10 +238,12 @@ The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is pe
 |-------|------|---------|
 | Page | `app/pages/admin/markets/index.vue` | Tabbed listing (Kalshi tab + Polymarket tab with search & stored events) |
 | Page | `app/pages/admin/markets/poly/[id].vue` | Polymarket event detail with persona analysis |
-| Composable | `app/composables/usePolymarket.ts` | All Polymarket API calls |
+| Page | `app/pages/admin/backtest.vue` | Swing analysis: term-price correlation with expandable per-briefing detail |
+| Composable | `app/composables/usePolymarket.ts` | All Polymarket API calls including `analyzeSwings()` |
 | Component | `app/components/TermSection.vue` | Per-market term analysis display (shared with Kalshi) |
 | Router | `backend/routers/polymarket.py` | All `/api/polymarket/*` endpoints |
 | Service | `backend/services/polymarket_service.py` | Polymarket API client, upsert logic, market analysis |
+| Service | `backend/services/swing_service.py` | Swing analysis: CLOB price correlation with transcript mentions |
 | Model | `backend/models/polymarket.py` | Polymarket API models, DB record models |
 
 ### Database Tables

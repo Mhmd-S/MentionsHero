@@ -167,3 +167,5 @@ class AnalyzeResponse(BaseModel):
     confidence: Literal["high", "medium", "low"]
     reason: str
     expected_value: float
+
+

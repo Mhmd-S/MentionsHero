@@ -36,7 +36,7 @@ const normalizedMarkets = computed<PolyPersonaMarket[]>(() => {
 // Sort & filter state
 const sortBy = ref<'mentions' | 'mentions_asc' | 'percentage' | 'alpha' | 'price'>('mentions')
 const filterHasMentions = ref(false)
-const filterActiveOnly = ref(false)
+
 const filterTrend = ref<'all' | 'increasing' | 'decreasing' | 'stable'>('all')
 
 const sortOptions = [
@@ -90,9 +90,7 @@ const filteredAndSortedSections = computed(() => {
   if (filterHasMentions.value) {
     items = items.filter(i => (i.termResult?.total_mentions ?? 0) > 0)
   }
-  if (filterActiveOnly.value) {
-    items = items.filter(i => !i.result)
-  }
+
   if (filterTrend.value !== 'all') {
     items = items.filter(i => (i.termResult?.trend ?? 'stable') === filterTrend.value)
   }
@@ -170,12 +168,8 @@ onMounted(async () => {
     <template v-else>
       <!-- Event header -->
       <div class="flex items-start gap-4 mb-6">
-        <img
-          v-if="detail.event.image"
-          :src="detail.event.image"
-          class="w-12 h-12 rounded object-cover shrink-0"
-          alt=""
-        />
+        <img v-if="detail.event.image" :src="detail.event.image" class="w-12 h-12 rounded object-cover shrink-0"
+          alt="" />
         <div class="flex-1 min-w-0">
           <h1 class="text-2xl sm:text-3xl font-bold truncate mb-1">{{ detail.event.title || detail.event.slug }}</h1>
           <div class="flex items-center gap-3 text-sm text-gray-500">
@@ -183,32 +177,16 @@ onMounted(async () => {
             <span v-if="detail.event.end_date">Ends {{ new Date(detail.event.end_date).toLocaleDateString() }}</span>
           </div>
         </div>
-        <UButton
-          size="xs"
-          variant="ghost"
-          icon="i-lucide-refresh-cw"
-          :loading="refreshing"
-          @click="handleRefresh"
-        />
+        <UButton size="xs" variant="ghost" icon="i-lucide-refresh-cw" :loading="refreshing" @click="handleRefresh" />
       </div>
 
       <!-- Persona selector -->
       <div class="flex flex-wrap items-center gap-3 mb-4">
         <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Persona:</span>
-        <USelectMenu
-          v-model="selectedPersonaId"
-          :items="personaOptions"
-          value-key="value"
-          placeholder="Select persona for analysis"
-          class="w-64"
-        />
-        <UButton
-          v-if="selectedPersonaId"
-          size="xs"
-          variant="ghost"
-          icon="i-lucide-x"
-          @click="selectedPersonaId = undefined"
-        />
+        <USelectMenu v-model="selectedPersonaId" :items="personaOptions" value-key="value"
+          placeholder="Select persona for analysis" class="w-64" />
+        <UButton v-if="selectedPersonaId" size="xs" variant="ghost" icon="i-lucide-x"
+          @click="selectedPersonaId = undefined" />
       </div>
 
       <!-- Markets -->
@@ -219,68 +197,44 @@ onMounted(async () => {
       <template v-else>
         <!-- Sort & Filter toolbar (only when persona selected) -->
         <div v-if="selectedPersonaId" class="flex flex-wrap items-center gap-2 mb-3">
-          <USelectMenu
-            v-model="sortBy"
-            :items="sortOptions"
-            value-key="value"
-            class="w-44"
-            size="xs"
-          />
-          <UButton
-            size="xs"
-            :variant="filterHasMentions ? 'solid' : 'outline'"
-            @click="filterHasMentions = !filterHasMentions"
-          >
+          <USelectMenu v-model="sortBy" :items="sortOptions" value-key="value" class="w-44" size="xs" />
+
+          <USelectMenu v-model="filterTrend" :items="trendOptions" value-key="value" class="w-36" size="xs" />
+
+          <UButton size="xs" :variant="filterHasMentions ? 'solid' : 'outline'"
+            @click="filterHasMentions = !filterHasMentions">
             Has mentions
           </UButton>
-          <UButton
-            size="xs"
-            :variant="filterActiveOnly ? 'solid' : 'outline'"
-            @click="filterActiveOnly = !filterActiveOnly"
-          >
-            Active only
-          </UButton>
-          <USelectMenu
-            v-model="filterTrend"
-            :items="trendOptions"
-            value-key="value"
-            class="w-36"
-            size="xs"
-          />
           <span class="text-xs text-gray-400 ml-auto">
             {{ filteredAndSortedSections.length }} of {{ allTermSections.length }} terms
           </span>
         </div>
 
-        <div class="space-y-3">
+        <div class="gap-5 grid grid-cols-2">
           <!-- With persona analysis: sorted/filtered list -->
           <template v-if="selectedPersonaId">
-            <TermSection
-              v-for="item in filteredAndSortedSections"
-              :key="`${item.market.id}-${item.searchTerm}`"
-              :market-id="item.market.id"
-              :question="item.market.question"
-              :search-term="item.searchTerm"
-              :term-result="item.termResult"
-              :last-price="item.lastPrice"
-              :persona-id="selectedPersonaId"
-              :result="item.result"
-              :close-time="item.closeTime"
-            />
-            <div v-if="!filteredAndSortedSections.length" class="text-gray-500 text-sm p-4 border border-dashed rounded-lg">
+            <TermSection v-for="item in filteredAndSortedSections" :key="`${item.market.id}-${item.searchTerm}`"
+              :market-id="item.market.id" :question="item.market.question" :search-term="item.searchTerm"
+              :term-result="item.termResult" :last-price="item.lastPrice" :persona-id="selectedPersonaId"
+              :result="item.result" :close-time="item.closeTime" />
+            <div v-if="!filteredAndSortedSections.length"
+              class="text-gray-500 text-sm p-4 border border-dashed rounded-lg">
               No terms match the current filters.
             </div>
           </template>
           <!-- Without persona: show markets in original order -->
           <template v-else>
-            <div v-for="m in normalizedMarkets" :key="m.market.id" class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div v-for="m in normalizedMarkets" :key="m.market.id"
+              class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <div class="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
                 <span class="text-sm font-medium truncate flex-1">{{ m.market.question || '—' }}</span>
                 <div class="flex items-center gap-2 shrink-0">
-                  <UBadge v-if="m.market.result" :color="m.market.result === 'yes' ? 'success' : 'error'" variant="subtle" size="xs">
+                  <UBadge v-if="m.market.result" :color="m.market.result === 'yes' ? 'success' : 'error'"
+                    variant="subtle" size="xs">
                     {{ m.market.result.toUpperCase() }}
                   </UBadge>
-                  <span v-if="m.market.last_trade_price != null && !m.market.result" class="text-sm font-semibold text-primary">
+                  <span v-if="m.market.last_trade_price != null && !m.market.result"
+                    class="text-sm font-semibold text-primary">
                     {{ (m.market.last_trade_price * 100).toFixed(0) }}%
                   </span>
                 </div>
