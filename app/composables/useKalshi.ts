@@ -227,6 +227,17 @@ export function useKalshi() {
     }
   }
 
+  async function reanalyzeEvent(eventId: string, personaId: string): Promise<any> {
+    try {
+      return await authFetch(`/api/kalshi/events/${eventId}/reanalyze?persona_id=${personaId}`, {
+        method: 'POST',
+      })
+    } catch (e) {
+      console.error('Failed to reanalyze event:', e)
+      return null
+    }
+  }
+
   async function loadPastEvents(seriesId: string): Promise<LoadPastEventsResult | null> {
     try {
       return await authFetch<LoadPastEventsResult>(`/api/kalshi/series/${seriesId}/load-past-events`, {
@@ -265,6 +276,7 @@ export function useKalshi() {
     discoverSeries,
     getEventWithAnalysis,
     refreshEvent,
+    reanalyzeEvent,
     extractTickerFromInput,
     loadPastEvents,
   }

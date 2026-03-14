@@ -10,7 +10,7 @@ import type { TermResult } from '~/components/TermSection.vue'
 const route = useRoute()
 const eventTicker = route.params.id as string
 
-const { getEventDetailByTicker, refreshEvent } = useKalshi()
+const { getEventDetailByTicker, refreshEvent, reanalyzeEvent } = useKalshi()
 const { personas, fetchPersonas } = usePersonas()
 
 const detail = ref<EventDetail | null>(null)
@@ -136,6 +136,9 @@ async function handleRefresh() {
   refreshing.value = true
   try {
     await refreshEvent(seriesId.value, eventId.value)
+    if (selectedPersonaId.value) {
+      await reanalyzeEvent(eventId.value, selectedPersonaId.value)
+    }
     await reloadWithPersona()
   } finally {
     refreshing.value = false

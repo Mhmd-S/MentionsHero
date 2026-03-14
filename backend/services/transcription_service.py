@@ -1,11 +1,10 @@
 """Transcription service using Gemini API."""
 
 import asyncio
-import base64
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, Callable, Awaitable
 
 from google import genai
 from google.genai import types
@@ -105,12 +104,16 @@ async def upload_audio_to_gemini(
 SPEAKER_HINT_MAX_LENGTH = 500
 
 
+ProgressCallback = Callable[[str], Awaitable[None]]
+
+
 async def transcribe_with_gemini(
     client: genai.Client,
     audio_path: str,
     cancel_event: asyncio.Event | None = None,
     speaker_hint: str | None = None,
-    video_title: str | None = None
+    video_title: str | None = None,
+    progress_callback: ProgressCallback | None = None
 ) -> str:
     """Transcribe audio using Gemini with speaker diarization."""
     if cancel_event and cancel_event.is_set():
@@ -138,20 +141,20 @@ User-provided context for speaker identification:
 {hint}
 Use this context to label speakers with descriptive names where possible (e.g. PM, Opposition Leader, Caroline) instead of generic labels."""
 
+    if progress_callback:
+        await progress_callback("Uploading audio to Gemini...")
+
     file_info = await upload_audio_to_gemini(client, audio_path, cancel_event)
 
     # Build content parts
     if file_info["uri"] == "inline":
         # Use inline data for smaller files
         with open(audio_path, "rb") as f:
-            audio_data = base64.standard_b64encode(f.read()).decode("utf-8")
+            audio_bytes = f.read()
 
         contents = [
             types.Part.from_text(text=prompt),
-            types.Part.from_bytes(
-                data=base64.standard_b64decode(audio_data),
-                mime_type="audio/mp3"
-            )
+            types.Part.from_bytes(data=audio_bytes, mime_type="audio/mp3")
         ]
     else:
         # Use uploaded file URI
@@ -208,10 +211,16 @@ Use this context to label speakers with descriptive names where possible (e.g. P
         )
         return response
 
+    if progress_callback:
+        await progress_callback("Waiting for Gemini transcription...")
+
     response = await with_retry(generate, service_name="Gemini API")
 
     if cancel_event and cancel_event.is_set():
         raise CancellationError()
+
+    if progress_callback:
+        await progress_callback("Processing transcript...")
 
     response_text = response.text
     if not response_text:
@@ -233,7 +242,8 @@ async def transcribe_audio(
     audio_path: str,
     cancel_event: asyncio.Event | None = None,
     speaker_hint: str | None = None,
-    video_title: str | None = None
+    video_title: str | None = None,
+    progress_callback: ProgressCallback | None = None
 ) -> str:
     """
     Transcribe audio file using Gemini.
@@ -253,7 +263,7 @@ async def transcribe_audio(
     logger.info("Starting transcription for %s", audio_path)
     result = await transcribe_with_gemini(
         client, audio_path, cancel_event, speaker_hint=speaker_hint,
-        video_title=video_title
+        video_title=video_title, progress_callback=progress_callback
     )
     logger.info("Transcription complete for %s", audio_path)
     return result

@@ -37,10 +37,17 @@ User enters search term on /term-search
 ### Term Frequency (`calculate_term_frequency()`)
 1. Filter transcripts by folder/speakers
 2. Clean text: remove speaker labels and timestamps via `clean_text()`
-3. Regex matching via `build_market_pattern()` — matches whole words with plurals (s, es, y→ies) and possessives ('s), using word boundaries on both ends
-4. Count total mentions per transcript, track by date
-5. Calculate trend: compare first half vs second half of chronological mentions
-6. Return: `{ term, total_mentions, briefings_with_term, percentage, trend, mentions_by_date }`
+3. Normalize unicode: `normalize_text()` converts curly quotes/apostrophes to straight, typographic dashes to hyphens
+4. Regex matching via `build_market_pattern()` — matches whole words with:
+   - Plurals: +s, +es, y→ies
+   - Possessives: +'s
+   - Compound terms: space/hyphen/joined variants (shut down ↔ shutdown ↔ shut-down)
+   - Abbreviation periods: Mr. matches Mr
+   - Word boundaries (`\b`) prevent partial matches (ban won't match banana)
+   - No verb conjugations (-ed, -ing) — only the word itself, its plural, and possessive
+5. Count total mentions per transcript, track by date
+6. Calculate trend: compare first half vs second half of chronological mentions
+7. Return: `{ term, total_mentions, briefings_with_term, percentage, trend, mentions_by_date }`
 
 ### All Terms (`calculate_all_term_frequencies()`)
 1. Tokenize all transcript text with NLTK `word_tokenize`
@@ -56,10 +63,11 @@ User enters search term on /term-search
 4. Cached for 1 hour
 
 ### Context Search (`search_term_in_context()`)
-1. Regex via `build_market_pattern()` — matches whole words with plurals (s, es, y→ies) and possessives, using word boundaries on both ends
-2. Extract `context_chars` before and after each match
-3. Return: `{ query, total_matches, transcripts_with_matches, matches[] }`
-4. Not cached (real-time)
+1. Normalize unicode via `normalize_text()` (curly apostrophes, dashes)
+2. Regex via `build_market_pattern()` — same morphological matching as term frequency (plurals, possessives, past tense, progressive, compounds, abbreviations)
+3. Extract `context_chars` before and after each match, merge overlapping windows
+4. Return: `{ query, total_matches, transcripts_with_matches, matches[] }`
+5. Not cached (real-time)
 
 ## API Endpoints
 
