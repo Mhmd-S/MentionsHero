@@ -11,13 +11,14 @@ def parse_transcript(transcript: str) -> list[dict[str, Any]]:
     lines = transcript.split('\n')
 
     current_speaker: str | None = None
+    current_timestamp: str | None = None
     current_content: list[str] = []
 
-    # Match: Name at start of line followed by colon
-    # Supports: "Gabe:", "Caroline:", "SPEAKER_00:", "John Smith:", "PM (Keir Starmer):", "KIER_STARMER:"
+    # Match: Optional [MM:SS] timestamp, then name followed by colon
+    # Supports: "[00:00] Gabe:", "Caroline:", "[12:34] SPEAKER_00:", "John Smith:"
     # Using broad pattern: [A-Z0-9] start, allowed chars, max 60 chars
     speaker_pattern = re.compile(
-        r'^([A-Z0-9][\w\s\-\'._()]{1,60}?):\s*(.*)$'
+        r'^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-\'._()]{1,60}?):\s*(.*)$'
     )
 
     for line in lines:
@@ -29,23 +30,30 @@ def parse_transcript(transcript: str) -> list[dict[str, Any]]:
         if match:
             # Save previous segment if exists
             if current_speaker is not None and current_content:
-                segments.append({
+                segment_data: dict[str, Any] = {
                     'speaker': current_speaker,
                     'content': ' '.join(current_content).strip()
-                })
-            # Start new segment
-            current_speaker = match.group(1)
-            current_content = [match.group(2)] if match.group(2) else []
+                }
+                if current_timestamp:
+                    segment_data['timestamp'] = current_timestamp
+                segments.append(segment_data)
+            # Start new segment (group 1=timestamp, group 2=speaker, group 3=content)
+            current_timestamp = match.group(1)  # may be None
+            current_speaker = match.group(2)
+            current_content = [match.group(3)] if match.group(3) else []
         elif current_speaker is not None:
             # Continue current segment
             current_content.append(trimmed)
 
     # Add last segment
     if current_speaker is not None and current_content:
-        segments.append({
+        segment_data = {
             'speaker': current_speaker,
             'content': ' '.join(current_content).strip()
-        })
+        }
+        if current_timestamp:
+            segment_data['timestamp'] = current_timestamp
+        segments.append(segment_data)
 
     return segments
 
@@ -107,11 +115,15 @@ def highlight_transcript(
         if word_pattern:
             match_count += len(word_pattern.findall(segment['content']))
 
-        # Add speaker label
+        # Add speaker label with optional timestamp
         if segment['speaker'] != current_speaker:
             if lines:
                 lines.append('')
-            lines.append(f'{escape_html(segment["speaker"])}:')
+            timestamp = segment.get('timestamp')
+            if timestamp:
+                lines.append(f'[{escape_html(timestamp)}] {escape_html(segment["speaker"])}:')
+            else:
+                lines.append(f'{escape_html(segment["speaker"])}:')
             current_speaker = segment['speaker']
 
         # Add content with highlighting

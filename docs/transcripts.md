@@ -1,6 +1,6 @@
 # Transcript Generation
 
-Transcribes YouTube videos with speaker diarization using Gemini 2.0 Flash. Supports single videos, batch URLs, playlists, and YouTube channels.
+Transcribes YouTube videos with speaker diarization using Gemini Flash. Supports single videos, batch URLs, playlists, and YouTube channels.
 
 ## Data Flow
 
@@ -9,7 +9,7 @@ User enters YouTube URL(s)
   → POST /api/jobs (or /api/jobs/batch)
   → Background task: process_job()
     1. DOWNLOADING: yt-dlp extracts MP3 audio
-    2. TRANSCRIBING: Gemini 2.0 Flash transcribes with speaker diarization
+    2. TRANSCRIBING: Gemini Flash transcribes with speaker diarization
     3. SAVING: Insert transcript + extract speakers + trigger market reprocessing
   → SSE stream: GET /api/jobs/{job_id}/stream
   → Frontend polls progress via useJobProgress composable
@@ -52,15 +52,17 @@ Each status update pushes `stage_progress` via SSE:
 Gemini returns structured segments, formatted as text:
 
 ```
-Caroline:
+[00:00] Caroline:
 Good afternoon everyone, welcome to today's briefing.
 
-Reporter:
+[01:23] Reporter:
 Thank you. Can you comment on the latest developments?
 
-SPEAKER_00:
+[02:45] SPEAKER_00:
 Content from unnamed speaker.
 ```
+
+Each speaker segment includes a `[MM:SS]` timestamp. Timestamps can be toggled on/off in both admin and public transcript viewers.
 
 Stored as plain text in `transcripts.transcript`. Speakers are also:
 - Stored in `transcripts.speakers` JSONB (legacy, denormalized)
@@ -82,6 +84,7 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 - Audio < 20MB: sent inline to Gemini API
 - Audio >= 20MB: uploaded via Gemini Files API first
 - Response schema enforces `{ segments: [{ speaker, timestamp, content }] }`
+- Timestamps: Gemini generates `MM:SS` timestamps per segment, included in saved transcript as `[MM:SS] Speaker:` prefix
 - Retry logic: 3 attempts with exponential backoff (2^attempt seconds) for 429/502/503/504
 - Video title context: the YouTube video title (fetched via yt-dlp) is passed to the Gemini prompt to help with topic understanding, speaker identification, and domain-specific terminology
 - Speaker hint: optional user-provided context passed to Gemini prompt to improve speaker identification

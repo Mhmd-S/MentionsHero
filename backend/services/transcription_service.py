@@ -51,19 +51,33 @@ async def with_retry(
 
 
 def format_gemini_transcript(segments: list[dict[str, str]]) -> str:
-    """Format Gemini transcript segments into readable text."""
+    """Format Gemini transcript segments into readable text with timestamps.
+
+    Every segment gets a timestamp. Speaker labels only appear on speaker change.
+    Format:
+        [00:00] Speaker:
+        content from first segment
+        [00:15] content from second segment (same speaker)
+
+        [01:23] Other Speaker:
+        content
+    """
     lines: list[str] = []
     current_speaker = ""
 
     for segment in segments:
+        timestamp = segment.get("timestamp", "00:00")
+        content = segment.get("content", "").strip()
+
         if segment.get("speaker") != current_speaker:
             current_speaker = segment.get("speaker", "")
-            # Add newline before speaker label (except for first speaker)
             if lines:
                 lines.append("")
-            lines.append(f"{current_speaker}:")
-        # Add content on a new line after speaker label
-        lines.append(segment.get("content", "").strip())
+            lines.append(f"[{timestamp}] {current_speaker}:")
+            lines.append(content)
+        else:
+            # Same speaker continues — inline timestamp before content
+            lines.append(f"[{timestamp}] {content}")
 
     return "\n".join(lines).strip()
 
@@ -243,7 +257,7 @@ async def transcribe_audio(
     cancel_event: asyncio.Event | None = None,
     speaker_hint: str | None = None,
     video_title: str | None = None,
-    progress_callback: ProgressCallback | None = None
+    progress_callback: ProgressCallback | None = None,
 ) -> str:
     """
     Transcribe audio file using Gemini.

@@ -11,6 +11,8 @@ backend/**/__pycache__/
 # Node dependencies
 node_modules
 
+gen-lang-client.json
+
 # Logs
 logs
 *.log

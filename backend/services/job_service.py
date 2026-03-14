@@ -58,7 +58,7 @@ async def create_job(
     video_title: str | None = None,
     playlist_id: str | None = None,
     playlist_name: str | None = None,
-    playlist_index: int | None = None
+    playlist_index: int | None = None,
 ) -> dict[str, Any]:
     """Create a new job in the database."""
     supabase = get_supabase()
@@ -73,7 +73,7 @@ async def create_job(
             "video_title": video_title,
             "playlist_id": playlist_id,
             "playlist_name": playlist_name,
-            "playlist_index": playlist_index
+            "playlist_index": playlist_index,
         }).execute()
     )
 
