@@ -38,6 +38,12 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
     active: route.path.startsWith('/admin/markets')
   },
   {
+    label: 'Swing Analysis',
+    icon: 'i-lucide-activity',
+    to: '/admin/backtest',
+    active: route.path === '/admin/backtest'
+  },
+  {
     label: 'AI Chat',
     icon: 'i-lucide-bot',
     to: '/admin/transcript-analysis',
