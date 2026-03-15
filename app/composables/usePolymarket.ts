@@ -65,37 +65,40 @@ export interface PolySearchResult {
 
 // ----- Swing Analysis types -----
 
-export interface SwingEvent {
-  term: string
+export interface SpikeRecord {
+  market_id: string
+  market_question: string | null
+  event_title: string
   transcript_name: string
-  transcript_date: string
-  mention_count: number
+  spike_time: string
+  spike_magnitude: number
+  spike_direction: 'up' | 'down'
   price_before: number
   price_after: number
-  swing: number
-  co_terms: string[]
+  transcript_time: string
+  text_before_spike: string
+  mentioned_terms: string[]
+  speaker: string
 }
 
 export interface SwingProfile {
   term: string
-  market_question: string | null
   event_title: string
-  total_briefings: number
-  mentioned_in: number
-  avg_swing_when_mentioned: number
-  avg_swing_when_absent: number
-  edge: number
-  max_swing: number
-  min_swing: number
+  spike_count: number
+  avg_magnitude: number
+  max_magnitude: number
+  total_magnitude: number
   consistency: number
-  swing_events: SwingEvent[]
-  top_co_terms: { term: string; co_count: number; avg_combined_swing: number }[]
+  spikes: SpikeRecord[]
 }
 
 export interface SwingAnalysisResult {
   profiles: SwingProfile[]
+  spikes: SpikeRecord[]
   total_markets_analyzed: number
   total_briefings: number
+  total_transcripts_available: number
+  total_spikes_detected: number
 }
 
 export function usePolymarket() {
