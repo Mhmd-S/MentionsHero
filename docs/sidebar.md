@@ -66,7 +66,7 @@ rootTranscripts = transcripts where folder_id === null
 - **Create**: `POST /api/folders` with optional `parent_id`
 - **Rename**: `PATCH /api/folders/{id}` with new `name`
 - **Move**: `PATCH /api/folders/{id}` with new `parent_id`
-- **Delete**: `DELETE /api/folders/{id}` — moves children to parent folder
+- **Delete**: `DELETE /api/folders/{id}` — recursively deletes all contents (transcripts and subfolders)
 
 ## API Endpoints
 
