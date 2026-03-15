@@ -108,17 +108,18 @@ export function useFileTree() {
   async function deleteFolder(id: string) {
     await authFetch(`/api/folders/${id}`, { method: 'DELETE' })
 
-    // Update local state: move children to parent
-    const deletedFolder = folders.value.find(f => f.id === id)
-    const parentId = deletedFolder?.parent_id || null
+    // Collect all descendant folder IDs recursively
+    function getDescendantIds(folderId: string): string[] {
+      const children = folders.value.filter(f => f.parent_id === folderId)
+      return children.flatMap(c => [c.id, ...getDescendantIds(c.id)])
+    }
+    const allFolderIds = new Set([id, ...getDescendantIds(id)])
 
-    folders.value = folders.value
-      .filter(f => f.id !== id)
-      .map(f => f.parent_id === id ? { ...f, parent_id: parentId } : f)
+    // Remove all transcripts in deleted folders
+    transcripts.value = transcripts.value.filter(t => !allFolderIds.has(t.folder_id))
 
-    transcripts.value = transcripts.value.map(t =>
-      t.folder_id === id ? { ...t, folder_id: parentId } : t
-    )
+    // Remove all deleted folders
+    folders.value = folders.value.filter(f => !allFolderIds.has(f.id))
   }
 
   async function deleteTranscript(id: string) {

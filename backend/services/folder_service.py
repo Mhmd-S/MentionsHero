@@ -69,16 +69,16 @@ async def update_folder(
 
 async def delete_folder(folder_id: str) -> bool:
     """
-    Delete a folder and move its children to the parent folder.
+    Delete a folder and all its contents (transcripts and subfolders) recursively.
 
     Returns True if successful.
     """
     supabase = get_supabase()
 
-    # Get the folder to find its parent
+    # Verify folder exists
     folder_response = (
         supabase.table("folders")
-        .select("parent_id")
+        .select("id")
         .eq("id", folder_id)
         .single()
         .execute()
@@ -87,21 +87,18 @@ async def delete_folder(folder_id: str) -> bool:
     if not folder_response.data:
         return False
 
-    parent_id = folder_response.data.get("parent_id")
+    # Get all descendant folder IDs (recursive)
+    all_folders = await get_all_folders()
+    descendant_ids = get_folder_ids_in_tree(folder_id, all_folders)
+    all_folder_ids = [folder_id] + descendant_ids
 
-    # Move all child folders to the parent
-    supabase.table("folders").update({
-        "parent_id": parent_id,
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }).eq("parent_id", folder_id).execute()
+    # Delete all transcripts in this folder and all descendant folders
+    for fid in all_folder_ids:
+        supabase.table("transcripts").delete().eq("folder_id", fid).execute()
 
-    # Move all transcripts in this folder to the parent
-    supabase.table("transcripts").update({
-        "folder_id": parent_id
-    }).eq("folder_id", folder_id).execute()
-
-    # Delete the folder
-    supabase.table("folders").delete().eq("id", folder_id).execute()
+    # Delete all folders (descendants first, then the target folder)
+    for fid in reversed(all_folder_ids):
+        supabase.table("folders").delete().eq("id", fid).execute()
 
     return True
 
