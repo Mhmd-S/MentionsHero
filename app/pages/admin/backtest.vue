@@ -16,43 +16,65 @@ const events = ref<{ id: string; title: string | null }[]>([])
 const selectedPersonaId = ref<string | undefined>()
 const selectedEventId = ref<string | undefined>()
 
-// Expanded profile
+// View mode
+const viewMode = ref<'spikes' | 'terms'>('spikes')
+
+// Expanded
 const expandedTerm = ref<string | null>(null)
 
-// Sort
-const sortBy = ref<'edge' | 'mentioned_in' | 'avg_swing_when_mentioned' | 'consistency'>('edge')
-const sortDir = ref<'asc' | 'desc'>('desc')
+// Sort for spikes
+const spikeSortBy = ref<'spike_magnitude' | 'spike_time'>('spike_magnitude')
+const spikeSortDir = ref<'asc' | 'desc'>('desc')
+
+const sortedSpikes = computed(() => {
+  if (!result.value) return []
+  const spikes = [...result.value.spikes]
+  spikes.sort((a, b) => {
+    let aVal: number, bVal: number
+    if (spikeSortBy.value === 'spike_magnitude') {
+      aVal = Math.abs(a.spike_magnitude)
+      bVal = Math.abs(b.spike_magnitude)
+    } else {
+      aVal = a.spike_time.localeCompare(b.spike_time)
+      bVal = 0
+      return spikeSortDir.value === 'asc' ? aVal : -aVal
+    }
+    if (aVal < bVal) return spikeSortDir.value === 'asc' ? -1 : 1
+    if (aVal > bVal) return spikeSortDir.value === 'asc' ? 1 : -1
+    return 0
+  })
+  return spikes
+})
+
+// Sort for term profiles
+const termSortBy = ref<'avg_magnitude' | 'spike_count' | 'max_magnitude'>('avg_magnitude')
+const termSortDir = ref<'asc' | 'desc'>('desc')
 
 const sortedProfiles = computed(() => {
   if (!result.value) return []
   const profiles = [...result.value.profiles]
   profiles.sort((a, b) => {
-    let aVal = a[sortBy.value] ?? 0
-    let bVal = b[sortBy.value] ?? 0
-    // Sort edge by absolute value
-    if (sortBy.value === 'edge') {
-      aVal = Math.abs(aVal as number)
-      bVal = Math.abs(bVal as number)
-    }
-    if (aVal < bVal) return sortDir.value === 'asc' ? -1 : 1
-    if (aVal > bVal) return sortDir.value === 'asc' ? 1 : -1
+    const aVal = Math.abs(a[termSortBy.value] as number ?? 0)
+    const bVal = Math.abs(b[termSortBy.value] as number ?? 0)
+    if (aVal < bVal) return termSortDir.value === 'asc' ? -1 : 1
+    if (aVal > bVal) return termSortDir.value === 'asc' ? 1 : -1
     return 0
   })
   return profiles
 })
 
-function toggleSort(field: typeof sortBy.value) {
-  if (sortBy.value === field) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+function toggleTermSort(field: typeof termSortBy.value) {
+  if (termSortBy.value === field) {
+    termSortDir.value = termSortDir.value === 'asc' ? 'desc' : 'asc'
   } else {
-    sortBy.value = field
-    sortDir.value = 'desc'
+    termSortBy.value = field
+    termSortDir.value = 'desc'
   }
 }
 
-function sortIcon(field: typeof sortBy.value) {
-  if (sortBy.value !== field) return 'i-lucide-arrow-up-down'
-  return sortDir.value === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down'
+function sortIcon(active: boolean, dir: 'asc' | 'desc') {
+  if (!active) return 'i-lucide-arrow-up-down'
+  return dir === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down'
 }
 
 onMounted(async () => {
@@ -75,15 +97,15 @@ async function handleRun() {
   }
 }
 
-function swingColor(swing: number): string {
-  if (swing > 0.01) return 'text-green-500'
-  if (swing < -0.01) return 'text-red-500'
+function magColor(mag: number): string {
+  if (mag > 0.01) return 'text-green-500'
+  if (mag < -0.01) return 'text-red-500'
   return 'text-neutral-500'
 }
 
-function formatSwing(swing: number): string {
-  const sign = swing >= 0 ? '+' : ''
-  return `${sign}${(swing * 100).toFixed(1)}c`
+function formatMag(mag: number): string {
+  const sign = mag >= 0 ? '+' : ''
+  return `${sign}${(mag * 100).toFixed(1)}c`
 }
 
 function toggleExpand(term: string) {
@@ -96,8 +118,7 @@ function toggleExpand(term: string) {
     <div>
       <h1 class="text-2xl font-bold">Swing Analysis</h1>
       <p class="text-sm text-neutral-500 mt-1">
-        How do market prices move when specific words are said in briefings?
-        Measures price swing in the {{ 6 }}h window after each briefing.
+        Detect price spikes and trace them back to words said in the transcript.
       </p>
     </div>
 
@@ -113,7 +134,7 @@ function toggleExpand(term: string) {
           class="w-full"
         />
       </div>
-      <div class="w-56">
+      <div class="min-w-96">
         <label class="block text-xs font-medium mb-1">Event</label>
         <USelectMenu
           v-model="selectedEventId"
@@ -124,7 +145,7 @@ function toggleExpand(term: string) {
         />
       </div>
       <UButton
-        label="Analyze Swings"
+        label="Analyze"
         icon="i-lucide-activity"
         :loading="loading"
         @click="handleRun"
@@ -134,156 +155,191 @@ function toggleExpand(term: string) {
     <!-- Results -->
     <template v-if="result">
       <!-- Summary -->
-      <div class="flex gap-6 text-sm">
+      <div class="flex flex-wrap gap-6 text-sm">
         <div>
-          <span class="text-neutral-500">Markets analyzed:</span>
+          <span class="text-neutral-500">Markets:</span>
           <span class="font-medium ml-1">{{ result.total_markets_analyzed }}</span>
         </div>
         <div>
-          <span class="text-neutral-500">Briefings matched:</span>
+          <span class="text-neutral-500">Briefings:</span>
           <span class="font-medium ml-1">{{ result.total_briefings }}</span>
+          <span class="text-neutral-400 ml-1">/ {{ result.total_transcripts_available }}</span>
         </div>
         <div>
-          <span class="text-neutral-500">Terms with data:</span>
+          <span class="text-neutral-500">Spikes detected:</span>
+          <span class="font-medium ml-1">{{ result.total_spikes_detected }}</span>
+        </div>
+        <div>
+          <span class="text-neutral-500">Terms linked:</span>
           <span class="font-medium ml-1">{{ result.profiles.length }}</span>
         </div>
       </div>
 
-      <!-- Profiles Table -->
-      <div v-if="sortedProfiles.length" class="space-y-1">
+      <!-- View toggle -->
+      <div class="flex gap-1">
+        <UButton
+          :variant="viewMode === 'spikes' ? 'solid' : 'ghost'"
+          size="sm"
+          label="Spikes"
+          icon="i-lucide-zap"
+          @click="viewMode = 'spikes'"
+        />
+        <UButton
+          :variant="viewMode === 'terms' ? 'solid' : 'ghost'"
+          size="sm"
+          label="By Term"
+          icon="i-lucide-hash"
+          @click="viewMode = 'terms'"
+        />
+      </div>
+
+      <!-- ============ SPIKES VIEW ============ -->
+      <div v-if="viewMode === 'spikes' && sortedSpikes.length" class="space-y-1">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-neutral-200 dark:border-neutral-800 text-left">
+                <th class="py-2 pr-3">Market</th>
+                <th class="py-2 pr-3 cursor-pointer select-none" @click="spikeSortBy = 'spike_magnitude'; spikeSortDir = spikeSortDir === 'asc' ? 'desc' : 'asc'">
+                  <span class="inline-flex items-center gap-1">
+                    Spike
+                    <UIcon :name="sortIcon(spikeSortBy === 'spike_magnitude', spikeSortDir)" class="size-3" />
+                  </span>
+                </th>
+                <th class="py-2 pr-3">Price</th>
+                <th class="py-2 pr-3 cursor-pointer select-none" @click="spikeSortBy = 'spike_time'; spikeSortDir = spikeSortDir === 'asc' ? 'desc' : 'asc'">
+                  <span class="inline-flex items-center gap-1">
+                    Time
+                    <UIcon :name="sortIcon(spikeSortBy === 'spike_time', spikeSortDir)" class="size-3" />
+                  </span>
+                </th>
+                <th class="py-2 pr-3">What Was Said</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(spike, i) in sortedSpikes"
+                :key="i"
+                class="border-b border-neutral-100 dark:border-neutral-900"
+              >
+                <td class="py-2 pr-3 text-xs max-w-60 truncate" :title="spike.market_question || ''">
+                  {{ spike.market_question }}
+                </td>
+                <td class="py-2 pr-3 font-mono font-semibold whitespace-nowrap" :class="magColor(spike.spike_magnitude)">
+                  {{ formatMag(spike.spike_magnitude) }}
+                </td>
+                <td class="py-2 pr-3 font-mono text-xs text-neutral-500 whitespace-nowrap">
+                  {{ (spike.price_before * 100).toFixed(0) }}c → {{ (spike.price_after * 100).toFixed(0) }}c
+                </td>
+                <td class="py-2 pr-3 font-mono text-xs whitespace-nowrap">{{ spike.spike_time }}</td>
+                <td class="py-2 pr-3 text-xs">
+                  <div class="text-neutral-600 dark:text-neutral-400">
+                    <span v-if="spike.speaker" class="font-semibold text-neutral-800 dark:text-neutral-200">{{ spike.speaker }}: </span>
+                    {{ spike.text_before_spike }}
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============ TERMS VIEW ============ -->
+      <div v-if="viewMode === 'terms' && sortedProfiles.length" class="space-y-1">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-neutral-200 dark:border-neutral-800 text-left">
                 <th class="py-2 pr-3">Term</th>
                 <th class="py-2 pr-3">Event</th>
-                <th class="py-2 pr-3 cursor-pointer select-none" @click="toggleSort('mentioned_in')">
+                <th class="py-2 pr-3 cursor-pointer select-none" @click="toggleTermSort('spike_count')">
                   <span class="inline-flex items-center gap-1">
-                    Mentioned
-                    <UIcon :name="sortIcon('mentioned_in')" class="size-3" />
+                    Spikes
+                    <UIcon :name="sortIcon(termSortBy === 'spike_count', termSortDir)" class="size-3" />
                   </span>
                 </th>
-                <th class="py-2 pr-3 cursor-pointer select-none" @click="toggleSort('avg_swing_when_mentioned')">
+                <th class="py-2 pr-3 cursor-pointer select-none" @click="toggleTermSort('avg_magnitude')">
                   <span class="inline-flex items-center gap-1">
-                    Avg Swing (said)
-                    <UIcon :name="sortIcon('avg_swing_when_mentioned')" class="size-3" />
+                    Avg Spike
+                    <UIcon :name="sortIcon(termSortBy === 'avg_magnitude', termSortDir)" class="size-3" />
                   </span>
                 </th>
-                <th class="py-2 pr-3">Avg Swing (absent)</th>
-                <th class="py-2 pr-3 cursor-pointer select-none" @click="toggleSort('edge')">
+                <th class="py-2 pr-3 cursor-pointer select-none" @click="toggleTermSort('max_magnitude')">
                   <span class="inline-flex items-center gap-1">
-                    Edge
-                    <UIcon :name="sortIcon('edge')" class="size-3" />
+                    Max Spike
+                    <UIcon :name="sortIcon(termSortBy === 'max_magnitude', termSortDir)" class="size-3" />
                   </span>
                 </th>
-                <th class="py-2 pr-3">Range</th>
-                <th class="py-2 pr-3 cursor-pointer select-none" @click="toggleSort('consistency')">
-                  <span class="inline-flex items-center gap-1">
-                    Std Dev
-                    <UIcon :name="sortIcon('consistency')" class="size-3" />
-                  </span>
-                </th>
+                <th class="py-2 pr-3">Std Dev</th>
               </tr>
             </thead>
             <tbody>
-              <template v-for="profile in sortedProfiles" :key="profile.term">
+              <template v-for="profile in sortedProfiles" :key="profile.term + profile.event_title">
                 <tr
                   class="border-b border-neutral-100 dark:border-neutral-900 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/50"
-                  @click="toggleExpand(profile.term)"
+                  @click="toggleExpand(profile.term + profile.event_title)"
                 >
                   <td class="py-2 pr-3 font-mono text-xs font-medium">
                     <span class="inline-flex items-center gap-1">
                       <UIcon
-                        :name="expandedTerm === profile.term ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                        :name="expandedTerm === (profile.term + profile.event_title) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
                         class="size-3 text-neutral-400"
                       />
                       {{ profile.term }}
                     </span>
                   </td>
                   <td class="py-2 pr-3 text-xs text-neutral-500 max-w-[200px] truncate">{{ profile.event_title }}</td>
-                  <td class="py-2 pr-3">
-                    {{ profile.mentioned_in }} / {{ profile.total_briefings }}
+                  <td class="py-2 pr-3">{{ profile.spike_count }}</td>
+                  <td class="py-2 pr-3 font-mono" :class="magColor(profile.avg_magnitude)">
+                    {{ formatMag(profile.avg_magnitude) }}
                   </td>
-                  <td class="py-2 pr-3 font-mono" :class="swingColor(profile.avg_swing_when_mentioned)">
-                    {{ formatSwing(profile.avg_swing_when_mentioned) }}
-                  </td>
-                  <td class="py-2 pr-3 font-mono" :class="swingColor(profile.avg_swing_when_absent)">
-                    {{ formatSwing(profile.avg_swing_when_absent) }}
-                  </td>
-                  <td class="py-2 pr-3 font-mono font-semibold" :class="swingColor(profile.edge)">
-                    {{ formatSwing(profile.edge) }}
-                  </td>
-                  <td class="py-2 pr-3 text-xs text-neutral-500">
-                    {{ formatSwing(profile.min_swing) }} → {{ formatSwing(profile.max_swing) }}
+                  <td class="py-2 pr-3 font-mono" :class="magColor(profile.max_magnitude)">
+                    {{ formatMag(profile.max_magnitude) }}
                   </td>
                   <td class="py-2 pr-3 font-mono text-xs">
                     {{ (profile.consistency * 100).toFixed(1) }}c
                   </td>
                 </tr>
 
-                <!-- Expanded detail -->
-                <tr v-if="expandedTerm === profile.term">
-                  <td colspan="8" class="p-4 bg-neutral-50 dark:bg-neutral-900/30">
-                    <div class="space-y-4">
-                      <!-- Co-occurring terms -->
-                      <div v-if="profile.top_co_terms.length">
-                        <h4 class="text-xs font-semibold uppercase text-neutral-500 mb-2">Co-occurring terms</h4>
-                        <div class="flex flex-wrap gap-2">
-                          <div
-                            v-for="co in profile.top_co_terms"
-                            :key="co.term"
-                            class="text-xs rounded-md border border-neutral-200 dark:border-neutral-700 px-2 py-1"
-                          >
-                            <span class="font-mono">{{ co.term }}</span>
-                            <span class="text-neutral-400 ml-1">({{ co.co_count }}x)</span>
-                            <span class="font-mono ml-1" :class="swingColor(co.avg_combined_swing)">
-                              {{ formatSwing(co.avg_combined_swing) }}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Individual briefing swings -->
-                      <div v-if="profile.swing_events.length">
-                        <h4 class="text-xs font-semibold uppercase text-neutral-500 mb-2">
-                          Briefings where mentioned ({{ profile.swing_events.length }})
-                        </h4>
-                        <table class="w-full text-xs">
-                          <thead>
-                            <tr class="border-b border-neutral-200 dark:border-neutral-800 text-left">
-                              <th class="py-1 pr-3">Date</th>
-                              <th class="py-1 pr-3">Briefing</th>
-                              <th class="py-1 pr-3">Mentions</th>
-                              <th class="py-1 pr-3">Before</th>
-                              <th class="py-1 pr-3">After</th>
-                              <th class="py-1 pr-3">Swing</th>
-                              <th class="py-1 pr-3">Co-terms</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr
-                              v-for="(se, i) in profile.swing_events"
-                              :key="i"
-                              class="border-b border-neutral-100 dark:border-neutral-900"
-                            >
-                              <td class="py-1 pr-3">{{ se.transcript_date }}</td>
-                              <td class="py-1 pr-3 max-w-[200px] truncate">{{ se.transcript_name }}</td>
-                              <td class="py-1 pr-3">{{ se.mention_count }}</td>
-                              <td class="py-1 pr-3 font-mono">{{ (se.price_before * 100).toFixed(1) }}c</td>
-                              <td class="py-1 pr-3 font-mono">{{ (se.price_after * 100).toFixed(1) }}c</td>
-                              <td class="py-1 pr-3 font-mono font-medium" :class="swingColor(se.swing)">
-                                {{ formatSwing(se.swing) }}
-                              </td>
-                              <td class="py-1 pr-3">
-                                <span v-for="ct in se.co_terms" :key="ct" class="inline-block text-xs bg-neutral-100 dark:bg-neutral-800 rounded px-1 mr-1">
-                                  {{ ct }}
-                                </span>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                <!-- Expanded: show individual spikes for this term -->
+                <tr v-if="expandedTerm === (profile.term + profile.event_title)">
+                  <td colspan="6" class="p-4 bg-neutral-50 dark:bg-neutral-900/30">
+                    <table class="w-full text-xs">
+                      <thead>
+                        <tr class="border-b border-neutral-200 dark:border-neutral-800 text-left">
+                          <th class="py-1 pr-3">Spike</th>
+                          <th class="py-1 pr-3">Price</th>
+                          <th class="py-1 pr-3">Time</th>
+                          <th class="py-1 pr-3">Speaker</th>
+                          <th class="py-1 pr-3">What Was Said</th>
+                          <th class="py-1 pr-3">Briefing</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="(s, si) in profile.spikes"
+                          :key="si"
+                          class="border-b border-neutral-100 dark:border-neutral-900"
+                        >
+                          <td class="py-1 pr-3 font-mono font-medium" :class="magColor(s.spike_magnitude)">
+                            {{ formatMag(s.spike_magnitude) }}
+                          </td>
+                          <td class="py-1 pr-3 font-mono text-neutral-500">
+                            {{ (s.price_before * 100).toFixed(0) }} → {{ (s.price_after * 100).toFixed(0) }}c
+                          </td>
+                          <td class="py-1 pr-3 font-mono">{{ s.transcript_time }}</td>
+                          <td class="py-1 pr-3">{{ s.speaker }}</td>
+                          <td class="py-1 pr-3 max-w-md">
+                            <div class="line-clamp-3 text-neutral-600 dark:text-neutral-400">
+                              {{ s.text_before_spike.slice(0, 300) }}
+                            </div>
+                          </td>
+                          <td class="py-1 pr-3 text-neutral-500 max-w-[150px] truncate">
+                            {{ s.transcript_name }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </td>
                 </tr>
               </template>
@@ -292,16 +348,16 @@ function toggleExpand(term: string) {
         </div>
       </div>
 
-      <div v-else class="text-center py-8 text-neutral-500">
-        No swing data found. Markets may not have enough price history overlapping with briefing dates.
+      <div v-if="(viewMode === 'spikes' && !sortedSpikes.length) || (viewMode === 'terms' && !sortedProfiles.length)" class="text-center py-8 text-neutral-500">
+        No spike data found. Markets may not have enough price history overlapping with briefing times.
       </div>
     </template>
 
     <!-- Empty state -->
     <div v-else-if="!loading" class="text-center py-12 text-neutral-500">
       <UIcon name="i-lucide-activity" class="size-12 mx-auto mb-3 opacity-50" />
-      <p>Select filters and analyze to see how prices move when words are said.</p>
-      <p class="text-xs mt-1">Correlates transcript mentions with CLOB price movements.</p>
+      <p>Select filters and analyze to detect price spikes and trace them to words.</p>
+      <p class="text-xs mt-1">Uses Gemini to match transcripts to events and infer timing.</p>
     </div>
   </div>
 </template>
