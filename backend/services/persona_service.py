@@ -261,7 +261,7 @@ async def get_transcripts_for_persona(
 
     # Query transcripts limited to those IDs
     query = supabase.table("transcripts").select(
-        "id, name, youtube_url, created_at, folder_id, is_public, is_premium"
+        "id, name, youtube_url, created_at, upload_date, folder_id, is_public, is_premium"
     ).in_("id", list(matching_ids))
 
     if folder_id:
@@ -270,5 +270,5 @@ async def get_transcripts_for_persona(
         folder_ids = get_folder_ids_in_tree(folder_id, folders)
         query = query.in_("folder_id", folder_ids)
 
-    response = query.order("created_at", desc=True).execute()
+    response = query.order("upload_date", desc=True, nullsfirst=False).execute()
     return response.data or []

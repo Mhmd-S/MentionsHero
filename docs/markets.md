@@ -145,7 +145,35 @@ Transcripts contain `[MM:SS]` timestamps (e.g., `[04:30] Donald Trump: ...`). Th
 | `POST` | `/api/kalshi/series/{id}/events/{eid}/refresh` | Refresh single event |
 | `POST` | `/api/kalshi/analyze` | Analyze market opportunity |
 
-## File Map
+## Public Markets Pages
+
+The public site exposes analyzed market data at `/markets` for all users, with analysis details gated behind premium subscription.
+
+### Pages
+- `/markets` — Listing page: events grouped by persona, each showing source badge, market count, top terms with prices
+- `/markets/[slug]` — Persona detail: all events + markets for a persona, compact cards with question/price/result
+
+### Paywall
+- **Free users**: See market questions, prices, result badges. Analysis fields (mentions, trends, percentages) show a lock icon with "Subscribe to see analysis"
+- **Subscribers**: Full analysis data including mention counts, briefings ratio, trend indicator, percentage
+- Response includes `is_limited: true` for free users
+
+### Public API Endpoints
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/public/markets` | None | List events grouped by persona with top terms preview |
+| `GET` | `/api/public/markets/{slug}` | `optional_auth` | Persona markets with subscription-gated analysis |
+
+### Key Files (Public)
+| File | Purpose |
+|------|---------|
+| `app/pages/markets/index.vue` | Public markets listing |
+| `app/pages/markets/[slug].vue` | Persona markets detail |
+| `app/composables/usePublicMarkets.ts` | Public markets API calls |
+| `backend/services/public_service.py` | `get_public_markets_listing()`, `get_public_persona_markets()` |
+| `backend/routers/public.py` | Public market endpoints |
+
+## File Map (Admin)
 
 | Layer | File | Purpose |
 |-------|------|---------|

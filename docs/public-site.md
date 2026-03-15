@@ -3,7 +3,7 @@
 ## Overview
 
 The platform has two distinct areas:
-- **Public site** (`/`, `/personas/*`, `/transcripts/*`, `/pricing`, `/account`) — browseable by anyone, with optional paywall
+- **Public site** (`/`, `/personas/*`, `/transcripts/*`, `/markets/*`, `/pricing`, `/account`) — browseable by anyone, with optional paywall
 - **Admin area** (`/admin/*`) — existing features behind admin auth
 
 ## Architecture
@@ -31,6 +31,8 @@ Uses Supabase auth with role-based access via `profiles` table:
 | `/` | `pages/index.vue` | Personas grid |
 | `/personas/[slug]` | `pages/personas/[slug].vue` | Persona detail with transcript list |
 | `/transcripts/[id]` | `pages/transcripts/[id].vue` | Transcript viewer with search |
+| `/markets` | `pages/markets/index.vue` | Public markets listing (grouped by persona) |
+| `/markets/[slug]` | `pages/markets/[slug].vue` | Persona markets detail (premium analysis) |
 | `/pricing` | `pages/pricing.vue` | Subscription pricing |
 | `/login` | `pages/login.vue` | Sign in |
 | `/signup` | `pages/signup.vue` | Sign up |
@@ -84,6 +86,8 @@ Prefix: `/api/public`
 | `GET /personas/{slug}` | None | Get persona by slug |
 | `GET /personas/{slug}/transcripts` | None | List public transcripts for persona |
 | `GET /personas/{slug}/keyword-search` | `optional_auth` | Search keywords across persona's transcripts |
+| `GET /markets` | None | List market events grouped by persona |
+| `GET /markets/{slug}` | `optional_auth` | Persona markets detail with subscription-gated analysis |
 | `GET /transcripts/{id}` | `optional_auth` | View public transcript |
 
 ### Query Parameters
@@ -98,7 +102,7 @@ Prefix: `/api/public`
 **`GET /personas/{slug}/keyword-search`**:
 - `q` (required) — keyword to search (1-100 chars)
 - Returns matches with context snippets, total counts, and `is_limited` flag
-- Free users: 3 transcript matches, 1 snippet each; subscribed users: full results (up to 100 matches)
+- **Premium-only feature**: UI locks the search input for non-subscribers with an upgrade prompt. Subscribed users get full results (up to 100 matches)
 - Links to transcript viewer with `?search=` param for highlighting
 
 **`GET /transcripts/{id}`**:
@@ -221,6 +225,9 @@ personas.image_url        -- Used as OG image on persona pages
 | `app/pages/index.vue` | Public personas grid |
 | `app/pages/personas/[slug].vue` | Persona detail + transcript list |
 | `app/pages/transcripts/[id].vue` | Public transcript viewer |
+| `app/pages/markets/index.vue` | Public markets listing |
+| `app/pages/markets/[slug].vue` | Persona markets detail |
+| `app/composables/usePublicMarkets.ts` | Public markets API wrapper |
 | `app/pages/signup.vue` | User signup |
 | `app/pages/pricing.vue` | Pricing page |
 | `app/pages/account.vue` | Account/subscription management |

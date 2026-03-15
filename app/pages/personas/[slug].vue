@@ -251,9 +251,11 @@ onMounted(() => loadTranscripts())
         </template>
       </UPageHeader>
 
-      <!-- Premium upsell -->
+      <!-- Premium upsell (only for non-subscribers) -->
       <div
-        class="my-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        v-if="!isSubscribed"
+        class="my-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+      >
         <div class="flex-1">
           <p class="text-sm font-medium">Unlock full access to all transcripts</p>
           <p class="text-sm text-muted mt-0.5">
@@ -266,81 +268,109 @@ onMounted(() => loadTranscripts())
       </div>
 
       <!-- Keyword Search Section -->
-      <div class="space-y-4 pt-6">
-        <h2 class="text-lg font-semibold">Keyword Search</h2>
-        <p class="text-sm text-muted">Search for keywords across all of {{ persona.name }}'s transcripts.</p>
-
-        <UInput
-          v-model="keywordQuery"
-          icon="i-lucide-search"
-          placeholder="Search keywords (e.g. tariffs, economy, trade)..."
-          size="md"
-          class="max-w-lg"
-        />
-
-        <!-- Loading -->
-        <div v-if="keywordLoading" class="flex items-center gap-2 py-4">
-          <UIcon name="i-lucide-loader" class="size-4 animate-spin text-muted" />
-          <span class="text-sm text-muted">Searching transcripts...</span>
+      <div class="mt-6 rounded-xl border border-default bg-elevated/50 p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="flex items-center justify-center size-8 rounded-lg bg-primary/10">
+              <UIcon name="i-lucide-text-search" class="size-4 text-primary" />
+            </div>
+            <div>
+              <h2 class="text-sm font-semibold leading-tight">Keyword Search</h2>
+              <p class="text-xs text-muted">Search across {{ persona.name }}'s transcripts</p>
+            </div>
+          </div>
+          <UBadge v-if="!isSubscribed" color="warning" variant="subtle" size="xs">
+            <UIcon name="i-lucide-lock" class="size-3 mr-0.5" />
+            Premium
+          </UBadge>
         </div>
 
-        <!-- Error -->
-        <div v-else-if="keywordError" class="text-sm text-red-500 py-2">{{ keywordError }}</div>
-
-        <!-- Results -->
-        <div v-else-if="keywordResults" class="space-y-3">
-          <!-- Summary -->
-          <div class="text-sm text-muted">
-            <span class="font-medium text-default">{{ keywordResults.total_matches }}</span> mention{{ keywordResults.total_matches !== 1 ? 's' : '' }}
-            across
-            <span class="font-medium text-default">{{ keywordResults.transcripts_with_matches }}</span> transcript{{ keywordResults.transcripts_with_matches !== 1 ? 's' : '' }}
+        <!-- Locked state for non-subscribers -->
+        <template v-if="!isSubscribed">
+          <div class="relative">
+            <UInput
+              disabled
+              icon="i-lucide-search"
+              placeholder="Search keywords (e.g. tariffs, economy, trade)..."
+              size="md"
+              class="opacity-50"
+            />
           </div>
-
-          <!-- No matches -->
-          <div v-if="keywordResults.matches.length === 0 && keywordResults.total_matches === 0" class="py-6 text-center text-muted">
-            <UIcon name="i-lucide-search-x" class="size-8 mx-auto mb-2 opacity-40" />
-            <p class="text-sm">No matches found for "{{ keywordResults.query }}"</p>
-          </div>
-
-          <!-- Match list -->
-          <div v-else class="space-y-2">
-            <NuxtLink
-              v-for="(m, i) in keywordResults.matches"
-              :key="i"
-              :to="`/transcripts/${m.transcript_id}?search=${encodeURIComponent(keywordResults.query)}`"
-              class="block rounded-lg border border-default p-3 hover:bg-elevated transition-colors"
-            >
-              <div class="flex items-center gap-2 mb-1.5">
-                <UIcon name="i-lucide-file-text" class="size-3.5 text-muted shrink-0" />
-                <span class="text-sm font-medium truncate">{{ m.transcript_name }}</span>
-                <span v-if="m.date" class="text-xs text-muted tabular-nums shrink-0 ml-auto">{{ m.date }}</span>
-              </div>
-              <p class="text-xs text-muted leading-relaxed" v-html="highlightContext(m.context, keywordResults.query)" />
-            </NuxtLink>
-          </div>
-
-          <!-- Paywall: limited results -->
-          <div
-            v-if="keywordResults.is_limited"
-            class="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
-          >
+          <div class="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
             <div class="flex-1">
-              <p class="text-sm font-medium">Unlock full search results</p>
-              <p class="text-sm text-muted mt-0.5">
-                Subscribe to see all {{ keywordResults.total_matches }} matches across {{ keywordResults.transcripts_with_matches }} transcripts.
+              <p class="text-sm font-medium">Subscribe to search transcripts</p>
+              <p class="text-xs text-muted mt-0.5">
+                Find exactly when and how often any topic was mentioned across all of {{ persona.name }}'s briefings.
               </p>
             </div>
             <UButton to="/pricing" icon="i-lucide-crown" variant="soft" color="warning" size="sm">
-              View Pricing
+              Upgrade
             </UButton>
           </div>
-        </div>
+        </template>
 
-        <!-- Empty state (before searching) -->
-        <div v-else-if="!keywordQuery.trim()" class="py-4 text-center text-muted">
-          <UIcon name="i-lucide-text-search" class="size-8 mx-auto mb-2 opacity-30" />
-          <p class="text-xs">Enter a keyword above to search across all transcripts</p>
-        </div>
+        <!-- Unlocked state for subscribers -->
+        <template v-else>
+          <UInput
+            v-model="keywordQuery"
+            icon="i-lucide-search"
+            placeholder="Search keywords (e.g. tariffs, economy, trade)..."
+            size="md"
+          />
+
+          <!-- Loading -->
+          <div v-if="keywordLoading" class="flex items-center gap-2 py-3">
+            <UIcon name="i-lucide-loader" class="size-4 animate-spin text-muted" />
+            <span class="text-sm text-muted">Searching transcripts...</span>
+          </div>
+
+          <!-- Error -->
+          <div v-else-if="keywordError" class="text-sm text-red-500 py-2">{{ keywordError }}</div>
+
+          <!-- Results -->
+          <div v-else-if="keywordResults" class="space-y-3">
+            <!-- Summary bar -->
+            <div class="flex items-center gap-3 text-sm">
+              <div class="flex items-center gap-1.5 text-muted">
+                <UIcon name="i-lucide-hash" class="size-3.5" />
+                <span><span class="font-medium text-default">{{ keywordResults.total_matches }}</span> mention{{ keywordResults.total_matches !== 1 ? 's' : '' }}</span>
+              </div>
+              <span class="text-muted/40">|</span>
+              <div class="flex items-center gap-1.5 text-muted">
+                <UIcon name="i-lucide-file-text" class="size-3.5" />
+                <span><span class="font-medium text-default">{{ keywordResults.transcripts_with_matches }}</span> transcript{{ keywordResults.transcripts_with_matches !== 1 ? 's' : '' }}</span>
+              </div>
+            </div>
+
+            <!-- No matches -->
+            <div v-if="keywordResults.matches.length === 0 && keywordResults.total_matches === 0" class="py-6 text-center text-muted">
+              <UIcon name="i-lucide-search-x" class="size-8 mx-auto mb-2 opacity-40" />
+              <p class="text-sm">No matches found for "{{ keywordResults.query }}"</p>
+            </div>
+
+            <!-- Grouped match list -->
+            <div v-else class="space-y-2 max-h-112 overflow-y-auto pr-1">
+              <NuxtLink
+                v-for="(m, i) in keywordResults.matches"
+                :key="i"
+                :to="`/transcripts/${m.transcript_id}?search=${encodeURIComponent(keywordResults.query)}`"
+                class="block rounded-lg border border-default bg-default p-3 hover:border-primary/30 hover:shadow-sm transition-all"
+              >
+                <div class="flex items-center gap-2 mb-1.5">
+                  <UIcon name="i-lucide-file-text" class="size-3.5 text-primary/60 shrink-0" />
+                  <span class="text-sm font-medium truncate">{{ m.transcript_name }}</span>
+                  <span v-if="m.date" class="text-xs text-muted tabular-nums shrink-0 ml-auto">{{ m.date }}</span>
+                </div>
+                <p class="text-xs text-muted leading-relaxed line-clamp-3" v-html="highlightContext(m.context, keywordResults.query)" />
+              </NuxtLink>
+            </div>
+          </div>
+
+          <!-- Empty state (before searching) -->
+          <div v-else-if="!keywordQuery.trim()" class="py-3 text-center text-muted">
+            <p class="text-xs">Type a keyword to search across all transcripts</p>
+          </div>
+        </template>
       </div>
 
       <!-- Transcripts Section -->
