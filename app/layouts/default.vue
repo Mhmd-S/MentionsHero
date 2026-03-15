@@ -12,6 +12,12 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     active: route.path === '/'
   },
   {
+    label: 'Markets',
+    icon: 'i-lucide-bar-chart-3',
+    to: '/markets',
+    active: route.path.startsWith('/markets')
+  },
+  {
     label: 'Pricing',
     icon: 'i-lucide-credit-card',
     to: '/pricing',
@@ -152,6 +158,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
       <template #center>
         <nav class="flex items-center gap-4">
           <NuxtLink to="/" class="text-sm text-muted hover:text-default transition-colors">Personas</NuxtLink>
+          <NuxtLink to="/markets" class="text-sm text-muted hover:text-default transition-colors">Markets</NuxtLink>
           <NuxtLink to="/pricing" class="text-sm text-muted hover:text-default transition-colors">Pricing</NuxtLink>
           <NuxtLink to="/blog" class="text-sm text-muted hover:text-default transition-colors">Blog</NuxtLink>
         </nav>

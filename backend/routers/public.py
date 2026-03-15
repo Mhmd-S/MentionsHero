@@ -120,6 +120,29 @@ async def persona_keyword_search(
     return result
 
 
+@router.get("/markets")
+async def list_public_markets() -> list[dict[str, Any]]:
+    """List all market events grouped by persona for public browsing."""
+    return await public_service.get_public_markets_listing()
+
+
+@router.get("/markets/{slug}")
+async def get_persona_markets(
+    slug: str,
+    user: dict | None = Depends(optional_auth),
+) -> dict[str, Any]:
+    """Get all market events and analysis for a persona.
+
+    Free users see market questions and prices.
+    Subscribers see full analysis (mentions, trends, percentages).
+    """
+    user_id = user["sub"] if user else None
+    result = await public_service.get_public_persona_markets(slug, user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    return result
+
+
 @router.get("/transcripts/{transcript_id}")
 async def get_transcript(
     transcript_id: str,

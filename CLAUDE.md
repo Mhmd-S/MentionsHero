@@ -27,6 +27,9 @@ app/                          # Nuxt 3 frontend
     account.vue               # User account & subscription management
     personas/[slug].vue       # Public persona detail & transcript listing
     transcripts/[id].vue      # Public transcript viewer
+    markets/                  # Public markets pages (premium-gated analysis)
+      index.vue               # Markets listing grouped by persona
+      [slug].vue              # Persona markets detail
     blog/                     # Blog pages (public)
       index.vue               # Blog listing
       [...slug].vue           # Individual blog post
@@ -41,6 +44,7 @@ app/                          # Nuxt 3 frontend
   composables/                # API interaction layer
     useAuthFetch.ts           # Authenticated fetch wrapper (admin)
     usePublicApi.ts           # Public fetch wrapper (attaches token if logged in)
+    usePublicMarkets.ts       # Public markets API
     useSubscription.ts        # Stripe subscription state management
     useJobProgress.ts         # SSE job streaming
     useAnalysis.ts            # Term search & analysis API
@@ -85,7 +89,7 @@ backend/                      # FastAPI backend
     polymarket.py             # /api/polymarket/* - Polymarket events, markets (admin)
     personas.py               # /api/personas/* - Persona CRUD, aliases (admin)
     chat.py                   # /api/chat/* - AI chat agent conversations (admin)
-    public.py                 # /api/public/* - Public personas & transcripts (no auth)
+    public.py                 # /api/public/* - Public personas, transcripts & markets (no auth)
     stripe_router.py          # /api/stripe/* - Checkout, webhook, subscription
   services/                   # Business logic
     job_service.py            # Job lifecycle, SSE events
@@ -235,7 +239,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 | `/api/polymarket` | `polymarket.py` | Admin | Polymarket events/markets, search, analysis |
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
 | `/api/chat` | `chat.py` | Admin | AI chat agent conversations, SSE streaming |
-| `/api/public` | `public.py` | None/Optional | Public personas & transcript browsing |
+| `/api/public` | `public.py` | None/Optional | Public personas, transcripts & markets browsing |
 | `/api/stripe` | `stripe_router.py` | User/None | Checkout, webhook, subscription, portal |
 | `/api/profile` | `profile.py` | User/None | Profile CRUD, signup init |
 

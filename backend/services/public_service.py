@@ -370,3 +370,565 @@ async def check_user_subscription(user_id: str) -> bool:
     )
 
     return bool(response.data)
+
+
+def _is_event_active_kalshi(event: dict, markets_by_event: dict[str, list[dict]]) -> bool:
+    """Check if a Kalshi event is still active (has at least one non-finalized market)."""
+    event_markets = markets_by_event.get(event["id"], [])
+    return any(m.get("status") == "active" for m in event_markets)
+
+
+def _is_event_active_poly(event: dict) -> bool:
+    """Check if a Polymarket event is still active (not closed and end_date in the future)."""
+    from datetime import datetime, timezone
+    if event.get("closed"):
+        return False
+    end_date = event.get("end_date")
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            if end_dt < datetime.now(timezone.utc):
+                return False
+        except (ValueError, TypeError):
+            pass
+    return True
+
+
+_COMMON_WORDS = {
+    "the", "and", "for", "say", "will", "what", "press", "next",
+    "this", "that", "with", "from", "during", "event", "week",
+    "conference", "confrence", "transcripts", "transcript",
+    "market", "markets", "mentions", "mention", "briefing",
+}
+
+
+def _build_persona_name_variants(name: str, aliases: list[str]) -> list[str]:
+    """Build name variants for matching: full names, aliases, and surname parts.
+
+    Only adds individual words as variants if they are 4+ chars and not common words.
+    """
+    variants = set()
+    for n in [name] + aliases:
+        n_lower = n.lower().strip()
+        if n_lower:
+            variants.add(n_lower)
+            # Add individual words that are distinctive (4+ chars, not common)
+            for part in n_lower.split():
+                if len(part) >= 4 and part not in _COMMON_WORDS:
+                    variants.add(part)
+    return list(variants)
+
+
+def _persona_excluded_from_event(
+    persona_id: str,
+    event_title: str,
+    all_personas: dict[str, dict],
+    all_aliases: dict[str, list[str]],
+) -> bool:
+    """Check if the event title names a DIFFERENT persona — if so, exclude this persona.
+
+    If the event title contains another persona's name/alias but NOT this persona's,
+    it means the event belongs to someone else and this persona was just cross-analyzed.
+    """
+    title_lower = (event_title or "").lower()
+    if not title_lower:
+        return False
+
+    this_persona = all_personas.get(persona_id)
+    if not this_persona:
+        return False
+
+    this_variants = _build_persona_name_variants(
+        this_persona["name"], all_aliases.get(persona_id, [])
+    )
+    this_matches = any(v in title_lower for v in this_variants)
+
+    # Check if any OTHER persona's name variants are in the title
+    other_matches = False
+    for pid, p in all_personas.items():
+        if pid == persona_id:
+            continue
+        other_variants = _build_persona_name_variants(p["name"], all_aliases.get(pid, []))
+        if any(v in title_lower for v in other_variants):
+            other_matches = True
+            break
+
+    # Exclude only if another persona matches but this one doesn't
+    return other_matches and not this_matches
+
+
+async def get_public_markets_listing() -> list[dict[str, Any]]:
+    """Get all market events grouped by persona for the public markets listing.
+
+    Returns personas that have analyzed markets, with event summaries and top terms.
+    Only shows active events where the persona is the subject of the event.
+    """
+    supabase = get_supabase()
+
+    # Get Kalshi term results — only those with actual mentions
+    kalshi_results = (
+        supabase.table("market_term_results")
+        .select("persona_id, market_id, search_term, total_mentions")
+        .gt("total_mentions", 0)
+        .execute()
+    ).data or []
+
+    # Get Polymarket term results — only those with actual mentions
+    poly_results = (
+        supabase.table("poly_market_term_results")
+        .select("persona_id, market_id, search_term, total_mentions")
+        .gt("total_mentions", 0)
+        .execute()
+    ).data or []
+
+    # Collect all persona IDs
+    persona_ids = list({r["persona_id"] for r in kalshi_results} | {r["persona_id"] for r in poly_results})
+    if not persona_ids:
+        return []
+
+    # Fetch persona info + aliases for ownership matching
+    personas_resp = (
+        supabase.table("personas")
+        .select("id, name, slug, image_url")
+        .in_("id", persona_ids)
+        .order("name")
+        .execute()
+    )
+    personas = {p["id"]: p for p in (personas_resp.data or [])}
+
+    aliases_resp = supabase.table("persona_aliases").select("persona_id, alias").execute()
+    aliases_by_persona: dict[str, list[str]] = {}
+    for a in (aliases_resp.data or []):
+        aliases_by_persona.setdefault(a["persona_id"], []).append(a["alias"])
+
+    # --- Kalshi: get market + event info ---
+    kalshi_market_ids = list({r["market_id"] for r in kalshi_results})
+    kalshi_markets: dict[str, dict] = {}
+    if kalshi_market_ids:
+        for i in range(0, len(kalshi_market_ids), 200):
+            batch = kalshi_market_ids[i:i + 200]
+            resp = (
+                supabase.table("kalshi_markets")
+                .select("id, event_id, question, last_price, result, status")
+                .in_("id", batch)
+                .execute()
+            )
+            for m in (resp.data or []):
+                kalshi_markets[m["id"]] = m
+
+    # Build markets-by-event lookup for active check
+    kalshi_markets_by_event: dict[str, list[dict]] = {}
+    for m in kalshi_markets.values():
+        kalshi_markets_by_event.setdefault(m["event_id"], []).append(m)
+
+    kalshi_event_ids = list({m["event_id"] for m in kalshi_markets.values()})
+    kalshi_events: dict[str, dict] = {}
+    if kalshi_event_ids:
+        for i in range(0, len(kalshi_event_ids), 200):
+            batch = kalshi_event_ids[i:i + 200]
+            resp = (
+                supabase.table("kalshi_events")
+                .select("id, event_ticker, title, strike_date, status")
+                .in_("id", batch)
+                .execute()
+            )
+            for e in (resp.data or []):
+                kalshi_events[e["id"]] = e
+
+    # --- Polymarket: get market + event info ---
+    poly_market_ids = list({r["market_id"] for r in poly_results})
+    poly_markets: dict[str, dict] = {}
+    if poly_market_ids:
+        for i in range(0, len(poly_market_ids), 200):
+            batch = poly_market_ids[i:i + 200]
+            resp = (
+                supabase.table("poly_markets")
+                .select("id, event_id, question, last_trade_price, result, active, closed")
+                .in_("id", batch)
+                .execute()
+            )
+            for m in (resp.data or []):
+                poly_markets[m["id"]] = m
+
+    poly_event_ids = list({m["event_id"] for m in poly_markets.values()})
+    poly_events: dict[str, dict] = {}
+    if poly_event_ids:
+        for i in range(0, len(poly_event_ids), 200):
+            batch = poly_event_ids[i:i + 200]
+            resp = (
+                supabase.table("poly_events")
+                .select("id, title, end_date, image, active, closed")
+                .in_("id", batch)
+                .execute()
+            )
+            for e in (resp.data or []):
+                poly_events[e["id"]] = e
+
+    # --- Group by persona → events ---
+    persona_events: dict[str, dict[str, dict]] = {}
+
+    # Process Kalshi results
+    for r in kalshi_results:
+        pid = r["persona_id"]
+        persona = personas.get(pid)
+        if not persona:
+            continue
+        market = kalshi_markets.get(r["market_id"])
+        if not market:
+            continue
+        event = kalshi_events.get(market["event_id"])
+        if not event:
+            continue
+        # Skip expired (all markets finalized)
+        if not _is_event_active_kalshi(event, kalshi_markets_by_event):
+            continue
+        # Skip if event title names a different persona
+        if _persona_excluded_from_event(pid, event.get("title", ""), personas, aliases_by_persona):
+            continue
+
+        eid = event["id"]
+        pe = persona_events.setdefault(pid, {})
+        if eid not in pe:
+            pe[eid] = {
+                "source": "kalshi",
+                "event_id": eid,
+                "event_ticker": event.get("event_ticker"),
+                "title": event.get("title", ""),
+                "strike_date": event.get("strike_date"),
+                "end_date": None,
+                "status": "active",
+                "image": None,
+                "market_ids": set(),
+                "terms": [],
+            }
+        pe[eid]["market_ids"].add(r["market_id"])
+        pe[eid]["terms"].append({
+            "term": r["search_term"],
+            "mentions": r["total_mentions"],
+            "price": int(round((market.get("last_price") or 0) * 100)),
+        })
+
+    # Process Polymarket results
+    for r in poly_results:
+        pid = r["persona_id"]
+        persona = personas.get(pid)
+        if not persona:
+            continue
+        market = poly_markets.get(r["market_id"])
+        if not market:
+            continue
+        event = poly_events.get(market["event_id"])
+        if not event:
+            continue
+        # Skip expired (closed or end_date passed)
+        if not _is_event_active_poly(event):
+            continue
+        # Skip if event title names a different persona
+        if _persona_excluded_from_event(pid, event.get("title", ""), personas, aliases_by_persona):
+            continue
+
+        eid = event["id"]
+        pe = persona_events.setdefault(pid, {})
+        if eid not in pe:
+            pe[eid] = {
+                "source": "polymarket",
+                "event_id": eid,
+                "event_ticker": None,
+                "title": event.get("title", ""),
+                "strike_date": None,
+                "end_date": event.get("end_date"),
+                "status": "active",
+                "image": event.get("image"),
+                "market_ids": set(),
+                "terms": [],
+            }
+        pe[eid]["market_ids"].add(r["market_id"])
+        pe[eid]["terms"].append({
+            "term": r["search_term"],
+            "mentions": r["total_mentions"],
+            "price": int(round((market.get("last_trade_price") or 0) * 100)),
+        })
+
+    # Build final response
+    result = []
+    for pid in persona_ids:
+        persona = personas.get(pid)
+        if not persona or pid not in persona_events:
+            continue
+
+        events = []
+        for ev_data in persona_events[pid].values():
+            # Deduplicate and sort terms by mentions desc, take top 3
+            seen_terms: dict[str, dict] = {}
+            for t in ev_data["terms"]:
+                key = t["term"]
+                if key not in seen_terms or t["mentions"] > seen_terms[key]["mentions"]:
+                    seen_terms[key] = t
+            top_terms = sorted(seen_terms.values(), key=lambda x: x["mentions"], reverse=True)[:3]
+
+            events.append({
+                "source": ev_data["source"],
+                "event_id": ev_data["event_id"],
+                "event_ticker": ev_data["event_ticker"],
+                "title": ev_data["title"],
+                "strike_date": ev_data["strike_date"],
+                "end_date": ev_data["end_date"],
+                "status": ev_data["status"],
+                "image": ev_data["image"],
+                "market_count": len(ev_data["market_ids"]),
+                "top_terms": top_terms,
+            })
+
+        if not events:
+            continue
+
+        events.sort(key=lambda e: (e["title"] or ""))
+
+        result.append({
+            "persona": {
+                "id": persona["id"],
+                "name": persona["name"],
+                "slug": persona.get("slug"),
+                "image_url": persona.get("image_url"),
+            },
+            "events": events,
+        })
+
+    return result
+
+
+async def get_public_persona_markets(
+    slug: str,
+    user_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Get all market events and analysis for a persona (subscription-gated).
+
+    Free users see market questions and prices but not analysis data.
+    Subscribers see full mention counts, trends, and percentages.
+    Only shows active events where the persona is the subject.
+    """
+    supabase = get_supabase()
+
+    # Get persona + aliases
+    persona = await get_persona_by_slug(slug)
+    if not persona:
+        return None
+
+    pid = persona["id"]
+    is_subscribed = False
+    if user_id:
+        is_subscribed = await check_user_subscription(user_id)
+
+    # Load all personas + aliases for cross-persona exclusion check
+    all_personas_resp = supabase.table("personas").select("id, name").execute()
+    all_personas = {p["id"]: p for p in (all_personas_resp.data or [])}
+    all_aliases_resp = supabase.table("persona_aliases").select("persona_id, alias").execute()
+    all_aliases: dict[str, list[str]] = {}
+    for a in (all_aliases_resp.data or []):
+        all_aliases.setdefault(a["persona_id"], []).append(a["alias"])
+
+    # --- Kalshi term results for this persona (only with mentions) ---
+    kalshi_results = (
+        supabase.table("market_term_results")
+        .select("market_id, search_term, total_mentions, briefings_with_term, total_briefings, percentage, trend")
+        .eq("persona_id", pid)
+        .gt("total_mentions", 0)
+        .execute()
+    ).data or []
+
+    # Get Kalshi markets
+    kalshi_market_ids = list({r["market_id"] for r in kalshi_results})
+    kalshi_markets: dict[str, dict] = {}
+    if kalshi_market_ids:
+        for i in range(0, len(kalshi_market_ids), 200):
+            batch = kalshi_market_ids[i:i + 200]
+            resp = (
+                supabase.table("kalshi_markets")
+                .select("id, event_id, question, last_price, result, status, close_time")
+                .in_("id", batch)
+                .execute()
+            )
+            for m in (resp.data or []):
+                kalshi_markets[m["id"]] = m
+
+    # Build markets-by-event lookup for active check
+    kalshi_markets_by_event: dict[str, list[dict]] = {}
+    for m in kalshi_markets.values():
+        kalshi_markets_by_event.setdefault(m["event_id"], []).append(m)
+
+    # Get Kalshi events
+    kalshi_event_ids = list({m["event_id"] for m in kalshi_markets.values()})
+    kalshi_events: dict[str, dict] = {}
+    if kalshi_event_ids:
+        for i in range(0, len(kalshi_event_ids), 200):
+            batch = kalshi_event_ids[i:i + 200]
+            resp = (
+                supabase.table("kalshi_events")
+                .select("id, event_ticker, title, strike_date, status")
+                .in_("id", batch)
+                .execute()
+            )
+            for e in (resp.data or []):
+                kalshi_events[e["id"]] = e
+
+    # --- Polymarket term results for this persona (only with mentions) ---
+    poly_results = (
+        supabase.table("poly_market_term_results")
+        .select("market_id, search_term, total_mentions, briefings_with_term, total_briefings, percentage, trend")
+        .eq("persona_id", pid)
+        .gt("total_mentions", 0)
+        .execute()
+    ).data or []
+
+    # Get Poly markets
+    poly_market_ids = list({r["market_id"] for r in poly_results})
+    poly_markets: dict[str, dict] = {}
+    if poly_market_ids:
+        for i in range(0, len(poly_market_ids), 200):
+            batch = poly_market_ids[i:i + 200]
+            resp = (
+                supabase.table("poly_markets")
+                .select("id, event_id, question, last_trade_price, result, active, closed, closed_time")
+                .in_("id", batch)
+                .execute()
+            )
+            for m in (resp.data or []):
+                poly_markets[m["id"]] = m
+
+    # Get Poly events
+    poly_event_ids = list({m["event_id"] for m in poly_markets.values()})
+    poly_events: dict[str, dict] = {}
+    if poly_event_ids:
+        for i in range(0, len(poly_event_ids), 200):
+            batch = poly_event_ids[i:i + 200]
+            resp = (
+                supabase.table("poly_events")
+                .select("id, title, end_date, image, active, closed")
+                .in_("id", batch)
+                .execute()
+            )
+            for e in (resp.data or []):
+                poly_events[e["id"]] = e
+
+    # --- Group into events with markets ---
+    events_map: dict[str, dict] = {}
+
+    # Kalshi
+    for r in kalshi_results:
+        market = kalshi_markets.get(r["market_id"])
+        if not market:
+            continue
+        event = kalshi_events.get(market["event_id"])
+        if not event:
+            continue
+        # Skip expired (all markets finalized)
+        if not _is_event_active_kalshi(event, kalshi_markets_by_event):
+            continue
+        # Skip if event title names a different persona
+        if _persona_excluded_from_event(pid, event.get("title", ""), all_personas, all_aliases):
+            continue
+
+        eid = event["id"]
+        if eid not in events_map:
+            events_map[eid] = {
+                "source": "kalshi",
+                "event_id": eid,
+                "event_ticker": event.get("event_ticker"),
+                "title": event.get("title", ""),
+                "strike_date": event.get("strike_date"),
+                "end_date": None,
+                "status": "active",
+                "image": None,
+                "markets": [],
+            }
+
+        market_entry: dict[str, Any] = {
+            "market_id": market["id"],
+            "question": market.get("question"),
+            "search_term": r["search_term"],
+            "price": int(round((market.get("last_price") or 0) * 100)),
+            "result": market.get("result"),
+            "status": market.get("status"),
+        }
+
+        if is_subscribed:
+            market_entry.update({
+                "total_mentions": r["total_mentions"],
+                "briefings_with_term": r["briefings_with_term"],
+                "total_briefings": r["total_briefings"],
+                "percentage": r["percentage"],
+                "trend": r["trend"],
+            })
+
+        events_map[eid]["markets"].append(market_entry)
+
+    # Polymarket
+    for r in poly_results:
+        market = poly_markets.get(r["market_id"])
+        if not market:
+            continue
+        event = poly_events.get(market["event_id"])
+        if not event:
+            continue
+        # Skip expired (closed or end_date passed)
+        if not _is_event_active_poly(event):
+            continue
+        # Skip if event title names a different persona
+        if _persona_excluded_from_event(pid, event.get("title", ""), all_personas, all_aliases):
+            continue
+
+        eid = event["id"]
+        if eid not in events_map:
+            events_map[eid] = {
+                "source": "polymarket",
+                "event_id": eid,
+                "event_ticker": None,
+                "title": event.get("title", ""),
+                "strike_date": None,
+                "end_date": event.get("end_date"),
+                "status": "active",
+                "image": event.get("image"),
+                "markets": [],
+            }
+
+        market_entry = {
+            "market_id": market["id"],
+            "question": market.get("question"),
+            "search_term": r["search_term"],
+            "price": int(round((market.get("last_trade_price") or 0) * 100)),
+            "result": market.get("result"),
+            "status": "closed" if market.get("closed") else "active",
+        }
+
+        if is_subscribed:
+            market_entry.update({
+                "total_mentions": r["total_mentions"],
+                "briefings_with_term": r["briefings_with_term"],
+                "total_briefings": r["total_briefings"],
+                "percentage": r["percentage"],
+                "trend": r["trend"],
+            })
+
+        events_map[eid]["markets"].append(market_entry)
+
+    # Sort events by title
+    events = sorted(events_map.values(), key=lambda e: (e["title"] or ""))
+
+    # Sort markets within each event by mentions (desc) if subscribed, else by price
+    for event in events:
+        if is_subscribed:
+            event["markets"].sort(key=lambda m: m.get("total_mentions", 0), reverse=True)
+        else:
+            event["markets"].sort(key=lambda m: m.get("price", 0), reverse=True)
+
+    return {
+        "persona": {
+            "id": persona["id"],
+            "name": persona["name"],
+            "slug": persona.get("slug"),
+            "image_url": persona.get("image_url"),
+            "description": persona.get("description"),
+        },
+        "events": events,
+        "is_limited": not is_subscribed,
+    }

@@ -479,7 +479,7 @@ def _build_cluster(matches: list[dict[str, Any]]) -> dict[str, Any]:
         "transcript_name": first.get("transcript_name", "Unknown"),
         "date": first.get("date"),
         "merged_context": merged,
-        "mention_count": len(matches),
+        "mention_count": sum(m.get("mention_count", 1) for m in matches),
         "positions": [m.get("position", 0) for m in matches],
     }
 
