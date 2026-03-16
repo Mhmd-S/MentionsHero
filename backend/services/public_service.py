@@ -309,6 +309,49 @@ async def keyword_search_for_persona(
     }
 
 
+async def _find_personas_for_transcript(transcript_id: str) -> list[dict[str, Any]]:
+    """Find persona(s) associated with a transcript via speakers + aliases."""
+    supabase = get_supabase()
+
+    # Get speaker names for this transcript
+    ts_resp = (
+        supabase.table("transcript_speakers")
+        .select("speaker_id, speakers(name)")
+        .eq("transcript_id", transcript_id)
+        .execute()
+    )
+    if not ts_resp.data:
+        return []
+
+    speaker_names = [r["speakers"]["name"] for r in ts_resp.data if r.get("speakers")]
+
+    if not speaker_names:
+        return []
+
+    # Find personas whose aliases match any speaker name
+    aliases_resp = (
+        supabase.table("persona_aliases")
+        .select("persona_id, alias")
+        .execute()
+    )
+    matching_persona_ids = set()
+    for alias_row in aliases_resp.data or []:
+        if alias_row["alias"].lower() in [s.lower() for s in speaker_names]:
+            matching_persona_ids.add(alias_row["persona_id"])
+
+    if not matching_persona_ids:
+        return []
+
+    # Fetch persona details
+    personas_resp = (
+        supabase.table("personas")
+        .select("id, name, slug, image_url")
+        .in_("id", list(matching_persona_ids))
+        .execute()
+    )
+    return personas_resp.data or []
+
+
 async def get_public_transcript(
     transcript_id: str,
     user_id: str | None = None,
@@ -353,7 +396,88 @@ async def get_public_transcript(
             transcript["transcript"] = cut
 
     transcript["is_locked"] = is_locked
+
+    # Attach persona info for navigation breadcrumbs
+    personas = await _find_personas_for_transcript(transcript_id)
+    if personas:
+        # Use the first persona as primary (most transcripts belong to one persona)
+        p = personas[0]
+        transcript["persona"] = {
+            "name": p["name"],
+            "slug": p.get("slug") or p["id"],
+            "image_url": p.get("image_url"),
+        }
+
     return transcript
+
+
+async def get_transcript_neighbors(
+    transcript_id: str,
+    persona_slug: str,
+) -> dict[str, Any]:
+    """Get previous and next transcript IDs within a persona's transcript list (by date desc)."""
+    supabase = get_supabase()
+
+    # Resolve persona by slug
+    persona_resp = (
+        supabase.table("personas")
+        .select("id, name, slug")
+        .eq("slug", persona_slug)
+        .single()
+        .execute()
+    )
+    if not persona_resp.data:
+        return {"prev": None, "next": None}
+
+    persona_id = persona_resp.data["id"]
+
+    # Get aliases
+    aliases_resp = (
+        supabase.table("persona_aliases")
+        .select("alias")
+        .eq("persona_id", persona_id)
+        .execute()
+    )
+    aliases = [a["alias"] for a in (aliases_resp.data or [])]
+    if not aliases:
+        return {"prev": None, "next": None}
+
+    # Find all transcript IDs for this persona
+    matching_ids = await _find_transcript_ids_by_aliases(aliases)
+    if not matching_ids or transcript_id not in matching_ids:
+        return {"prev": None, "next": None}
+
+    # Fetch ordered list of public transcripts
+    id_list = list(matching_ids)
+    all_transcripts: list[dict[str, Any]] = []
+    batch_size = 200
+    for i in range(0, len(id_list), batch_size):
+        batch = id_list[i : i + batch_size]
+        resp = (
+            supabase.table("transcripts")
+            .select("id, name, upload_date")
+            .eq("is_public", True)
+            .in_("id", batch)
+            .order("upload_date", desc=True)
+            .execute()
+        )
+        all_transcripts.extend(resp.data or [])
+
+    # Sort combined results
+    all_transcripts.sort(key=lambda t: t.get("upload_date") or "", reverse=True)
+
+    # Find current index
+    idx = next((i for i, t in enumerate(all_transcripts) if t["id"] == transcript_id), None)
+    if idx is None:
+        return {"prev": None, "next": None}
+
+    prev_t = all_transcripts[idx - 1] if idx > 0 else None
+    next_t = all_transcripts[idx + 1] if idx < len(all_transcripts) - 1 else None
+
+    return {
+        "prev": {"id": prev_t["id"], "name": prev_t.get("name")} if prev_t else None,
+        "next": {"id": next_t["id"], "name": next_t.get("name")} if next_t else None,
+    }
 
 
 async def check_user_subscription(user_id: str) -> bool:

@@ -6,7 +6,7 @@ const route = useRoute()
 
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
-    label: 'Personas',
+    label: 'Transcripts',
     icon: 'i-lucide-users',
     to: '/',
     active: route.path === '/'
@@ -33,7 +33,6 @@ const navItems = computed<NavigationMenuItem[]>(() => [
 </script>
 
 <template>
-  <UApp>
     <UHeader :to="'/'">
       <template #title>
         <div class="flex items-center gap-2">
@@ -157,7 +156,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
 
       <template #center>
         <nav class="flex items-center gap-4">
-          <NuxtLink to="/" class="text-sm text-muted hover:text-default transition-colors">Personas</NuxtLink>
+          <NuxtLink to="/" class="text-sm text-muted hover:text-default transition-colors">Transcripts</NuxtLink>
           <NuxtLink to="/markets" class="text-sm text-muted hover:text-default transition-colors">Markets</NuxtLink>
           <NuxtLink to="/pricing" class="text-sm text-muted hover:text-default transition-colors">Pricing</NuxtLink>
           <NuxtLink to="/blog" class="text-sm text-muted hover:text-default transition-colors">Blog</NuxtLink>
@@ -168,5 +167,4 @@ const navItems = computed<NavigationMenuItem[]>(() => [
         <UColorModeButton v-if="!$device.isMobile" />
       </template>
     </UFooter>
-  </UApp>
 </template>

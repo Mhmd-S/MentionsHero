@@ -39,13 +39,11 @@ export default defineNuxtConfig({
     },
     serverBundle: false,
   },
-  ui: {},
   css: ['~/assets/css/main.css'],
   modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo', '@nuxtjs/device', '@nuxt/image', '@nuxt/content'],
-
+  
   image: {
     quality: 80,
-    formats: ['webp'],
   },
 
   sitemap: {

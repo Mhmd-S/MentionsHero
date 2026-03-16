@@ -40,6 +40,13 @@ const expandedTranscripts = ref(new Set<string>())
 const groupedByTranscript = computed(() => {
   const matches = props.termResult?.context_matches
   if (!matches?.length) return []
+
+  // Build a lookup from transcript name → actual count (from full frequency analysis, not truncated clusters)
+  const countByName = new Map<string, number>()
+  for (const entry of props.termResult?.mentions_by_date ?? []) {
+    if (entry.name) countByName.set(entry.name, entry.count)
+  }
+
   const groups = new Map<string, {
     transcript_id: string
     transcript_name: string
@@ -55,14 +62,13 @@ const groupedByTranscript = computed(() => {
     const existing = groups.get(match.transcript_id)
     if (existing) {
       existing.snippets.push(match.context)
-      existing.mentionCount += (match.mention_count ?? 1)
     } else {
       groups.set(match.transcript_id, {
         transcript_id: match.transcript_id,
         transcript_name: match.transcript_name,
         date: match.date,
         snippets: [match.context],
-        mentionCount: match.mention_count ?? 1,
+        mentionCount: countByName.get(match.transcript_name) ?? match.mention_count ?? 1,
       })
     }
   }
