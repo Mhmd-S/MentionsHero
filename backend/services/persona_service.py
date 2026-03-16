@@ -230,6 +230,61 @@ async def remove_aliases(persona_id: str, aliases: list[str]) -> dict[str, Any] 
     return await get_persona_by_id(persona_id)
 
 
+async def search_personas(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Search personas by name or alias (case-insensitive)."""
+    supabase = get_supabase()
+    q = query.strip()
+    if not q:
+        return []
+
+    # Find persona IDs matching by alias
+    alias_resp = (
+        supabase.table("persona_aliases")
+        .select("persona_id")
+        .ilike("alias", f"%{q}%")
+        .execute()
+    )
+    alias_persona_ids = {a["persona_id"] for a in (alias_resp.data or [])}
+
+    # Find personas matching by name
+    name_resp = (
+        supabase.table("personas")
+        .select("id")
+        .ilike("name", f"%{q}%")
+        .execute()
+    )
+    name_persona_ids = {p["id"] for p in (name_resp.data or [])}
+
+    # Combine and fetch full persona data
+    all_ids = list(alias_persona_ids | name_persona_ids)
+    if not all_ids:
+        return []
+
+    personas_resp = (
+        supabase.table("personas")
+        .select("*")
+        .in_("id", all_ids[:limit])
+        .execute()
+    )
+    personas = personas_resp.data or []
+
+    # Attach aliases
+    if personas:
+        aliases_resp = (
+            supabase.table("persona_aliases")
+            .select("persona_id, alias")
+            .in_("persona_id", [p["id"] for p in personas])
+            .execute()
+        )
+        aliases_by_pid: dict[str, list[str]] = {}
+        for a in (aliases_resp.data or []):
+            aliases_by_pid.setdefault(a["persona_id"], []).append(a["alias"])
+        for persona in personas:
+            persona["aliases"] = aliases_by_pid.get(persona["id"], [])
+
+    return personas
+
+
 async def get_all_aliases() -> dict[str, str]:
     """Get a mapping of all aliases to their persona IDs."""
     supabase = get_supabase()

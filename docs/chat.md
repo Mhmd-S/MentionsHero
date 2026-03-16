@@ -43,7 +43,27 @@ All admin-authed via `require_admin` dependency.
 
 ## Available Tools
 
-All read-only. Defined in `agent_tools.py`.
+All read-only. Defined in `agent_tools.py`. 16 tools total.
+
+### Lookup & Navigation
+
+| Tool | Description | Calls |
+|------|-------------|-------|
+| `search_folders` | Find folders by name (case-insensitive) | `folder_service.get_all_folders()` + filter |
+| `search_personas` | Find persona by name/alias | `persona_service.search_personas()` |
+| `list_folders` | List all folders | `folder_service.get_all_folders()` |
+| `list_personas` | All personas + aliases | `persona_service.get_all_personas()` |
+| `get_persona` | Single persona detail | `persona_service.get_persona_by_id()` |
+
+### Transcript Access
+
+| Tool | Description | Calls |
+|------|-------------|-------|
+| `list_transcripts` | List transcripts (metadata only, sorted by date) | `transcript_service.get_all_transcripts()` |
+| `get_transcript_content` | Read transcript text (with section-based truncation) | `transcript_service.get_transcript_by_id()` |
+| `list_speakers` | Speakers with counts | `speaker_service.get_all_speakers()` |
+
+### Term Analysis
 
 | Tool | Description | Calls |
 |------|-------------|-------|
@@ -51,14 +71,28 @@ All read-only. Defined in `agent_tools.py`.
 | `search_term_in_context` | Context snippets | `nlp.search_term_in_context()` |
 | `get_top_terms` | Most frequent terms | `nlp.calculate_all_term_frequencies()` |
 | `get_ngrams` | Common 2/3-word phrases | `nlp.extract_ngrams()` |
-| `list_speakers` | Speakers with counts | `speaker_service.get_all_speakers()` |
-| `list_personas` | All personas + aliases | `persona_service.get_all_personas()` |
-| `get_persona` | Single persona detail | `persona_service.get_persona_by_id()` |
+
+### Markets
+
+| Tool | Description | Calls |
+|------|-------------|-------|
 | `browse_kalshi_events` | Open Kalshi events | `kalshi_service.browse_events()` |
 | `get_kalshi_event` | Event detail + markets | `kalshi_service.get_event_detail_by_ticker()` |
 | `search_polymarket` | Search Polymarket | `polymarket_service.search_events()` |
 | `get_polymarket_event` | Event detail + markets | `polymarket_service.get_event_detail()` |
-| `list_folders` | Available folders | `folder_service.get_all_folders()` |
+
+### Multi-Step Reasoning
+
+The system prompt guides the agent to chain tools for complex questions. Example flow for *"How will the latest PMQ transcript affect the Polymarket PMQ market?"*:
+
+1. `search_folders(query="PMQ")` → folder_id
+2. `list_transcripts(folder_id=X, limit=1, sort="latest")` → transcript ID
+3. `search_personas(query="Keir Starmer")` → persona_id
+4. `get_transcript_content(transcript_id=Y)` → reads the transcript
+5. `search_polymarket(query="PMQ")` → finds relevant market
+6. `get_polymarket_event(event_id=Z, persona_id=P)` → prices + mention analysis
+
+The agent then synthesizes transcript content with market data for an analytical answer.
 
 ## SSE Event Format
 
@@ -84,10 +118,29 @@ data: {"message": "error description"}
 | File | Purpose |
 |------|---------|
 | `app/composables/useChat.ts` | Chat state + API + SSE streaming |
-| `app/components/chat/ChatMessage.vue` | Message bubble (user/assistant) |
-| `app/components/chat/ChatToolCall.vue` | Collapsible tool call display |
-| `app/components/chat/ChatInput.vue` | Text input with Enter-to-send |
-| `app/pages/admin/transcript-analysis.vue` | Chat page (replaces old transcript analysis) |
+| `app/pages/admin/transcript-analysis.vue` | Chat page using Nuxt UI chat components |
+
+### UI Components Used (Nuxt UI v4)
+
+- **`UChatMessages`** — Message container with built-in auto-scroll, scroll-to-bottom button, typing indicator
+- **`UChatMessage`** — Single message with avatar, variant (soft/naked), side (left/right), action buttons
+- **`UChatPrompt`** — Auto-resizing textarea with Enter-to-send, outline variant
+- **`UChatPromptSubmit`** — Status-aware submit/stop/reload button
+
+Custom `app/components/chat/` components (ChatMessage, ChatToolCall, ChatInput) are no longer used — replaced by Nuxt UI built-ins with `#content` slot for markdown rendering and tool invocation display.
+
+### Composable State
+
+| State | Type | Purpose |
+|-------|------|---------|
+| `conversations` | `Conversation[]` | Sidebar list |
+| `currentConversation` | `Conversation \| null` | Active conversation |
+| `messages` | `ChatMessage[]` | Messages with parts-based format |
+| `status` | `ChatStatus` | `ready \| streaming \| submitted \| error` |
+| `loading` | `boolean` | Conversation loading (messages area) |
+| `sidebarLoading` | `boolean` | Initial conversation list fetch |
+| `deletingId` | `string \| null` | Conversation being deleted (spinner) |
+| `error` | `string \| null` | Error message |
 
 ## Agent Loop Flow
 
