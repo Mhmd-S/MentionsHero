@@ -182,3 +182,12 @@ async def get_transcript(
         }
 
     return transcript
+
+
+@router.get("/transcripts/{transcript_id}/neighbors")
+async def get_transcript_neighbors(
+    transcript_id: str,
+    persona: str = Query(..., description="Persona slug for ordering context"),
+) -> dict[str, Any]:
+    """Get previous and next transcripts within a persona's list."""
+    return await public_service.get_transcript_neighbors(transcript_id, persona)

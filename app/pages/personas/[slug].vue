@@ -176,13 +176,13 @@ onMounted(() => {
 
 // SEO meta tags (rendered during SSR thanks to useFetch above)
 useSeoMeta({
-  title: () => persona.value?.meta_title || persona.value?.name || 'Persona',
+  title: () => persona.value?.meta_title || persona.value?.name || 'Transcripts',
   description: () => persona.value?.meta_description || persona.value?.description || '',
-  ogTitle: () => persona.value?.meta_title || persona.value?.name || 'Persona',
+  ogTitle: () => persona.value?.meta_title || persona.value?.name || 'Transcripts',
   ogDescription: () => persona.value?.meta_description || persona.value?.description || '',
   ogType: 'profile',
   twitterCard: 'summary',
-  twitterTitle: () => persona.value?.meta_title || persona.value?.name || 'Persona',
+  twitterTitle: () => persona.value?.meta_title || persona.value?.name || 'Transcripts',
   twitterDescription: () => persona.value?.meta_description || persona.value?.description || '',
   robots: 'index, follow',
 })
@@ -205,7 +205,7 @@ useSchemaOrg([
   }),
   defineBreadcrumb({
     itemListElement: [
-      { name: 'Personas', item: '/' },
+      { name: 'Transcripts', item: '/' },
       { name: () => persona.value?.name || '' },
     ],
   }),
@@ -224,7 +224,7 @@ onMounted(() => loadTranscripts())
     <!-- Not found -->
     <div v-else-if="!persona" class="py-16 text-center text-muted">
       <UIcon name="i-lucide-alert-triangle" class="size-10 mx-auto mb-3 opacity-40" />
-      <p class="font-medium">Persona not found.</p>
+      <p class="font-medium">Not found.</p>
       <NuxtLink to="/">
         <UButton variant="outline" size="sm" class="mt-4">Back to Browse</UButton>
       </NuxtLink>
@@ -241,7 +241,7 @@ onMounted(() => loadTranscripts())
           <NuxtLink to="/"
             class=" flex items-center gap-1 mb-3 text-sm text-muted hover:text-default transition-colors">
             <UIcon name="i-lucide-arrow-left" class="size-4" />
-            All Personas
+            All Transcripts
           </NuxtLink>
           <div class="flex items-center gap-4">
             <UAvatar v-if="persona.image_url" :src="persona.image_url" :alt="persona.name" size="xl" />
@@ -250,22 +250,6 @@ onMounted(() => loadTranscripts())
           </div>
         </template>
       </UPageHeader>
-
-      <!-- Premium upsell (only for non-subscribers) -->
-      <div
-        v-if="!isSubscribed"
-        class="my-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
-      >
-        <div class="flex-1">
-          <p class="text-sm font-medium">Unlock full access to all transcripts</p>
-          <p class="text-sm text-muted mt-0.5">
-            Get unlimited transcript access, advanced search, and real-time updates with a premium subscription.
-          </p>
-        </div>
-        <UButton to="/pricing" icon="i-lucide-crown" variant="soft" color="warning" size="sm">
-          View Pricing
-        </UButton>
-      </div>
 
       <!-- Keyword Search Section -->
       <div class="mt-6 rounded-xl border border-default bg-elevated/50 p-5 space-y-4">
@@ -292,7 +276,7 @@ onMounted(() => loadTranscripts())
               disabled
               icon="i-lucide-search"
               placeholder="Search keywords (e.g. tariffs, economy, trade)..."
-              size="md"
+              size="lg"
               class="opacity-50"
             />
           </div>

@@ -8,6 +8,17 @@ interface SpeakerFrequency {
   count: number
 }
 
+interface PersonaInfo {
+  name: string
+  slug: string
+  image_url: string | null
+}
+
+interface TranscriptNeighbor {
+  id: string
+  name: string | null
+}
+
 interface TranscriptDetail {
   id: string
   youtube_url: string | null
@@ -20,6 +31,7 @@ interface TranscriptDetail {
   hasHighlights?: boolean
   matchCount?: number
   speakerFrequencies?: SpeakerFrequency[]
+  persona?: PersonaInfo
 }
 
 interface Segment {
@@ -43,8 +55,15 @@ useSeoMeta({
 const transcript = ref<TranscriptDetail | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
-const searchInput = ref('')
-const debouncedSearch = ref('')
+
+// Pre-fill search from URL query param (e.g. from keyword search links)
+const initialSearch = (route.query.search as string) || ''
+const searchInput = ref(initialSearch)
+const debouncedSearch = ref(initialSearch)
+
+// Next/prev navigation
+const prevTranscript = ref<TranscriptNeighbor | null>(null)
+const nextTranscript = ref<TranscriptNeighbor | null>(null)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchInput, (val) => {
@@ -69,10 +88,27 @@ async function refresh() {
     const params = new URLSearchParams(searchQuery.value).toString()
     const url = `/api/public/transcripts/${transcriptId}` + (params ? `?${params}` : '')
     transcript.value = await publicFetch<TranscriptDetail>(url)
+
+    // Fetch next/prev neighbors if persona is known
+    if (transcript.value?.persona?.slug) {
+      loadNeighbors(transcript.value.persona.slug)
+    }
   } catch (e: any) {
     error.value = e.data?.detail || 'Transcript not found'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadNeighbors(personaSlug: string) {
+  try {
+    const result = await publicFetch<{ prev: TranscriptNeighbor | null; next: TranscriptNeighbor | null }>(
+      `/api/public/transcripts/${transcriptId}/neighbors?persona=${encodeURIComponent(personaSlug)}`
+    )
+    prevTranscript.value = result.prev
+    nextTranscript.value = result.next
+  } catch {
+    // Non-critical, ignore
   }
 }
 
@@ -238,10 +274,19 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
     <template v-if="transcript">
       <!-- Header -->
       <div class="py-6">
-        <NuxtLink to="/" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors mb-3">
-          <UIcon name="i-lucide-arrow-left" class="size-4" />
-          All Personas
-        </NuxtLink>
+        <!-- Breadcrumb navigation -->
+        <nav class="flex items-center gap-1.5 text-sm text-muted mb-3">
+          <NuxtLink to="/" class="hover:text-primary transition-colors">Browse</NuxtLink>
+          <template v-if="transcript.persona">
+            <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+            <NuxtLink :to="`/personas/${transcript.persona.slug}`" class="hover:text-primary transition-colors">
+              {{ transcript.persona.name }}
+            </NuxtLink>
+          </template>
+          <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+          <span class="text-default truncate max-w-64">{{ transcript.name || 'Transcript' }}</span>
+        </nav>
+
         <h1 class="text-xl font-semibold">{{ transcript.name || 'Transcript' }}</h1>
         <div class="flex flex-wrap items-center gap-3 mt-2">
           <span class="inline-flex items-center gap-1.5 text-sm text-muted">
@@ -377,6 +422,27 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
                 <UButton color="primary" size="lg">Subscribe to Read</UButton>
               </NuxtLink>
             </div>
+          </div>
+
+          <!-- Next/Prev Navigation -->
+          <div v-if="(prevTranscript || nextTranscript) && !transcript.is_locked" class="flex items-center justify-between pt-6 mt-6 border-t border-muted">
+            <NuxtLink
+              v-if="prevTranscript"
+              :to="`/transcripts/${prevTranscript.id}`"
+              class="flex items-center gap-2 text-sm text-muted hover:text-primary transition-colors max-w-[45%]"
+            >
+              <UIcon name="i-lucide-arrow-left" class="size-4 shrink-0" />
+              <span class="truncate">{{ prevTranscript.name || 'Previous' }}</span>
+            </NuxtLink>
+            <div v-else />
+            <NuxtLink
+              v-if="nextTranscript"
+              :to="`/transcripts/${nextTranscript.id}`"
+              class="flex items-center gap-2 text-sm text-muted hover:text-primary transition-colors max-w-[45%] ml-auto text-right"
+            >
+              <span class="truncate">{{ nextTranscript.name || 'Next' }}</span>
+              <UIcon name="i-lucide-arrow-right" class="size-4 shrink-0" />
+            </NuxtLink>
           </div>
         </div>
 

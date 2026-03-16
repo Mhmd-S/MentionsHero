@@ -33,7 +33,8 @@ const normalizedMarkets = computed<PolyPersonaMarket[]>(() => {
   })
 })
 
-// Sort & filter state
+// Search & filter state
+const searchQuery = ref('')
 const sortBy = ref<'mentions' | 'mentions_asc' | 'percentage' | 'alpha' | 'price'>('mentions')
 const filterHasMentions = ref(false)
 
@@ -87,6 +88,14 @@ const allTermSections = computed<TermSectionItem[]>(() => {
 const filteredAndSortedSections = computed(() => {
   let items = [...allTermSections.value]
 
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.trim().toLowerCase()
+    items = items.filter(i =>
+      i.market.question?.toLowerCase().includes(q) ||
+      i.searchTerm?.toLowerCase().includes(q)
+    )
+  }
+
   if (filterHasMentions.value) {
     items = items.filter(i => (i.termResult?.total_mentions ?? 0) > 0)
   }
@@ -113,6 +122,14 @@ const filteredAndSortedSections = computed(() => {
   })
 
   return items
+})
+
+const filteredMarkets = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return normalizedMarkets.value
+  return normalizedMarkets.value.filter(m =>
+    m.market.question?.toLowerCase().includes(q)
+  )
 })
 
 async function loadDetail() {
@@ -195,6 +212,16 @@ onMounted(async () => {
       </div>
 
       <template v-else>
+        <!-- Search input (always visible) -->
+        <div class="mb-3">
+          <UInput v-model="searchQuery" placeholder="Search markets…" icon="i-lucide-search" size="xs"
+            class="w-64">
+            <template v-if="searchQuery" #trailing>
+              <UButton size="xs" variant="ghost" icon="i-lucide-x" @click="searchQuery = ''" />
+            </template>
+          </UInput>
+        </div>
+
         <!-- Sort & Filter toolbar (only when persona selected) -->
         <div v-if="selectedPersonaId" class="flex flex-wrap items-center gap-2 mb-3">
           <USelectMenu v-model="sortBy" :items="sortOptions" value-key="value" class="w-44" size="xs" />
@@ -224,7 +251,7 @@ onMounted(async () => {
           </template>
           <!-- Without persona: show markets in original order -->
           <template v-else>
-            <div v-for="m in normalizedMarkets" :key="m.market.id"
+            <div v-for="m in filteredMarkets" :key="m.market.id"
               class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <div class="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
                 <span class="text-sm font-medium truncate flex-1">{{ m.market.question || '—' }}</span>

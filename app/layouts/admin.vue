@@ -53,7 +53,6 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
 </script>
 
 <template>
-  <UApp>
     <!-- Show loading while auth is being verified -->
     <div v-if="!authVerified" class="flex items-center justify-center h-screen">
       <UIcon name="i-lucide-loader-circle" class="size-8 animate-spin text-primary" />
@@ -106,5 +105,4 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
         </template>
       </UDashboardPanel>
     </UDashboardGroup>
-  </UApp>
 </template>

@@ -161,7 +161,7 @@ useSchemaOrg([
     <!-- Persona not found -->
     <div v-else-if="!persona" class="py-16 text-center text-muted">
       <UIcon name="i-lucide-alert-triangle" class="size-10 mx-auto mb-3 opacity-40" />
-      <p class="font-medium">Persona not found.</p>
+      <p class="font-medium">Not found.</p>
       <NuxtLink to="/markets">
         <UButton variant="outline" size="sm" class="mt-4">Back to Markets</UButton>
       </NuxtLink>
@@ -217,7 +217,7 @@ useSchemaOrg([
       <!-- No events -->
       <div v-else-if="filteredEvents.length === 0" class="py-12 text-center text-muted">
         <UIcon name="i-lucide-bar-chart-3" class="size-10 mx-auto mb-3 opacity-40" />
-        <p class="text-sm">{{ search ? `No markets matching "${search}"` : 'No analyzed markets for this persona yet' }}</p>
+        <p class="text-sm">{{ search ? `No markets matching "${search}"` : 'No analyzed markets yet' }}</p>
       </div>
 
       <!-- Events -->

@@ -49,7 +49,7 @@ useSchemaOrg([
         'name': 'What transcripts are available for free?',
         'acceptedAnswer': {
           '@type': 'Answer',
-          'text': 'Free users can browse all personas, view non-premium transcripts, and search within available transcripts. Premium transcripts require a subscription.',
+          'text': 'Free users can browse all transcripts, view non-premium transcripts, and search within available transcripts. Premium transcripts require a subscription.',
         },
       },
     ],
@@ -79,7 +79,7 @@ useSchemaOrg([
         <ul class="space-y-3">
           <li class="flex items-center gap-2 text-sm">
             <UIcon name="i-lucide-check" class="size-5 text-green-500" />
-            Browse all personas
+            Browse all transcripts
           </li>
           <li class="flex items-center gap-2 text-sm">
             <UIcon name="i-lucide-check" class="size-5 text-green-500" />
@@ -177,7 +177,7 @@ useSchemaOrg([
           <template #header>
             <p class="font-semibold text-sm">What transcripts are available for free?</p>
           </template>
-          <p class="text-sm text-muted">Free users can browse all personas, view non-premium transcripts, and search within available transcripts. Premium transcripts require a subscription.</p>
+          <p class="text-sm text-muted">Free users can browse all transcripts, view non-premium transcripts, and search within available transcripts. Premium transcripts require a subscription.</p>
         </UCard>
       </div>
     </div>
