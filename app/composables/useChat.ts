@@ -82,6 +82,14 @@ export function useChat() {
   const messages = useState<ChatMessage[]>('chat-messages', () => [])
   const status = useState<ChatStatus>('chat-status', () => 'ready')
   const error = useState<string | null>('chat-error', () => null)
+  const loading = useState<boolean>('chat-loading', () => false)
+  const sidebarLoading = useState<boolean>('chat-sidebar-loading', () => false)
+  const deletingId = useState<string | null>('chat-deleting-id', () => null)
+
+  // AbortController for the active SSE stream
+  let activeAbort: AbortController | null = null
+  // Track which conversation the active stream belongs to
+  let activeConversationId: string | null = null
 
   async function getToken(forceRefresh = false): Promise<string | null> {
     if (forceRefresh) {
@@ -93,14 +101,22 @@ export function useChat() {
   }
 
   async function fetchConversations() {
+    sidebarLoading.value = true
     try {
       conversations.value = await authFetch<Conversation[]>('/api/chat/conversations')
     } catch (e: any) {
       error.value = e?.message || 'Failed to load conversations'
+    } finally {
+      sidebarLoading.value = false
     }
   }
 
   async function createConversation(title?: string): Promise<Conversation | null> {
+    abortStream()
+    loading.value = true
+    error.value = null
+    messages.value = []
+    currentConversation.value = null
     try {
       const conv = await authFetch<Conversation>('/api/chat/conversations', {
         method: 'POST',
@@ -108,36 +124,73 @@ export function useChat() {
       })
       conversations.value.unshift(conv)
       currentConversation.value = conv
-      messages.value = []
       return conv
     } catch (e: any) {
       error.value = e?.message || 'Failed to create conversation'
       return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /** Abort any in-flight SSE stream and reset status. */
+  function abortStream() {
+    if (activeAbort) {
+      activeAbort.abort()
+      activeAbort = null
+    }
+    activeConversationId = null
+    if (status.value === 'streaming' || status.value === 'submitted') {
+      status.value = 'ready'
     }
   }
 
   async function loadConversation(id: string) {
+    // Abort any active stream before switching
+    abortStream()
+    error.value = null
+
+    // Preserve title from sidebar list for instant display
+    const existing = conversations.value.find((c) => c.id === id)
+    currentConversation.value = existing
+      ? { ...existing }
+      : { id, title: null, created_at: '', updated_at: '' }
+    messages.value = []
+    loading.value = true
+
     try {
       const data = await authFetch<Conversation & { messages: any[] }>(
         `/api/chat/conversations/${id}`
       )
+      // Guard: user may have switched again while we were fetching
+      if (currentConversation.value?.id !== id) return
       currentConversation.value = data
       messages.value = (data.messages || []).map(dbMessageToParts)
     } catch (e: any) {
+      if (currentConversation.value?.id !== id) return
       error.value = e?.message || 'Failed to load conversation'
+    } finally {
+      if (currentConversation.value?.id === id) {
+        loading.value = false
+      }
     }
   }
 
   async function deleteConversation(id: string) {
+    deletingId.value = id
     try {
       await authFetch(`/api/chat/conversations/${id}`, { method: 'DELETE' })
       conversations.value = conversations.value.filter((c) => c.id !== id)
       if (currentConversation.value?.id === id) {
+        abortStream()
         currentConversation.value = null
         messages.value = []
+        error.value = null
       }
     } catch (e: any) {
       error.value = e?.message || 'Failed to delete conversation'
+    } finally {
+      deletingId.value = null
     }
   }
 
@@ -150,7 +203,7 @@ export function useChat() {
       const conv = conversations.value.find((c) => c.id === id)
       if (conv) conv.title = title
       if (currentConversation.value?.id === id) {
-        currentConversation.value.title = title
+        currentConversation.value = { ...currentConversation.value, title }
       }
     } catch {
       // Non-critical
@@ -158,11 +211,7 @@ export function useChat() {
   }
 
   async function sendMessage(conversationId: string, content: string) {
-    console.log('[useChat] sendMessage called:', { conversationId, content: content.slice(0, 100) })
-    if (status.value === 'streaming' || status.value === 'submitted') {
-      console.log('[useChat] sendMessage blocked — status is:', status.value)
-      return
-    }
+    if (status.value === 'streaming' || status.value === 'submitted') return
     error.value = null
     status.value = 'submitted'
 
@@ -187,6 +236,12 @@ export function useChat() {
     }
     messages.value = [...messages.value, assistantMsg]
 
+    // Abort any previous stream
+    abortStream()
+    const abort = new AbortController()
+    activeAbort = abort
+    activeConversationId = conversationId
+
     try {
       let token = await getToken()
       let response = await fetch(`${backendBase}/api/chat/conversations/${conversationId}/messages`, {
@@ -196,13 +251,11 @@ export function useChat() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ content }),
+        signal: abort.signal,
       })
-
-      console.log('[useChat] fetch response:', response.status, response.statusText)
 
       // Retry once with refreshed token on 401
       if (response.status === 401) {
-        console.log('[useChat] 401 — refreshing token and retrying...')
         token = await getToken(true)
         if (token) {
           response = await fetch(`${backendBase}/api/chat/conversations/${conversationId}/messages`, {
@@ -212,19 +265,17 @@ export function useChat() {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({ content }),
+            signal: abort.signal,
           })
-          console.log('[useChat] retry response:', response.status, response.statusText)
         }
       }
 
       if (!response.ok) {
         const body = await response.text()
-        console.error('[useChat] fetch error body:', body)
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       status.value = 'streaming'
-      console.log('[useChat] starting SSE read loop')
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -232,6 +283,12 @@ export function useChat() {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
+
+        // Guard: if conversation changed while streaming, stop processing
+        if (activeConversationId !== conversationId) {
+          reader.cancel()
+          break
+        }
 
         buffer += decoder.decode(value, { stream: true })
 
@@ -246,29 +303,34 @@ export function useChat() {
             const dataStr = line.slice(6)
             try {
               const data = JSON.parse(dataStr)
-              console.log('[useChat] SSE event:', eventType, data)
               handleSSEEvent(eventType, data, assistantMsg)
             } catch {
-              console.warn('[useChat] malformed SSE data:', dataStr)
+              // malformed SSE data, skip
             }
           }
         }
       }
 
-      // Auto-generate title for new conversations
-      if (currentConversation.value && !currentConversation.value.title && assistantMsg._content) {
-        const autoTitle = content.length > 50 ? content.slice(0, 50) + '...' : content
-        updateTitle(conversationId, autoTitle)
+      // Only update title/status if this stream wasn't superseded
+      if (activeConversationId === conversationId) {
+        // Auto-generate title for new conversations
+        if (currentConversation.value && !currentConversation.value.title && assistantMsg._content) {
+          const autoTitle = content.length > 50 ? content.slice(0, 50) + '...' : content
+          updateTitle(conversationId, autoTitle)
+        }
+        status.value = 'ready'
+        activeAbort = null
+        activeConversationId = null
       }
-
-      status.value = 'ready'
     } catch (e: any) {
-      console.error('[useChat] sendMessage error:', e)
+      // Ignore abort errors — expected when switching conversations
+      if (e?.name === 'AbortError') return
       error.value = e?.message || 'Failed to send message'
       status.value = 'error'
+      activeAbort = null
+      activeConversationId = null
       // Remove empty placeholder on error
-      const idx = messages.value.findIndex((m) => m.id === assistantMsg.id)
-      if (idx !== -1 && !assistantMsg.parts.length) {
+      if (!assistantMsg.parts.length) {
         messages.value = messages.value.filter((m) => m.id !== assistantMsg.id)
       }
     }
@@ -347,14 +409,21 @@ export function useChat() {
   }
 
   function stop() {
-    // Future: implement abort controller
-    status.value = 'ready'
+    abortStream()
   }
 
   function regenerate() {
-    // Future: re-send last user message
     status.value = 'ready'
     error.value = null
+  }
+
+  /** Reset all chat state — call when leaving the page. */
+  function reset() {
+    abortStream()
+    currentConversation.value = null
+    messages.value = []
+    error.value = null
+    loading.value = false
   }
 
   return {
@@ -363,6 +432,9 @@ export function useChat() {
     messages,
     status,
     error,
+    loading,
+    sidebarLoading,
+    deletingId,
     fetchConversations,
     createConversation,
     loadConversation,
@@ -371,5 +443,6 @@ export function useChat() {
     sendMessage,
     stop,
     regenerate,
+    reset,
   }
 }
