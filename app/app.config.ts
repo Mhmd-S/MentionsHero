@@ -1,8 +1,5 @@
 export default defineAppConfig({
   ui: {
-    container: {
-      base: 'max-w-screen-2xl'
-    },
     colors: {
       primary: 'rose',
       neutral: 'olive'

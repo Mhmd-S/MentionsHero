@@ -50,6 +50,7 @@ CREATE TABLE public.kalshi_events (
   status text DEFAULT 'active'::text,
   strike_date timestamp with time zone,
   strike_period text,
+  show_public boolean NOT NULL DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT kalshi_events_pkey PRIMARY KEY (id),
@@ -155,6 +156,7 @@ CREATE TABLE public.poly_events (
   liquidity numeric,
   image text,
   neg_risk boolean DEFAULT false,
+  show_public boolean NOT NULL DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT poly_events_pkey PRIMARY KEY (id)

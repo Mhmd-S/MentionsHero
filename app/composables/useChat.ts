@@ -5,7 +5,7 @@ interface ToolCallData {
   result?: any
 }
 
-interface MessagePart {
+export interface MessagePart {
   type: 'text' | 'tool-invocation'
   // Text parts
   text?: string
@@ -17,7 +17,7 @@ interface MessagePart {
   result?: any
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   parts: MessagePart[]
@@ -35,7 +35,7 @@ interface Conversation {
   messages?: any[]
 }
 
-type ChatStatus = 'ready' | 'streaming' | 'submitted' | 'error'
+export type ChatStatus = 'ready' | 'streaming' | 'submitted' | 'error'
 
 /** Convert DB message format to parts-based format for Nuxt UI */
 function dbMessageToParts(msg: any): ChatMessage {

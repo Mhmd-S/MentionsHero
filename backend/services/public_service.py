@@ -620,11 +620,6 @@ async def get_public_markets_listing() -> list[dict[str, Any]]:
     )
     personas = {p["id"]: p for p in (personas_resp.data or [])}
 
-    aliases_resp = supabase.table("persona_aliases").select("persona_id, alias").execute()
-    aliases_by_persona: dict[str, list[str]] = {}
-    for a in (aliases_resp.data or []):
-        aliases_by_persona.setdefault(a["persona_id"], []).append(a["alias"])
-
     # --- Kalshi: get market + event info ---
     kalshi_market_ids = list({r["market_id"] for r in kalshi_results})
     kalshi_markets: dict[str, dict] = {}
@@ -640,11 +635,6 @@ async def get_public_markets_listing() -> list[dict[str, Any]]:
             for m in (resp.data or []):
                 kalshi_markets[m["id"]] = m
 
-    # Build markets-by-event lookup for active check
-    kalshi_markets_by_event: dict[str, list[dict]] = {}
-    for m in kalshi_markets.values():
-        kalshi_markets_by_event.setdefault(m["event_id"], []).append(m)
-
     kalshi_event_ids = list({m["event_id"] for m in kalshi_markets.values()})
     kalshi_events: dict[str, dict] = {}
     if kalshi_event_ids:
@@ -653,6 +643,7 @@ async def get_public_markets_listing() -> list[dict[str, Any]]:
             resp = (
                 supabase.table("kalshi_events")
                 .select("id, event_ticker, title, strike_date, status")
+                .eq("show_public", True)
                 .in_("id", batch)
                 .execute()
             )
@@ -682,6 +673,7 @@ async def get_public_markets_listing() -> list[dict[str, Any]]:
             resp = (
                 supabase.table("poly_events")
                 .select("id, title, end_date, image, active, closed")
+                .eq("show_public", True)
                 .in_("id", batch)
                 .execute()
             )
@@ -702,12 +694,6 @@ async def get_public_markets_listing() -> list[dict[str, Any]]:
             continue
         event = kalshi_events.get(market["event_id"])
         if not event:
-            continue
-        # Skip expired (all markets finalized)
-        if not _is_event_active_kalshi(event, kalshi_markets_by_event):
-            continue
-        # Skip if event title names a different persona
-        if _persona_excluded_from_event(pid, event.get("title", ""), personas, aliases_by_persona):
             continue
 
         eid = event["id"]
@@ -743,12 +729,6 @@ async def get_public_markets_listing() -> list[dict[str, Any]]:
             continue
         event = poly_events.get(market["event_id"])
         if not event:
-            continue
-        # Skip expired (closed or end_date passed)
-        if not _is_event_active_poly(event):
-            continue
-        # Skip if event title names a different persona
-        if _persona_excluded_from_event(pid, event.get("title", ""), personas, aliases_by_persona):
             continue
 
         eid = event["id"]
@@ -843,14 +823,6 @@ async def get_public_persona_markets(
     if user_id:
         is_subscribed = await check_user_subscription(user_id)
 
-    # Load all personas + aliases for cross-persona exclusion check
-    all_personas_resp = supabase.table("personas").select("id, name").execute()
-    all_personas = {p["id"]: p for p in (all_personas_resp.data or [])}
-    all_aliases_resp = supabase.table("persona_aliases").select("persona_id, alias").execute()
-    all_aliases: dict[str, list[str]] = {}
-    for a in (all_aliases_resp.data or []):
-        all_aliases.setdefault(a["persona_id"], []).append(a["alias"])
-
     # --- Kalshi term results for this persona (only with mentions) ---
     kalshi_results = (
         supabase.table("market_term_results")
@@ -875,12 +847,7 @@ async def get_public_persona_markets(
             for m in (resp.data or []):
                 kalshi_markets[m["id"]] = m
 
-    # Build markets-by-event lookup for active check
-    kalshi_markets_by_event: dict[str, list[dict]] = {}
-    for m in kalshi_markets.values():
-        kalshi_markets_by_event.setdefault(m["event_id"], []).append(m)
-
-    # Get Kalshi events
+    # Get Kalshi events (only show_public)
     kalshi_event_ids = list({m["event_id"] for m in kalshi_markets.values()})
     kalshi_events: dict[str, dict] = {}
     if kalshi_event_ids:
@@ -889,6 +856,7 @@ async def get_public_persona_markets(
             resp = (
                 supabase.table("kalshi_events")
                 .select("id, event_ticker, title, strike_date, status")
+                .eq("show_public", True)
                 .in_("id", batch)
                 .execute()
             )
@@ -919,7 +887,7 @@ async def get_public_persona_markets(
             for m in (resp.data or []):
                 poly_markets[m["id"]] = m
 
-    # Get Poly events
+    # Get Poly events (only show_public)
     poly_event_ids = list({m["event_id"] for m in poly_markets.values()})
     poly_events: dict[str, dict] = {}
     if poly_event_ids:
@@ -928,6 +896,7 @@ async def get_public_persona_markets(
             resp = (
                 supabase.table("poly_events")
                 .select("id, title, end_date, image, active, closed")
+                .eq("show_public", True)
                 .in_("id", batch)
                 .execute()
             )
@@ -944,12 +913,6 @@ async def get_public_persona_markets(
             continue
         event = kalshi_events.get(market["event_id"])
         if not event:
-            continue
-        # Skip expired (all markets finalized)
-        if not _is_event_active_kalshi(event, kalshi_markets_by_event):
-            continue
-        # Skip if event title names a different persona
-        if _persona_excluded_from_event(pid, event.get("title", ""), all_personas, all_aliases):
             continue
 
         eid = event["id"]
@@ -993,12 +956,6 @@ async def get_public_persona_markets(
             continue
         event = poly_events.get(market["event_id"])
         if not event:
-            continue
-        # Skip expired (closed or end_date passed)
-        if not _is_event_active_poly(event):
-            continue
-        # Skip if event title names a different persona
-        if _persona_excluded_from_event(pid, event.get("title", ""), all_personas, all_aliases):
             continue
 
         eid = event["id"]

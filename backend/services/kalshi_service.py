@@ -1115,3 +1115,15 @@ def filter_transcripts_by_event_week(
 
     print(f"[filter_transcripts_by_event_week] {len(filtered)}/{len(transcripts)} transcripts in week {start_yyyymmdd}-{end_yyyymmdd}")
     return filtered
+
+
+async def set_event_show_public(event_id: str, show_public: bool) -> bool:
+    """Toggle the show_public flag on a Kalshi event."""
+    supabase = get_supabase()
+    resp = (
+        supabase.table("kalshi_events")
+        .update({"show_public": show_public})
+        .eq("id", event_id)
+        .execute()
+    )
+    return bool(resp.data)

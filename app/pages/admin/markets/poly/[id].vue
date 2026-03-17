@@ -10,7 +10,7 @@ import type { TermResult } from '~/components/TermSection.vue'
 const route = useRoute()
 const eventId = route.params.id as string
 
-const { getEventDetail, refreshEvent, reanalyzeEvent } = usePolymarket()
+const { getEventDetail, refreshEvent, reanalyzeEvent, toggleEventPublic } = usePolymarket()
 const { personas, fetchPersonas } = usePersonas()
 
 const detail = ref<PolyEventDetail | null>(null)
@@ -154,6 +154,17 @@ async function handleRefresh() {
   }
 }
 
+const showPublic = computed(() => detail.value?.event?.show_public ?? false)
+
+async function handleTogglePublic() {
+  if (!eventId) return
+  const newVal = !showPublic.value
+  const ok = await toggleEventPublic(eventId, newVal)
+  if (ok && detail.value?.event) {
+    detail.value.event.show_public = newVal
+  }
+}
+
 watch(selectedPersonaId, () => {
   if (detail.value) loadDetail()
 })
@@ -194,7 +205,18 @@ onMounted(async () => {
             <span v-if="detail.event.end_date">Ends {{ new Date(detail.event.end_date).toLocaleDateString() }}</span>
           </div>
         </div>
-        <UButton size="xs" variant="ghost" icon="i-lucide-refresh-cw" :loading="refreshing" @click="handleRefresh" />
+        <div class="flex items-center gap-2">
+          <UButton
+            size="xs"
+            :variant="showPublic ? 'solid' : 'outline'"
+            :icon="showPublic ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+            :color="showPublic ? 'primary' : 'neutral'"
+            @click="handleTogglePublic"
+          >
+            {{ showPublic ? 'Public' : 'Hidden' }}
+          </UButton>
+          <UButton size="xs" variant="ghost" icon="i-lucide-refresh-cw" :loading="refreshing" @click="handleRefresh" />
+        </div>
       </div>
 
       <!-- Persona selector -->

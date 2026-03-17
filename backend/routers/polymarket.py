@@ -90,6 +90,15 @@ async def refresh_event(event_id: str):
     return result
 
 
+@router.patch("/events/{event_id}/show-public")
+async def toggle_event_public(event_id: str, show_public: bool = Query(...)):
+    """Toggle public visibility of a Polymarket event."""
+    result = await polymarket_service.set_event_show_public(event_id, show_public)
+    if not result:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"ok": True, "show_public": show_public}
+
+
 @router.post("/events/{event_id}/reanalyze")
 async def reanalyze_event(
     event_id: str,

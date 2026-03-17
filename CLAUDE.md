@@ -192,7 +192,7 @@ What to update:
 | Table | Purpose |
 |-------|---------|
 | `kalshi_series` | Series wrapper (ticker UNIQUE, title, category, tags, frequency, status) |
-| `kalshi_events` | Events within a series (event_ticker UNIQUE, status, strike_date) |
+| `kalshi_events` | Events within a series (event_ticker UNIQUE, status, strike_date, show_public) |
 | `kalshi_markets` | Markets within events (ticker UNIQUE, question, last_price, result) |
 | `market_search_configs` | Auto-extracted search terms from Kalshi market questions |
 | `market_term_results` | Per-persona, per-term analysis results for Kalshi (mentions, trend, context) |
@@ -201,7 +201,7 @@ What to update:
 
 | Table | Purpose |
 |-------|---------|
-| `poly_events` | Polymarket events (poly_id UNIQUE, slug UNIQUE, title, volume, liquidity) |
+| `poly_events` | Polymarket events (poly_id UNIQUE, slug UNIQUE, title, volume, liquidity, show_public) |
 | `poly_markets` | Markets within events (poly_id UNIQUE, question, last_trade_price 0-1, result) |
 | `poly_market_search_configs` | Search terms for Polymarket markets (from groupItemTitle or question) |
 | `poly_market_term_results` | Per-persona, per-term analysis results for Polymarket |

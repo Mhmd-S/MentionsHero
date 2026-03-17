@@ -87,6 +87,9 @@ const filteredEvents = computed(() => {
     })
 })
 
+const kalshiEvents = computed(() => filteredEvents.value.filter((e) => e.source === 'kalshi'))
+const polymarketEvents = computed(() => filteredEvents.value.filter((e) => e.source === 'polymarket'))
+
 const totalMarkets = computed(() =>
   (marketsData.value?.events || []).reduce((sum, e) => sum + e.markets.length, 0)
 )
@@ -190,7 +193,7 @@ useSchemaOrg([
 
       <!-- Filters -->
       <div class="flex items-center gap-3 flex-wrap my-4">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search markets..." class="w-full sm:w-64" size="sm" />
+        <UInput v-model="search" icon="i-lucide-search" placeholder="Search markets..." class="w-full sm:w-80" size="md" variant="outline" />
         <div class="flex items-center gap-1">
           <UButton size="xs" :variant="sourceFilter === 'all' ? 'solid' : 'ghost'" @click="sourceFilter = 'all'">All</UButton>
           <UButton size="xs" :variant="sourceFilter === 'kalshi' ? 'solid' : 'ghost'" @click="sourceFilter = 'kalshi'">Kalshi</UButton>
@@ -221,98 +224,102 @@ useSchemaOrg([
       </div>
 
       <!-- Events -->
-      <div v-else class="space-y-6">
-        <div v-for="event in filteredEvents" :key="event.event_id">
-          <!-- Event header -->
-          <div class="flex items-center gap-2 mb-3">
-            <img
-              v-if="event.image"
-              :src="event.image"
-              :alt="event.title"
-              class="size-8 rounded-md object-cover shrink-0"
-            />
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <p class="font-semibold text-sm truncate">{{ event.title }}</p>
-                <UBadge
-                  :color="event.source === 'kalshi' ? 'info' : 'primary'"
-                  variant="subtle"
-                  size="xs"
-                >
-                  {{ event.source === 'kalshi' ? 'Kalshi' : 'Polymarket' }}
-                </UBadge>
-                <UBadge v-if="event.status !== 'active'" color="neutral" variant="subtle" size="xs">
-                  {{ event.status }}
-                </UBadge>
+      <div v-else class="space-y-8">
+        <!-- Kalshi section -->
+        <div v-if="kalshiEvents.length > 0">
+          <div class="flex items-center gap-2 mb-4">
+            <h2 class="text-lg font-semibold">Kalshi</h2>
+            <UBadge color="info" variant="subtle" size="xs">{{ kalshiEvents.length }}</UBadge>
+          </div>
+          <div class="space-y-6">
+            <div v-for="event in kalshiEvents" :key="event.event_id">
+              <div class="flex items-center gap-2 mb-3">
+                <img v-if="event.image" :src="event.image" :alt="event.title" class="size-8 rounded-md object-cover shrink-0" />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <p class="font-semibold text-sm truncate">{{ event.title }}</p>
+                    <UBadge v-if="event.status !== 'active'" color="neutral" variant="subtle" size="xs">{{ event.status }}</UBadge>
+                  </div>
+                  <p v-if="event.strike_date || event.end_date" class="text-xs text-muted">{{ formatDate(event.strike_date || event.end_date) }}</p>
+                </div>
               </div>
-              <p v-if="event.strike_date || event.end_date" class="text-xs text-muted">
-                {{ formatDate(event.strike_date || event.end_date) }}
-              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <UCard v-for="market in event.markets" :key="`${market.market_id}-${market.search_term}`" :ui="{ body: 'sm:p-4' }">
+                  <p class="text-sm font-medium leading-snug mb-2">{{ market.question }}</p>
+                  <div class="flex items-center flex-wrap gap-1.5 mb-3">
+                    <UBadge variant="subtle" color="neutral" size="xs">{{ market.search_term }}</UBadge>
+                    <UBadge variant="outline" color="neutral" size="xs">{{ market.price }}&cent;</UBadge>
+                    <UBadge v-if="market.result === 'yes'" color="success" variant="subtle" size="xs">YES</UBadge>
+                    <UBadge v-else-if="market.result === 'no'" color="error" variant="subtle" size="xs">NO</UBadge>
+                  </div>
+                  <div v-if="market.total_mentions !== undefined" class="space-y-1">
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="text-muted"><span class="font-medium text-default">{{ market.total_mentions }}</span> mention{{ market.total_mentions !== 1 ? 's' : '' }}</span>
+                      <span class="text-muted">&middot;</span>
+                      <span class="text-muted">{{ market.briefings_with_term }}/{{ market.total_briefings }} briefings</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs">
+                      <UIcon :name="trendIcon(market.trend)" :class="['size-3.5', trendColor(market.trend)]" />
+                      <span :class="trendColor(market.trend)" class="capitalize">{{ market.trend || 'stable' }}</span>
+                      <span v-if="market.percentage !== undefined" class="text-muted">&middot; {{ Math.round(market.percentage) }}% of briefings</span>
+                    </div>
+                  </div>
+                  <div v-else class="flex items-center gap-2 text-xs text-muted py-1">
+                    <UIcon name="i-lucide-lock" class="size-3.5" />
+                    <span>Subscribe to see analysis</span>
+                  </div>
+                </UCard>
+              </div>
             </div>
           </div>
+        </div>
 
-          <!-- Market cards -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <UCard
-              v-for="market in event.markets"
-              :key="`${market.market_id}-${market.search_term}`"
-              :ui="{ body: 'sm:p-4' }"
-            >
-              <!-- Question -->
-              <p class="text-sm font-medium leading-snug mb-2">{{ market.question }}</p>
-
-              <!-- Badges row -->
-              <div class="flex items-center flex-wrap gap-1.5 mb-3">
-                <UBadge variant="subtle" color="neutral" size="xs">
-                  {{ market.search_term }}
-                </UBadge>
-                <UBadge variant="outline" color="neutral" size="xs">
-                  {{ market.price }}&cent;
-                </UBadge>
-                <UBadge
-                  v-if="market.result === 'yes'"
-                  color="success"
-                  variant="subtle"
-                  size="xs"
-                >
-                  YES
-                </UBadge>
-                <UBadge
-                  v-else-if="market.result === 'no'"
-                  color="error"
-                  variant="subtle"
-                  size="xs"
-                >
-                  NO
-                </UBadge>
-              </div>
-
-              <!-- Analysis (premium) -->
-              <div v-if="market.total_mentions !== undefined" class="space-y-1">
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="text-muted">
-                    <span class="font-medium text-default">{{ market.total_mentions }}</span> mention{{ market.total_mentions !== 1 ? 's' : '' }}
-                  </span>
-                  <span class="text-muted">&middot;</span>
-                  <span class="text-muted">
-                    {{ market.briefings_with_term }}/{{ market.total_briefings }} briefings
-                  </span>
-                </div>
-                <div class="flex items-center gap-1.5 text-xs">
-                  <UIcon :name="trendIcon(market.trend)" :class="['size-3.5', trendColor(market.trend)]" />
-                  <span :class="trendColor(market.trend)" class="capitalize">{{ market.trend || 'stable' }}</span>
-                  <span v-if="market.percentage !== undefined" class="text-muted">
-                    &middot; {{ Math.round(market.percentage) }}% of briefings
-                  </span>
+        <!-- Polymarket section -->
+        <div v-if="polymarketEvents.length > 0">
+          <div class="flex items-center gap-2 mb-4">
+            <h2 class="text-lg font-semibold">Polymarket</h2>
+            <UBadge color="primary" variant="subtle" size="xs">{{ polymarketEvents.length }}</UBadge>
+          </div>
+          <div class="space-y-6">
+            <div v-for="event in polymarketEvents" :key="event.event_id">
+              <div class="flex items-center gap-2 mb-3">
+                <img v-if="event.image" :src="event.image" :alt="event.title" class="size-8 rounded-md object-cover shrink-0" />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <p class="font-semibold text-sm truncate">{{ event.title }}</p>
+                    <UBadge v-if="event.status !== 'active'" color="neutral" variant="subtle" size="xs">{{ event.status }}</UBadge>
+                  </div>
+                  <p v-if="event.strike_date || event.end_date" class="text-xs text-muted">{{ formatDate(event.strike_date || event.end_date) }}</p>
                 </div>
               </div>
-
-              <!-- Locked analysis (free users) -->
-              <div v-else class="flex items-center gap-2 text-xs text-muted py-1">
-                <UIcon name="i-lucide-lock" class="size-3.5" />
-                <span>Subscribe to see analysis</span>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <UCard v-for="market in event.markets" :key="`${market.market_id}-${market.search_term}`" :ui="{ body: 'sm:p-4' }">
+                  <p class="text-sm font-medium leading-snug mb-2">{{ market.question }}</p>
+                  <div class="flex items-center flex-wrap gap-1.5 mb-3">
+                    <UBadge variant="subtle" color="neutral" size="xs">{{ market.search_term }}</UBadge>
+                    <UBadge variant="outline" color="neutral" size="xs">{{ market.price }}&cent;</UBadge>
+                    <UBadge v-if="market.result === 'yes'" color="success" variant="subtle" size="xs">YES</UBadge>
+                    <UBadge v-else-if="market.result === 'no'" color="error" variant="subtle" size="xs">NO</UBadge>
+                  </div>
+                  <div v-if="market.total_mentions !== undefined" class="space-y-1">
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="text-muted"><span class="font-medium text-default">{{ market.total_mentions }}</span> mention{{ market.total_mentions !== 1 ? 's' : '' }}</span>
+                      <span class="text-muted">&middot;</span>
+                      <span class="text-muted">{{ market.briefings_with_term }}/{{ market.total_briefings }} briefings</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs">
+                      <UIcon :name="trendIcon(market.trend)" :class="['size-3.5', trendColor(market.trend)]" />
+                      <span :class="trendColor(market.trend)" class="capitalize">{{ market.trend || 'stable' }}</span>
+                      <span v-if="market.percentage !== undefined" class="text-muted">&middot; {{ Math.round(market.percentage) }}% of briefings</span>
+                    </div>
+                  </div>
+                  <div v-else class="flex items-center gap-2 text-xs text-muted py-1">
+                    <UIcon name="i-lucide-lock" class="size-3.5" />
+                    <span>Subscribe to see analysis</span>
+                  </div>
+                </UCard>
               </div>
-            </UCard>
+            </div>
           </div>
         </div>
       </div>

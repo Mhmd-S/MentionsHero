@@ -10,7 +10,7 @@ import type { TermResult } from '~/components/TermSection.vue'
 const route = useRoute()
 const eventTicker = route.params.id as string
 
-const { getEventDetailByTicker, refreshEvent, reanalyzeEvent } = useKalshi()
+const { getEventDetailByTicker, refreshEvent, reanalyzeEvent, toggleEventPublic } = useKalshi()
 const { personas, fetchPersonas } = usePersonas()
 
 const detail = ref<EventDetail | null>(null)
@@ -145,6 +145,17 @@ async function handleRefresh() {
   }
 }
 
+const showPublic = computed(() => detail.value?.event?.show_public ?? false)
+
+async function handleTogglePublic() {
+  if (!eventId.value) return
+  const newVal = !showPublic.value
+  const ok = await toggleEventPublic(eventId.value, newVal)
+  if (ok && detail.value?.event) {
+    detail.value.event.show_public = newVal
+  }
+}
+
 watch(selectedPersonaId, () => {
   if (detail.value) reloadWithPersona()
 })
@@ -180,13 +191,24 @@ onMounted(async () => {
           <h1 class="text-2xl sm:text-3xl font-bold truncate mb-1">{{ detail.event.title || eventTicker }}</h1>
           <p v-if="detail.series" class="text-gray-500 text-sm">{{ detail.series.title }}</p>
         </div>
-        <UButton
-          size="xs"
-          variant="ghost"
-          icon="i-lucide-refresh-cw"
-          :loading="refreshing"
-          @click="handleRefresh"
-        />
+        <div class="flex items-center gap-2">
+          <UButton
+            size="xs"
+            :variant="showPublic ? 'solid' : 'outline'"
+            :icon="showPublic ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+            :color="showPublic ? 'primary' : 'neutral'"
+            @click="handleTogglePublic"
+          >
+            {{ showPublic ? 'Public' : 'Hidden' }}
+          </UButton>
+          <UButton
+            size="xs"
+            variant="ghost"
+            icon="i-lucide-refresh-cw"
+            :loading="refreshing"
+            @click="handleRefresh"
+          />
+        </div>
       </div>
 
       <!-- Persona selector -->
