@@ -149,9 +149,12 @@ Transcripts contain `[MM:SS]` timestamps (e.g., `[04:30] Donald Trump: ...`). Th
 
 The public site exposes analyzed market data at `/markets` for all users, with analysis details gated behind premium subscription.
 
+### Visibility Control
+Events are only shown publicly when an admin explicitly enables them. Each event (Kalshi and Polymarket) has a `show_public` boolean column (default `false`). Admins toggle visibility from the event detail pages using the eye/hidden button in the event header. The public service filters events by `show_public = true` — no automatic logic based on mentions or activity.
+
 ### Pages
-- `/markets` — Listing page: events grouped by persona, each showing source badge, market count, top terms with prices
-- `/markets/[slug]` — Persona detail: all events + markets for a persona, compact cards with question/price/result
+- `/markets` — Listing page: events separated by source (Kalshi section, Polymarket section), grouped by persona within each section
+- `/markets/[slug]` — Persona detail: events separated into Kalshi and Polymarket sections with market cards
 
 ### Paywall
 - **Free users**: See market questions, prices, result badges. Analysis fields (mentions, trends, percentages) show a lock icon with "Subscribe to see analysis"

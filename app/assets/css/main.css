@@ -7,4 +7,5 @@
 
 :root {
   --ui-radius: 0.25rem;
+  --ui-container: 1280px;
 }

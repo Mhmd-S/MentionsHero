@@ -55,6 +55,7 @@ export interface KalshiEvent {
   status: string
   strike_date: string | null
   strike_period: string | null
+  show_public: boolean
 }
 
 export interface SeriesDetail {
@@ -249,6 +250,18 @@ export function useKalshi() {
     }
   }
 
+  async function toggleEventPublic(eventId: string, showPublic: boolean): Promise<boolean> {
+    try {
+      await authFetch(`/api/kalshi/events/${eventId}/show-public?show_public=${showPublic}`, {
+        method: 'PATCH',
+      })
+      return true
+    } catch (e) {
+      console.error('Failed to toggle event public:', e)
+      return false
+    }
+  }
+
   function extractTickerFromInput(input: string): string {
     const trimmed = input.trim()
     if (!trimmed) return ''
@@ -279,5 +292,6 @@ export function useKalshi() {
     reanalyzeEvent,
     extractTickerFromInput,
     loadPastEvents,
+    toggleEventPublic,
   }
 }

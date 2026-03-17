@@ -118,16 +118,18 @@ data: {"message": "error description"}
 | File | Purpose |
 |------|---------|
 | `app/composables/useChat.ts` | Chat state + API + SSE streaming |
-| `app/pages/admin/transcript-analysis.vue` | Chat page using Nuxt UI chat components |
+| `app/pages/admin/transcript-analysis.vue` | Chat page |
+| `app/components/chat/ChatMessages.vue` | Scrollable message container with auto-scroll, typing indicator |
+| `app/components/chat/ChatPrompt.vue` | Auto-resizing textarea with Enter-to-send |
+| `app/components/chat/ChatPromptActions.vue` | Status-aware submit/stop/reload button |
 
-### UI Components Used (Nuxt UI v4)
+### Custom Chat Components
 
-- **`UChatMessages`** — Message container with built-in auto-scroll, scroll-to-bottom button, typing indicator
-- **`UChatMessage`** — Single message with avatar, variant (soft/naked), side (left/right), action buttons
-- **`UChatPrompt`** — Auto-resizing textarea with Enter-to-send, outline variant
-- **`UChatPromptSubmit`** — Status-aware submit/stop/reload button
+All chat UI uses custom components in `app/components/chat/` (not Nuxt UI's UChat* components):
 
-Custom `app/components/chat/` components (ChatMessage, ChatToolCall, ChatInput) are no longer used — replaced by Nuxt UI built-ins with `#content` slot for markdown rendering and tool invocation display.
+- **`ChatMessages`** — Scrollable message container. User messages right-aligned with `bg-primary/10` bubble, assistant messages left-aligned with bot icon avatar. Auto-scrolls on new content when user is near bottom. Shows animated typing dots while waiting for response. `#content` slot for custom message rendering.
+- **`ChatPrompt`** — Auto-resizing textarea. Enter submits, Shift+Enter for newline. Max height cap with overflow scroll. `#footer` slot for action buttons.
+- **`ChatPromptActions`** — Renders stop button during streaming, retry on error, send icon when ready. Uses `UButton` internally.
 
 ### Composable State
 

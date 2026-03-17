@@ -98,6 +98,7 @@ class KalshiEventRecord(BaseModel):
     status: str = "active"
     strike_date: datetime | None = None
     strike_period: str | None = None
+    show_public: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

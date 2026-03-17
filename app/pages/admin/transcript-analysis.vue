@@ -125,7 +125,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-full overflow-hidden">
+  <div class="flex h-svh overflow-hidden">
     <!-- Conversation sidebar -->
     <Transition name="sidebar">
       <div v-if="showSidebar" class="w-64 border-r border-default flex flex-col shrink-0 bg-default">
@@ -192,7 +192,7 @@ onMounted(() => {
     </Transition>
 
     <!-- Main chat area -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0 min-h-">
       <!-- Header -->
       <div class="flex items-center gap-2 px-4 h-12 border-b border-default shrink-0">
         <UButton
@@ -250,21 +250,17 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Chat messages using Nuxt UI UChatMessages -->
-      <UChatMessages
+      <!-- Chat messages -->
+      <ChatMessages
         v-else
         :messages="messages"
         :status="status"
-        should-auto-scroll
-        :user="{ variant: 'soft' as any, side: 'right' as any }"
-        :assistant="{ variant: 'naked' as any, side: 'left' as any, icon: 'i-lucide-bot' }"
-        class="flex-1 px-4 py-4"
+        class="flex-1 min-h-0 px-4 py-4"
       >
         <template #content="{ message }">
-          <!-- Tool invocations -->
-          <template v-for="(part, index) in (message as any).parts" :key="`${message.id}-${(part as any).toolInvocationId || index}`">
+          <template v-for="(part, index) in message.parts" :key="`${message.id}-${part.toolInvocationId || index}`">
             <div
-              v-if="(part as any).type === 'tool-invocation'"
+              v-if="part.type === 'tool-invocation'"
               class="flex items-center gap-2 text-xs py-1 my-0.5"
               :class="isToolStreaming(part) ? 'text-primary' : 'text-muted'"
             >
@@ -278,13 +274,13 @@ onMounted(() => {
             </div>
 
             <div
-              v-else-if="(part as any).type === 'text' && (part as any).text"
+              v-else-if="part.type === 'text' && part.text"
               class="prose prose-sm dark:prose-invert max-w-none wrap-break-word [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-              v-html="renderMarkdown((part as any).text)"
+              v-html="renderMarkdown(part.text)"
             />
           </template>
         </template>
-      </UChatMessages>
+      </ChatMessages>
 
       <!-- Error bar -->
       <div
@@ -304,11 +300,10 @@ onMounted(() => {
 
       <!-- Chat prompt -->
       <div class="px-4 pb-4 pt-2">
-        <UChatPrompt
+        <ChatPrompt
           v-model="input"
           placeholder="Ask about transcripts, terms, markets..."
           :disabled="loading"
-          variant="outline"
           @submit="handleSubmit"
         >
           <template #footer>
@@ -316,10 +311,10 @@ onMounted(() => {
               <span class="text-[10px] text-muted">
                 Press Enter to send
               </span>
-              <UChatPromptSubmit :status="status" @stop="stop()" @reload="regenerate()" />
+              <ChatPromptActions :status="status" @stop="stop()" @reload="regenerate()" />
             </div>
           </template>
-        </UChatPrompt>
+        </ChatPrompt>
       </div>
     </div>
   </div>

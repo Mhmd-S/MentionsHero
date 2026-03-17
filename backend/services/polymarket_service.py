@@ -392,9 +392,36 @@ async def get_stored_events() -> list[dict[str, Any]]:
 
 
 async def get_event_detail(event_id: str, persona_id: str | None = None) -> dict[str, Any] | None:
-    """Get event + markets + optional persona analysis. Auto-runs analysis if missing."""
+    """Get event + markets + optional persona analysis. Auto-runs analysis if missing.
+    Accepts either a DB UUID or a Polymarket numeric poly_id.
+    If the event isn't in the DB yet, it will be fetched and upserted from Polymarket.
+    """
     supabase = get_supabase()
-    event_row = supabase.table("poly_events").select("*").eq("id", event_id).single().execute()
+
+    # Try DB UUID first, then fall back to poly_id lookup
+    try:
+        event_row = supabase.table("poly_events").select("*").eq("id", event_id).single().execute()
+    except Exception:
+        event_row = type("R", (), {"data": None})()
+
+    if not event_row.data:
+        # Try by poly_id
+        poly_row = supabase.table("poly_events").select("*").eq("poly_id", event_id).maybeSingle().execute()
+        if poly_row.data:
+            event_row = poly_row
+            event_id = poly_row.data["id"]
+        else:
+            # Not in DB — try fetching from Polymarket API and upserting
+            api_event = await fetch_event_by_poly_id(event_id)
+            if api_event:
+                db_id = _upsert_event(api_event)
+                if db_id:
+                    markets = api_event.get("markets") or []
+                    if markets:
+                        _upsert_markets(db_id, markets)
+                    event_id = db_id
+                    event_row = supabase.table("poly_events").select("*").eq("id", db_id).single().execute()
+
     if not event_row.data:
         return None
 
@@ -563,3 +590,13 @@ async def update_poly_market_analysis(persona_id: str, event_id: str, folder_id:
             }, on_conflict="market_id,persona_id,search_term").execute()
 
 
+async def set_event_show_public(event_id: str, show_public: bool) -> bool:
+    """Toggle the show_public flag on a Polymarket event."""
+    supabase = get_supabase()
+    resp = (
+        supabase.table("poly_events")
+        .update({"show_public": show_public})
+        .eq("id", event_id)
+        .execute()
+    )
+    return bool(resp.data)

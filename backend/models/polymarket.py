@@ -66,6 +66,7 @@ class PolyEventRecord(BaseModel):
     liquidity: float | None = None
     image: str | None = None
     neg_risk: bool = False
+    show_public: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -99,7 +99,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
         </template>
       </UDashboardSidebar>
 
-      <UDashboardPanel :ui="{ root: 'max-h-svh', body: 'p-0 flex flex-col flex-1 overflow-hidden' }">
+      <UDashboardPanel :ui="{ root: 'max-h-svh', body: 'p-0' }">
         <template #body>
           <slot />
         </template>

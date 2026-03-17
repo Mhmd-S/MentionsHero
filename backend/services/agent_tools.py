@@ -203,7 +203,7 @@ TOOL_DECLARATIONS = types.Tool(function_declarations=[
         parameters=types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "event_id": types.Schema(type=types.Type.STRING, description="The Polymarket event database ID"),
+                "event_id": types.Schema(type=types.Type.STRING, description="The Polymarket event ID (database UUID or numeric Polymarket ID from search results)"),
                 "persona_id": types.Schema(type=types.Type.STRING, description="Optional persona ID for mention analysis"),
             },
             required=["event_id"],

@@ -142,7 +142,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     </UHeader>
 
     <UMain>
-      <UContainer>
+      <UContainer class="px-5">
         <slot />
       </UContainer>
     </UMain>

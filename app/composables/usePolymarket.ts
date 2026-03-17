@@ -18,6 +18,7 @@ export interface PolyEvent {
   liquidity: number | null
   image: string | null
   neg_risk: boolean
+  show_public: boolean
   created_at: string | null
   updated_at: string | null
   market_count?: number
@@ -179,6 +180,18 @@ export function usePolymarket() {
     }
   }
 
+  async function toggleEventPublic(eventId: string, showPublic: boolean): Promise<boolean> {
+    try {
+      await authFetch(`/api/polymarket/events/${eventId}/show-public?show_public=${showPublic}`, {
+        method: 'PATCH',
+      })
+      return true
+    } catch (e) {
+      console.error('Failed to toggle event public:', e)
+      return false
+    }
+  }
+
   function extractSlugFromInput(input: string): string {
     const trimmed = input.trim()
     if (!trimmed) return ''
@@ -216,5 +229,6 @@ export function usePolymarket() {
     deleteEvent,
     extractSlugFromInput,
     analyzeSwings,
+    toggleEventPublic,
   }
 }
