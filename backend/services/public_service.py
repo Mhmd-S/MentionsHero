@@ -481,19 +481,15 @@ async def get_transcript_neighbors(
 
 
 async def check_user_subscription(user_id: str) -> bool:
-    """Check if user has an active subscription."""
-    supabase = get_supabase()
+    """Check if user has an active subscription.
 
-    response = (
-        supabase.table("subscriptions")
-        .select("status")
-        .eq("user_id", user_id)
-        .eq("status", "active")
-        .limit(1)
-        .execute()
-    )
+    Delegates to stripe_service.get_subscription_status() which includes
+    a Stripe API fallback when the DB is out of sync.
+    """
+    from backend.services.stripe_service import get_subscription_status
 
-    return bool(response.data)
+    sub = await get_subscription_status(user_id)
+    return sub is not None and sub.get("status") == "active"
 
 
 def _is_event_active_kalshi(event: dict, markets_by_event: dict[str, list[dict]]) -> bool:

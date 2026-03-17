@@ -1,4 +1,7 @@
 <script setup lang="ts">
+const { isSubscribed, fetchSubscription } = useSubscription()
+const { session } = useAuth()
+
 interface TopTerm {
   term: string
   mentions: number
@@ -88,6 +91,10 @@ useSeoMeta({
 })
 
 defineOgImage({ component: 'OgImageDefault' })
+
+onMounted(() => {
+  if (session.value) fetchSubscription()
+})
 
 useSchemaOrg([
   defineWebPage({
@@ -228,8 +235,8 @@ useSchemaOrg([
       </div>
     </div>
 
-    <!-- Premium upsell -->
-    <div class="mt-8 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+    <!-- Premium upsell (non-subscribers only) -->
+    <div v-if="!isSubscribed" class="mt-8 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div class="flex-1">
         <p class="text-sm font-medium">Unlock full market analysis</p>
         <p class="text-sm text-muted mt-0.5">
