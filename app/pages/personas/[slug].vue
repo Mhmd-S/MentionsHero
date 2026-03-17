@@ -170,10 +170,6 @@ function highlightContext(context: string, query: string): string {
   return context.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5">$1</mark>')
 }
 
-onMounted(() => {
-  if (session.value) fetchSubscription()
-})
-
 // SEO meta tags (rendered during SSR thanks to useFetch above)
 useSeoMeta({
   title: () => persona.value?.meta_title || persona.value?.name || 'Transcripts',
@@ -211,7 +207,10 @@ useSchemaOrg([
   }),
 ])
 
-onMounted(() => loadTranscripts())
+onMounted(async () => {
+  if (session.value) await fetchSubscription()
+  loadTranscripts()
+})
 </script>
 
 <template>

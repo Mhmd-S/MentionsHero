@@ -188,8 +188,76 @@ async def _handle_subscription_change(subscription: dict) -> None:
     ).execute()
 
 
+async def _sync_subscription_from_stripe(
+    user_id: str, supabase: Any
+) -> dict[str, Any] | None:
+    """Check Stripe for an active subscription and sync it to the DB.
+
+    Returns the synced subscription record, or None if no active sub found.
+    """
+    try:
+        profile = (
+            supabase.table("profiles")
+            .select("stripe_customer_id")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        customer_id = profile.data.get("stripe_customer_id") if profile.data else None
+        if not customer_id:
+            return None
+
+        s = _get_stripe()
+        subs = s.Subscription.list(customer=customer_id, status="active", limit=1)
+        if not subs.data:
+            return None
+
+        stripe_sub = subs.data[0]
+        period_start, period_end = _extract_period(stripe_sub)
+
+        record: dict[str, Any] = {
+            "user_id": user_id,
+            "stripe_customer_id": customer_id,
+            "stripe_subscription_id": stripe_sub["id"],
+            "status": "active",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if period_start:
+            record["current_period_start"] = datetime.fromtimestamp(
+                period_start, tz=timezone.utc
+            ).isoformat()
+        if period_end:
+            record["current_period_end"] = datetime.fromtimestamp(
+                period_end, tz=timezone.utc
+            ).isoformat()
+
+        supabase.table("subscriptions").upsert(
+            record, on_conflict="stripe_subscription_id"
+        ).execute()
+
+        # Re-fetch the upserted record to return complete data
+        result = (
+            supabase.table("subscriptions")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("status", "active")
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    except Exception:
+        logger.warning("Stripe subscription sync failed for user %s", user_id)
+        return None
+
+
 async def get_subscription_status(user_id: str) -> dict[str, Any] | None:
-    """Get current subscription status for a user."""
+    """Get current subscription status for a user.
+
+    If the DB has no active subscription, falls back to checking Stripe
+    directly and syncs the result back to the DB. This handles cases where
+    the webhook for checkout.session.completed was missed.
+    """
     supabase = get_supabase()
 
     response = (
@@ -201,10 +269,18 @@ async def get_subscription_status(user_id: str) -> dict[str, Any] | None:
         .execute()
     )
 
-    if not response.data:
-        return None
+    db_record = response.data[0] if response.data else None
 
-    return response.data[0]
+    # Fast path: DB says active — no Stripe call needed
+    if db_record and db_record.get("status") == "active":
+        return db_record
+
+    # Unhappy path: DB has no active record — verify against Stripe
+    synced = await _sync_subscription_from_stripe(user_id, supabase)
+    if synced:
+        return synced
+
+    return db_record
 
 
 async def create_portal_session(user_id: str) -> str | None:

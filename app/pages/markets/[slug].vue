@@ -115,8 +115,8 @@ function trendColor(trend?: string) {
   return 'text-muted'
 }
 
-onMounted(() => {
-  if (session.value) fetchSubscription()
+onMounted(async () => {
+  if (session.value) await fetchSubscription()
   loadMarkets()
 })
 
