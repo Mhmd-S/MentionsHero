@@ -152,6 +152,23 @@ TOOL_DECLARATIONS = types.Tool(function_declarations=[
         ),
     ),
     types.FunctionDeclaration(
+        name="get_persona_transcripts",
+        description=(
+            "Get transcripts where a specific persona is an actual speaker. "
+            "Uses persona aliases to match against transcript speaker names. "
+            "Returns transcript metadata sorted by date (newest first)."
+        ),
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "persona_id": types.Schema(type=types.Type.STRING, description="The persona's UUID (from search_personas or list_personas)"),
+                "folder_id": types.Schema(type=types.Type.STRING, description="Optional folder ID to scope results"),
+                "limit": types.Schema(type=types.Type.INTEGER, description="Max transcripts to return (default 20)"),
+            },
+            required=["persona_id"],
+        ),
+    ),
+    types.FunctionDeclaration(
         name="browse_kalshi_events",
         description=(
             "Browse currently open Kalshi prediction market events in the Mentions category, "
@@ -389,6 +406,24 @@ async def _execute_tool_inner(name: str, args: dict[str, Any]) -> Any:
         if not persona:
             return {"error": "Persona not found"}
         return persona
+
+    elif name == "get_persona_transcripts":
+        transcripts = await persona_service.get_transcripts_for_persona(
+            args["persona_id"],
+            folder_id=args.get("folder_id"),
+        )
+        limit = args.get("limit", 20)
+        transcripts = transcripts[:limit]
+        return [
+            {
+                "id": t["id"],
+                "name": t.get("name"),
+                "upload_date": t.get("upload_date"),
+                "youtube_url": t.get("youtube_url"),
+                "folder_id": t.get("folder_id"),
+            }
+            for t in transcripts
+        ]
 
     elif name == "browse_kalshi_events":
         return await kalshi_service.browse_events()

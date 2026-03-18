@@ -70,11 +70,7 @@ function removeSpeaker(name: string) {
 
 watch(
   () => props.folderId,
-  (id) => {
-    if (!id) {
-      speakers.value = []
-      return
-    }
+  () => {
     loadSpeakers()
   },
   { immediate: true }
@@ -89,8 +85,7 @@ watch(
         v-model="selected"
         :items="options"
         :loading="loading"
-        :disabled="!props.folderId"
-        class="w-60"
+          class="w-60"
         multiple
         searchable
         :reset-search-term-on-select="false"

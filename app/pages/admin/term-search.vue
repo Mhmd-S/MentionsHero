@@ -39,9 +39,7 @@ function onPersonaChange(value: unknown) {
     // Auto-fill speakers with persona aliases
     const aliases = getAliasesForPersona(id)
     selectedSpeakers.value = aliases.length > 0 ? aliases : null
-    if (selectedFolderId.value) {
-      loadTopTerms()
-    }
+    loadTopTerms()
   } else {
     // Clear speaker selection when persona is deselected
     selectedSpeakers.value = null
@@ -61,13 +59,8 @@ function onFolderChange(value: unknown) {
   const raw = value != null ? String(value) : ''
   const id = raw === FOLDER_ALL || raw === '' ? null : raw
   selectedFolderId.value = id
-  if (id) {
-    getSpeakers(id)
-    loadTopTerms()
-  } else {
-    selectedSpeakers.value = null
-    topTerms.value = []
-  }
+  getSpeakers(id)
+  loadTopTerms()
 }
 
 function onSpeakerChange(value: string[] | string | null) {
@@ -75,13 +68,13 @@ function onSpeakerChange(value: string[] | string | null) {
   selectedSpeakers.value = normalized.length > 0 ? normalized : null
   // Clear persona selection when speakers are manually changed
   selectedPersonaId.value = null
-  if (selectedFolderId.value) {
-    loadTopTerms()
-  }
+  loadTopTerms()
 }
 
 onMounted(async () => {
   await Promise.all([fetchFolders(), fetchPersonas()])
+  getSpeakers()
+  loadTopTerms()
 })
 </script>
 
