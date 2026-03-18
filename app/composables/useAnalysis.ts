@@ -130,7 +130,6 @@ export function useAnalysis() {
     speakers?: string | string[] | null
   ): Promise<TermFrequency | null> {
     const folder = folderId ?? selectedFolderId.value;
-    if (!folder) return null;
 
     loading.value = true;
     error.value = null;
@@ -171,7 +170,6 @@ export function useAnalysis() {
     speakers?: string | string[] | null
   ): Promise<TermData[]> {
     const folder = folderId ?? selectedFolderId.value;
-    if (!folder) return [];
 
     loading.value = true;
     error.value = null;
@@ -214,7 +212,6 @@ export function useAnalysis() {
     speakers?: string | string[] | null
   ): Promise<NgramData[]> {
     const folder = folderId ?? selectedFolderId.value;
-    if (!folder) return [];
 
     loading.value = true;
     error.value = null;
@@ -258,7 +255,6 @@ export function useAnalysis() {
     speakers?: string | string[] | null
   ): Promise<SearchResult | null> {
     const folder = folderId ?? selectedFolderId.value;
-    if (!folder) return null;
 
     loading.value = true;
     error.value = null;

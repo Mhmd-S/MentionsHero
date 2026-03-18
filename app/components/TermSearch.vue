@@ -8,6 +8,18 @@ const caseSensitive = ref(false)
 const result = ref<TermFrequency | null>(null)
 const searchResults = ref<SearchResult | null>(null)
 
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(searchQuery, (val) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  if (!val.trim()) {
+    result.value = null
+    searchResults.value = null
+    return
+  }
+  searchTimer = setTimeout(() => handleSearch(), 500)
+})
+
 async function handleSearch() {
   if (!searchQuery.value.trim()) return
 

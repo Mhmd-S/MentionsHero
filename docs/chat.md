@@ -43,7 +43,7 @@ All admin-authed via `require_admin` dependency.
 
 ## Available Tools
 
-All read-only. Defined in `agent_tools.py`. 16 tools total.
+All read-only. Defined in `agent_tools.py`. 17 tools total.
 
 ### Lookup & Navigation
 
@@ -60,6 +60,7 @@ All read-only. Defined in `agent_tools.py`. 16 tools total.
 | Tool | Description | Calls |
 |------|-------------|-------|
 | `list_transcripts` | List transcripts (metadata only, sorted by date) | `transcript_service.get_all_transcripts()` |
+| `get_persona_transcripts` | Transcripts where a persona actually speaks (by alias matching) | `persona_service.get_transcripts_for_persona()` |
 | `get_transcript_content` | Read transcript text (with section-based truncation) | `transcript_service.get_transcript_by_id()` |
 | `list_speakers` | Speakers with counts | `speaker_service.get_all_speakers()` |
 
@@ -93,6 +94,12 @@ The system prompt guides the agent to chain tools for complex questions. Example
 6. `get_polymarket_event(event_id=Z, persona_id=P)` → prices + mention analysis
 
 The agent then synthesizes transcript content with market data for an analytical answer.
+
+Example flow for *"What are JD Vance's most used terms?"*:
+
+1. `search_personas(query="JD Vance")` → persona_id + aliases
+2. `get_persona_transcripts(persona_id=X)` → list of transcripts where Vance spoke
+3. `get_top_terms(speakers=["JD Vance", "J.D. Vance", ...])` → top terms filtered to Vance's speech segments
 
 ## SSE Event Format
 
