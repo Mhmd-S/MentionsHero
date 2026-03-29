@@ -358,7 +358,7 @@ CREATE TABLE public.auto_sources (
   CONSTRAINT auto_sources_pkey PRIMARY KEY (id),
   CONSTRAINT auto_sources_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
   CONSTRAINT auto_sources_folder_fkey FOREIGN KEY (folder_id) REFERENCES public.folders(id) ON DELETE SET NULL,
-  CONSTRAINT auto_sources_unique_url UNIQUE (youtube_url)
+  CONSTRAINT auto_sources_unique_persona_url UNIQUE (persona_id, youtube_url)
 );
 
 CREATE TABLE public.auto_runs (
