@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import re
 from datetime import datetime, timezone, timedelta
 
 from backend.core.concurrency import auto_semaphore
@@ -30,31 +29,19 @@ async def get_all_sources() -> list[dict]:
 
     # Fetch last run for each source
     source_ids = [s["id"] for s in sources]
+    last_runs: dict[str, dict] = {}
     if source_ids:
-        runs_response = (
-            supabase.rpc(
-                "get_latest_auto_runs",
-                {"source_ids": source_ids},
-            ).execute()
-        )
-        # Fallback: fetch individually if RPC doesn't exist
-        last_runs: dict[str, dict] = {}
-        if runs_response.data:
-            for run in runs_response.data:
-                last_runs[run["auto_source_id"]] = run
-        else:
-            # Manual fallback — get most recent run per source
-            for sid in source_ids:
-                run_resp = (
-                    supabase.table("auto_runs")
-                    .select("status, started_at")
-                    .eq("auto_source_id", sid)
-                    .order("started_at", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-                if run_resp.data:
-                    last_runs[sid] = run_resp.data[0]
+        for sid in source_ids:
+            run_resp = (
+                supabase.table("auto_runs")
+                .select("status, started_at")
+                .eq("auto_source_id", sid)
+                .order("started_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if run_resp.data:
+                last_runs[sid] = run_resp.data[0]
 
     result = []
     for s in sources:
@@ -124,13 +111,6 @@ async def create_source(data: dict) -> dict:
     except Exception:
         logger.warning("Failed to fetch source name for %s", data["youtube_url"])
 
-    # Validate title_filter regex if provided
-    if data.get("title_filter"):
-        try:
-            re.compile(data["title_filter"])
-        except re.error as e:
-            raise ValueError(f"Invalid title_filter regex: {e}")
-
     supabase = get_supabase()
     insert_data = {
         "persona_id": data["persona_id"],
@@ -143,19 +123,18 @@ async def create_source(data: dict) -> dict:
         "max_videos_per_check": data.get("max_videos_per_check", 5),
         "title_filter": data.get("title_filter"),
     }
-    response = supabase.table("auto_sources").insert(insert_data).execute()
+    from postgrest.exceptions import APIError
+    try:
+        response = supabase.table("auto_sources").insert(insert_data).execute()
+    except APIError as e:
+        if "23505" in str(e) or "unique" in str(e).lower():
+            raise ValueError("This persona already has a source for this YouTube URL")
+        raise
     return response.data[0]
 
 
 async def update_source(source_id: str, data: dict) -> dict | None:
     """Update an auto-source."""
-    # Validate title_filter regex if provided
-    if data.get("title_filter"):
-        try:
-            re.compile(data["title_filter"])
-        except re.error as e:
-            raise ValueError(f"Invalid title_filter regex: {e}")
-
     update_data = {
         k: v for k, v in data.items()
         if v is not None
@@ -299,12 +278,13 @@ async def check_source_for_new_videos(source_id: str) -> dict | None:
         videos_skipped = 0
         details: list[dict] = []
 
-        # Apply title filter
+        # Apply title keyword filter (comma-separated keywords, case-insensitive)
         if source.get("title_filter"):
-            pattern = re.compile(source["title_filter"], re.IGNORECASE)
+            keywords = [k.strip().lower() for k in source["title_filter"].split(",") if k.strip()]
             filtered = []
             for v in all_videos:
-                if pattern.search(v.title):
+                title_lower = v.title.lower()
+                if any(kw in title_lower for kw in keywords):
                     filtered.append(v)
                 else:
                     videos_skipped += 1

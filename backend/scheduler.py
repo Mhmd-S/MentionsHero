@@ -30,17 +30,20 @@ async def start_scheduler() -> None:
         mark_stale_runs_as_failed,
     )
 
-    # Clean up stale runs from previous crashes
-    await mark_stale_runs_as_failed()
+    try:
+        # Clean up stale runs from previous crashes
+        await mark_stale_runs_as_failed()
 
-    scheduler = get_scheduler()
+        scheduler = get_scheduler()
 
-    sources = await get_all_enabled_sources()
-    for source in sources:
-        _schedule_source(scheduler, source)
+        sources = await get_all_enabled_sources()
+        for source in sources:
+            _schedule_source(scheduler, source)
 
-    scheduler.start()
-    logger.info("Auto-transcription scheduler started with %d sources", len(sources))
+        scheduler.start()
+        logger.info("Auto-transcription scheduler started with %d sources", len(sources))
+    except Exception as e:
+        logger.warning("Auto-transcription scheduler failed to start: %s (migration may not have run yet)", e)
 
 
 def _schedule_source(scheduler: AsyncIOScheduler, source: dict) -> None:

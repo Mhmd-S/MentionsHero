@@ -42,7 +42,6 @@ export interface CreateSourceBody {
   source_type: 'channel' | 'playlist'
   youtube_url: string
   folder_id?: string | null
-  speaker_hint?: string | null
   check_interval_minutes?: number
   max_videos_per_check?: number
   title_filter?: string | null
@@ -50,7 +49,6 @@ export interface CreateSourceBody {
 
 export interface UpdateSourceBody {
   folder_id?: string | null
-  speaker_hint?: string | null
   check_interval_minutes?: number
   max_videos_per_check?: number
   title_filter?: string | null

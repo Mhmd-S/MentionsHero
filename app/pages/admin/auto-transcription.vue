@@ -24,10 +24,9 @@ const formPersonaId = ref('')
 const formSourceType = ref<'channel' | 'playlist'>('channel')
 const formYoutubeUrl = ref('')
 const formFolderId = ref<string | null>(null)
-const formSpeakerHint = ref('')
+const formTitleKeywords = ref('')
 const formCheckInterval = ref(360)
 const formMaxVideos = ref(5)
-const formTitleFilter = ref('')
 const formIsEnabled = ref(true)
 const saving = ref(false)
 
@@ -69,10 +68,9 @@ function openCreateModal() {
   formSourceType.value = 'channel'
   formYoutubeUrl.value = ''
   formFolderId.value = null
-  formSpeakerHint.value = ''
+  formTitleKeywords.value = ''
   formCheckInterval.value = 360
   formMaxVideos.value = 5
-  formTitleFilter.value = ''
   formIsEnabled.value = true
   showSourceModal.value = true
 }
@@ -83,10 +81,9 @@ function openEditModal(source: AutoSource) {
   formSourceType.value = source.source_type
   formYoutubeUrl.value = source.youtube_url
   formFolderId.value = source.folder_id
-  formSpeakerHint.value = source.speaker_hint || ''
+  formTitleKeywords.value = source.title_filter || ''
   formCheckInterval.value = source.check_interval_minutes
   formMaxVideos.value = source.max_videos_per_check
-  formTitleFilter.value = source.title_filter || ''
   formIsEnabled.value = source.is_enabled
   showSourceModal.value = true
 }
@@ -97,10 +94,9 @@ async function handleSave() {
     if (editingSource.value) {
       const body: UpdateSourceBody = {
         folder_id: formFolderId.value,
-        speaker_hint: formSpeakerHint.value || null,
         check_interval_minutes: formCheckInterval.value,
         max_videos_per_check: formMaxVideos.value,
-        title_filter: formTitleFilter.value || null,
+        title_filter: formTitleKeywords.value || null,
         is_enabled: formIsEnabled.value,
       }
       await updateSource(editingSource.value.id, body)
@@ -110,10 +106,9 @@ async function handleSave() {
         source_type: formSourceType.value,
         youtube_url: formYoutubeUrl.value,
         folder_id: formFolderId.value,
-        speaker_hint: formSpeakerHint.value || null,
         check_interval_minutes: formCheckInterval.value,
         max_videos_per_check: formMaxVideos.value,
-        title_filter: formTitleFilter.value || null,
+        title_filter: formTitleKeywords.value || null,
       }
       await createSource(body)
     }
@@ -333,7 +328,7 @@ onMounted(async () => {
     <!-- Create/Edit Source Modal -->
     <UModal v-model:open="showSourceModal">
       <template #content>
-        <div class="p-6">
+        <div class="p-6 max-h-[85vh] overflow-y-auto">
           <h3 class="text-lg font-semibold mb-4">
             {{ editingSource ? 'Edit Source' : 'Add Auto-Transcription Source' }}
           </h3>
@@ -394,9 +389,9 @@ onMounted(async () => {
               />
             </UFormField>
 
-            <!-- Speaker hint -->
-            <UFormField label="Speaker Hint" description="Context to help identify speakers (e.g., 'PMQ session with PM and Leader of the Opposition')">
-              <UTextarea v-model="formSpeakerHint" :rows="2" class="w-full" placeholder="Optional speaker context..." />
+            <!-- Title keywords filter -->
+            <UFormField label="Title Keywords" description="Only transcribe videos whose title contains any of these words (comma-separated)">
+              <UInput v-model="formTitleKeywords" class="w-full" placeholder="e.g., PMQ, prime minister, press briefing" />
             </UFormField>
 
             <!-- Check interval -->
@@ -413,11 +408,6 @@ onMounted(async () => {
             <!-- Max videos per check -->
             <UFormField label="Max Videos Per Check" description="Limit how many new videos are transcribed per check">
               <UInput v-model.number="formMaxVideos" type="number" :min="1" :max="20" class="w-full" />
-            </UFormField>
-
-            <!-- Title filter -->
-            <UFormField label="Title Filter" description="Optional regex to filter video titles (e.g., (?i)PMQ|prime minister)">
-              <UInput v-model="formTitleFilter" class="w-full" placeholder="e.g., (?i)PMQ|prime minister" />
             </UFormField>
 
             <!-- Enabled toggle (only on edit) -->
