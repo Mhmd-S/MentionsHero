@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useHighlight } from '~/composables/useHighlight'
+
 export interface TermResult {
   search_term: string
   total_mentions: number
@@ -87,46 +89,16 @@ const displayedTranscripts = computed(() => {
 
 const hasMore = computed(() => groupedByTranscript.value.length > displayCap)
 
+const { highlightTerm: _highlight } = useHighlight()
+
 const summaryLine = computed(() => {
   const total = props.termResult?.context_total_matches ?? props.termResult?.total_mentions ?? 0
   const transcriptCount = props.termResult?.context_transcripts_with_matches ?? props.termResult?.briefings_with_term ?? 0
   return `${total} mention${total !== 1 ? 's' : ''} across ${transcriptCount} transcript${transcriptCount !== 1 ? 's' : ''}`
 })
 
-function buildPluralPattern(term: string): string {
-  const words = term.trim().split(/\s+/)
-
-  if (words.length > 1) {
-    // Compound: "Mr Speaker" / "shut down" — match spaced, hyphenated, joined forms
-    const cleaned = words.map(w => w.replace(/\.+$/, ''))
-    const escaped = cleaned.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    const suffix = "(?:'?s)?"
-    const spaced = escaped.join('\\.?\\s+') + suffix
-    const hyphenated = escaped.join('\\.?-') + suffix
-    const forms = [spaced, hyphenated]
-    if (words.length === 2) forms.push(escaped.join('') + suffix)
-    return `\\b(${forms.join('|')})\\b`
-  }
-
-  const word = words[0] ?? term
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\./g, '\\.?')
-  const poss = "(?:'s)?"
-
-  // Consonant+y: ally → allies
-  if (/[^aeiou]y$/i.test(word)) {
-    const base = escaped.slice(0, -1)
-    return `\\b(${escaped}${poss}|${base}ies${poss})\\b`
-  }
-
-  // Words ending in s, sh, ch, x, z take +es plural
-  const plural = /(?:s|sh|ch|x|z)$/i.test(word) ? 'es' : 's'
-  return `\\b(${escaped}${poss}|${escaped}${plural}${poss})\\b`
-}
-
 function highlightTerm(text: string): string {
-  if (!props.searchTerm) return text
-  const regex = new RegExp(buildPluralPattern(props.searchTerm), 'gi')
-  return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>')
+  return _highlight(text, props.searchTerm)
 }
 </script>
 

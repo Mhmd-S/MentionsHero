@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
 
 import uvicorn
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,8 +12,8 @@ setup_logging()
 from backend.core.auth import require_admin
 from backend.routers import (
     analysis,
+    auto_transcription,
     channel,
-    chat,
     folders,
     jobs,
     kalshi,
@@ -25,13 +26,24 @@ from backend.routers import (
     transcripts,
     video,
 )
+from backend.scheduler import start_scheduler, stop_scheduler
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start/stop background scheduler."""
+    await start_scheduler()
+    yield
+    await stop_scheduler()
+
 
 app = FastAPI(
     title="Transcript Analysis API",
     description="Backend API for press briefing transcription and analysis",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 # CORS middleware for Nuxt frontend
@@ -62,7 +74,7 @@ app.include_router(channel.router, dependencies=[Depends(require_admin)])
 app.include_router(kalshi.router, dependencies=[Depends(require_admin)])
 app.include_router(polymarket.router, dependencies=[Depends(require_admin)])
 app.include_router(personas.router, dependencies=[Depends(require_admin)])
-app.include_router(chat.router, dependencies=[Depends(require_admin)])
+app.include_router(auto_transcription.router, dependencies=[Depends(require_admin)])
 
 # Public routers (no global auth — per-endpoint auth where needed)
 app.include_router(public.router)

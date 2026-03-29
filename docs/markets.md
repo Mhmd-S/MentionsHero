@@ -90,43 +90,6 @@ When a persona is selected, term sections can be sorted and filtered via a toolb
 - Recommendation: "yes" (EV > 0.15), "no" (EV > 0.15), or "skip"
 - Confidence score and reasoning
 
-## Swing Analysis
-
-Spike-first price analysis for Polymarket mention markets. Detects significant price movements in CLOB history, then traces them back to what was said in the transcript at that moment.
-
-### Approach: Spike → Trace Back
-Instead of "word said → did price move?", this starts from the signal:
-1. **Detect spikes** — find price moves > 3c within 5-minute windows in CLOB history
-2. **Trace back** — map each spike's timestamp to the transcript timeline
-3. **Identify words** — find which search terms were said in the 5 minutes before the spike
-4. **Build profiles** — aggregate per-term: how often does this word appear before spikes, what's the average spike magnitude?
-
-### Transcript-to-Event Matching (Gemini)
-Uses Gemini (`gemini-2.5-flash`) with structured output to:
-1. **Match transcripts to events** — reasons about event titles, transcript names, and date ranges
-2. **Infer event start times** — uses clues from transcript names and common patterns (press briefings ~18:00 UTC, speeches ~16:00-22:00 UTC)
-3. Returns matches with confidence levels (high/medium/low) and reasoning
-
-Falls back to date + fuzzy keyword matching if Gemini is unavailable.
-
-### Transcript Timeline
-Transcripts contain `[MM:SS]` timestamps (e.g., `[04:30] Donald Trump: ...`). These are parsed into absolute timestamps:
-- `event_start_time` (from Gemini) + `[MM:SS]` offset = absolute unix timestamp
-- Each segment has: `abs_ts`, `speaker`, `text`
-- Spike trace-back finds segments in the 5-minute lookback window before each spike
-
-### CLOB Price History
-- `clobTokenIds` from Gamma API is a **JSON string** (must `json.loads()`)
-- YES token is index 0 of the parsed array
-- `/prices-history?market={yes_token_id}&interval=all&fidelity=1` for 1-min resolution
-- Spike detection: rolling 5-min window, minimum 3c move, nearby spikes merged
-
-### Key Files
-- `backend/services/swing_service.py` — Spike detection, Gemini matching, transcript timeline parsing, trace-back engine
-- `backend/routers/polymarket.py` — `GET /api/polymarket/swing` endpoint
-- `app/pages/admin/backtest.vue` — Two views: Spikes (individual price moves with traced words) and By Term (aggregated per-term spike profiles)
-- `app/composables/usePolymarket.ts` — `analyzeSwings()` function, `SpikeRecord`/`SwingProfile`/`SwingAnalysisResult` types
-
 ## API Endpoints
 
 | Method | Path | Description |
@@ -182,7 +145,6 @@ Events are only shown publicly when an admin explicitly enables them. Each event
 |-------|------|---------|
 | Page | `app/pages/admin/markets/index.vue` | Tabbed listing (Kalshi tab: events grouped by tag; Polymarket tab: search + stored events) |
 | Page | `app/pages/admin/markets/[id].vue` | Kalshi event detail by event_ticker: markets with persona analysis |
-| Page | `app/pages/admin/backtest.vue` | Backtest dashboard: run backtests, view accuracy/PnL, threshold sensitivity |
 | Composable | `app/composables/useKalshi.ts` | All Kalshi API calls (`browseEvents`, `getEventDetailByTicker`, etc.) |
 | Component | `app/components/TermSection.vue` | Per-market term analysis display |
 | Router | `backend/routers/kalshi.py` | All `/api/kalshi/*` endpoints |
@@ -250,7 +212,7 @@ Unlike Kalshi (auto-browsed by category), Polymarket events are discovered via a
 
 ### Analysis
 
-Identical pipeline to Kalshi — same NLP functions (`calculate_term_frequency`, `search_term_in_context`), same persona/transcript resolution, same `TermSection.vue` component for display.
+Identical pipeline to Kalshi — same NLP functions (`calculate_term_frequency`, `search_term_in_context`), same persona/transcript resolution. Display uses `MarketOverviewRow.vue` — a table-row layout with inline metrics (price, 1-day change, trend, mentions, % briefings) and expandable transcript context. Kalshi continues to use `TermSection.vue`.
 
 ### UI
 
@@ -260,7 +222,6 @@ The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is pe
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/polymarket/swing` | Swing analysis: correlate term mentions with price movements (optional `?event_id=`, `?persona_id=`) |
 | `GET` | `/api/polymarket/events/search?q=...&limit=20` | Search Polymarket API for events |
 | `GET` | `/api/polymarket/events` | List stored events |
 | `POST` | `/api/polymarket/events` | Add event by slug `{ slug }` |
@@ -274,12 +235,12 @@ The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is pe
 |-------|------|---------|
 | Page | `app/pages/admin/markets/index.vue` | Tabbed listing (Kalshi tab + Polymarket tab with search & stored events) |
 | Page | `app/pages/admin/markets/poly/[id].vue` | Polymarket event detail with persona analysis |
-| Page | `app/pages/admin/backtest.vue` | Swing analysis: term-price correlation with expandable per-briefing detail |
-| Composable | `app/composables/usePolymarket.ts` | All Polymarket API calls including `analyzeSwings()` |
-| Component | `app/components/TermSection.vue` | Per-market term analysis display (shared with Kalshi) |
+| Composable | `app/composables/usePolymarket.ts` | All Polymarket API calls |
+| Component | `app/components/MarketOverviewRow.vue` | Table-row market display with inline metrics and expandable transcript context |
+| Component | `app/components/TermSection.vue` | Per-market term analysis card display (used by Kalshi) |
+| Composable | `app/composables/useHighlight.ts` | Shared term highlighting utilities (used by both components) |
 | Router | `backend/routers/polymarket.py` | All `/api/polymarket/*` endpoints |
 | Service | `backend/services/polymarket_service.py` | Polymarket API client, upsert logic, market analysis |
-| Service | `backend/services/swing_service.py` | Swing analysis: CLOB price correlation with transcript mentions |
 | Model | `backend/models/polymarket.py` | Polymarket API models, DB record models |
 
 ### Database Tables

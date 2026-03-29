@@ -26,16 +26,13 @@ from backend.models.job import (
     BulkCancelResponse,
     CancelResponse,
 )
+from backend.core.concurrency import job_semaphore
 from backend.services import job_service, speaker_service
 from backend.services.download_service import download_audio, cleanup_audio_file
 from backend.services.transcription_service import transcribe_audio
 from backend.services.youtube_service import validate_youtube_url, get_video_info
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
-
-# Concurrency control for batch processing
-MAX_CONCURRENT = 10
-_batch_semaphore = asyncio.Semaphore(MAX_CONCURRENT)
 
 
 async def process_job(
@@ -300,7 +297,7 @@ async def create_batch_jobs(
 
     # Process jobs in parallel with limited concurrency
     async def process_one(i: int) -> None:
-        async with _batch_semaphore:
+        async with job_semaphore:
             await process_job(
                 job_ids[i],
                 request.videos[i].url,

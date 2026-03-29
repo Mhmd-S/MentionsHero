@@ -5,24 +5,9 @@ from fastapi import APIRouter, HTTPException, Query
 from backend.models.polymarket import (
     AddPolyEventRequest,
 )
-from backend.services import polymarket_service, swing_service
+from backend.services import polymarket_service
 
 router = APIRouter(prefix="/api/polymarket", tags=["polymarket"])
-
-
-# ----- Swing Analysis (static route MUST come before parameterized) -----
-
-
-@router.get("/swing")
-async def run_swing_analysis(
-    event_id: str | None = Query(None, description="Filter to a specific event"),
-    persona_id: str | None = Query(None, description="Filter analysis to a persona's transcripts"),
-):
-    """Analyze price swings correlated with term mentions across briefings."""
-    return await swing_service.analyze_swings(
-        event_id=event_id,
-        persona_id=persona_id,
-    )
 
 
 # ----- Event endpoints (static routes MUST come before parameterized) -----

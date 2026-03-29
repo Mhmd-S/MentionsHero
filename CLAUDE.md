@@ -35,8 +35,8 @@ app/                          # Nuxt 3 frontend
       [...slug].vue           # Individual blog post
     admin/                    # Admin-only pages (require admin role)
       index.vue               # New Transcript creation
+      auto-transcription.vue  # Auto-transcription source management
       term-search.vue         # Term Search
-      transcript-analysis.vue # AI Chat (Gemini agent, replaces old Transcript Analysis)
       transcripts/            # Admin transcript listing & detail
       personas/               # Admin persona listing & detail
       markets/                # Markets listing (Kalshi + Polymarket tabs) & detail
@@ -48,14 +48,13 @@ app/                          # Nuxt 3 frontend
     useSubscription.ts        # Stripe subscription state management
     useJobProgress.ts         # SSE job streaming
     useAnalysis.ts            # Term search & analysis API
-    useChat.ts                # AI chat agent composable (conversations, SSE streaming)
     usePersonas.ts            # Persona CRUD API
     useKalshi.ts              # Kalshi API
     usePolymarket.ts          # Polymarket API
     useFileTree.ts            # Folder/transcript management
+    useAutoTranscription.ts   # Auto-transcription source management
     useAuth.ts                # Authentication state
   components/                 # Reusable components
-    chat/                     # AI chat components (ChatMessage, ChatToolCall, ChatInput)
     FileTree/                 # Sidebar file tree (FileTree.vue, FileTreeFolder.vue, FileTreeItem.vue)
     TermSearch.vue            # Term search interface
     TermSection.vue           # Per-market term analysis display
@@ -73,8 +72,10 @@ app/                          # Nuxt 3 frontend
 backend/                      # FastAPI backend
   main.py                     # App entry point, per-router auth, router registration
   config.py                   # Settings from .env (Supabase, Gemini, Stripe, CORS)
+  scheduler.py                # APScheduler background scheduler for auto-transcription
   core/
     auth.py                   # Auth dependencies (require_admin, optional_auth, require_user_auth)
+    concurrency.py            # Shared semaphores for job processing
     database.py               # Supabase client, caching helpers
     process_tracker.py        # Subprocess termination tracking
   routers/                    # API route handlers
@@ -88,7 +89,7 @@ backend/                      # FastAPI backend
     kalshi.py                 # /api/kalshi/* - Series, events, markets (admin)
     polymarket.py             # /api/polymarket/* - Polymarket events, markets (admin)
     personas.py               # /api/personas/* - Persona CRUD, aliases (admin)
-    chat.py                   # /api/chat/* - AI chat agent conversations (admin)
+    auto_transcription.py     # /api/auto-transcription/* - Auto-transcription sources & runs (admin)
     public.py                 # /api/public/* - Public personas, transcripts & markets (no auth)
     stripe_router.py          # /api/stripe/* - Checkout, webhook, subscription
   services/                   # Business logic
@@ -101,14 +102,12 @@ backend/                      # FastAPI backend
     persona_service.py        # Persona DB operations
     kalshi_service.py         # Kalshi API client, market analysis
     polymarket_service.py     # Polymarket API client, market analysis
-    agent_service.py          # Gemini agent loop with SSE streaming
-    agent_tools.py            # Agent tool declarations and executors
-    chat_service.py           # Chat conversation/message persistence
     youtube_service.py        # YouTube metadata via yt-dlp
     public_service.py         # Public data access, subscription checks
     stripe_service.py         # Stripe API integration
+    auto_transcription_service.py  # Auto-transcription check logic & CRUD
   models/                     # Pydantic request/response models
-    job.py, transcript.py, folder.py, analysis.py,
+    job.py, transcript.py, folder.py, analysis.py, auto_transcription.py,
     speaker.py, persona.py, kalshi.py, polymarket.py, video.py
   utils/
     nlp.py                    # Term frequency, n-grams, text cleaning, context search
@@ -140,8 +139,8 @@ Each feature has detailed documentation in `docs/`. Read the relevant file befor
 | Personas | `docs/personas.md` | Speaker identity management with aliases, Kalshi links |
 | Markets (Kalshi) | `docs/markets.md` | Mentions markets: Series → Events → Markets, custom_strike.Word, analysis |
 | Sidebar & Directory | `docs/sidebar.md` | FileTree component, folder hierarchy, drag-and-drop |
-| AI Chat Agent | `docs/chat.md` | Gemini-powered chat for transcript analysis & market browsing |
 | SEO & Blog | `docs/seo.md` | OG images, structured data, sitemap, @nuxt/content blog |
+| Auto-Transcription | `docs/auto-transcription.md` | Periodic YouTube channel/playlist monitoring & auto-transcription |
 
 ## Mandatory: Update Documentation on Feature Changes
 
@@ -153,7 +152,7 @@ When you edit code that belongs to a feature, you MUST also update the correspon
 - Markets/Kalshi changes → update `docs/markets.md`
 - Sidebar/FileTree/folder changes → update `docs/sidebar.md`
 - SEO/OG images/blog/sitemap changes → update `docs/seo.md`
-- AI Chat/agent changes → update `docs/chat.md`
+- Auto-transcription changes → update `docs/auto-transcription.md`
 - Database schema changes → update the relevant feature doc AND the Database section below
 - New features → create a new `docs/<feature>.md` and add it to the table above
 
@@ -177,8 +176,6 @@ What to update:
 | `speakers` | Normalized speaker names (unique) |
 | `transcript_speakers` | Junction: transcript ↔ speaker with segment_count |
 | `analysis_cache` | Cached analysis results with TTL (cache_key, result JSONB, expires_at) |
-| `chat_conversations` | AI chat conversations (id, title, created_at, updated_at) |
-| `chat_messages` | Chat messages (conversation_id, role, content, tool_calls JSONB) |
 
 ### Persona Tables
 
@@ -206,6 +203,14 @@ What to update:
 | `poly_market_search_configs` | Search terms for Polymarket markets (from groupItemTitle or question) |
 | `poly_market_term_results` | Per-persona, per-term analysis results for Polymarket |
 
+### Auto-Transcription Tables
+
+| Table | Purpose |
+|-------|---------|
+| `auto_sources` | YouTube channel/playlist → persona links (youtube_url UNIQUE, check_interval, title_filter) |
+| `auto_runs` | History log of each automated check (status, videos_found/new/queued/skipped, details JSONB) |
+| `auto_source_videos` | Per-source video tracking for dedup (auto_source_id + youtube_url UNIQUE) |
+
 ### Key Relationships
 
 ```
@@ -220,6 +225,10 @@ market_term_results → kalshi_markets + personas
 poly_markets.event_id → poly_events (CASCADE)
 poly_market_search_configs.market_id → poly_markets (CASCADE)
 poly_market_term_results → poly_markets + personas
+auto_sources.persona_id → personas (CASCADE)
+auto_sources.folder_id → folders (SET NULL)
+auto_runs.auto_source_id → auto_sources (CASCADE)
+auto_source_videos.auto_source_id → auto_sources (CASCADE)
 ```
 
 ## API Overview
@@ -238,7 +247,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 | `/api/kalshi` | `kalshi.py` | Admin | Series/events/markets CRUD, analysis |
 | `/api/polymarket` | `polymarket.py` | Admin | Polymarket events/markets, search, analysis |
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
-| `/api/chat` | `chat.py` | Admin | AI chat agent conversations, SSE streaming |
+| `/api/auto-transcription` | `auto_transcription.py` | Admin | Auto-transcription sources, runs, manual trigger |
 | `/api/public` | `public.py` | None/Optional | Public personas, transcripts & markets browsing |
 | `/api/stripe` | `stripe_router.py` | User/None | Checkout, webhook, subscription, portal |
 | `/api/profile` | `profile.py` | User/None | Profile CRUD, signup init |
@@ -262,6 +271,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 - **Polymarket API**: Gamma API (`https://gamma-api.polymarket.com`), unauthenticated read-only. Events discovered via admin keyword search (`_q` param), manually added to DB. No series concept — events directly contain markets. Slug-based identification. Pricing is 0-1 decimal (multiply by 100 for display). Resolution derived from `closed` + `outcomePrices`
 - **Polymarket search terms**: Uses `groupItemTitle` (often the tracked term in multi-outcome events), falls back to `parse_market_criteria()` regex on question text. No `custom_strike.Word` equivalent
 - **Markets UI**: Tabbed layout (Kalshi | Polymarket) on `/admin/markets`. Tab state persisted via `?tab=polymarket` query param. Kalshi detail at `/admin/markets/{event_ticker}`, Polymarket detail at `/admin/markets/poly/{event_id}`
+- **Auto-transcription scheduler**: APScheduler `AsyncIOScheduler` starts via FastAPI lifespan in `main.py`. Disable with `AUTO_TRANSCRIPTION_ENABLED=false` env var. Scheduler state reconstructed from DB on restart. Multi-instance dedup prevents duplicate checks on Fly.io
 - **Mandatory CLAUDE.md updates**: Any code change that affects project structure, conventions, API endpoints, database schema, key files, or development workflow MUST be reflected in this CLAUDE.md file
 
 ## Development

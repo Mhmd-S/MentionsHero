@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_price_id: str = ""
 
+    # Auto-transcription scheduler
+    auto_transcription_enabled: bool = True
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8001
