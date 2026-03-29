@@ -12,3 +12,4 @@ ddgs>=9.0.0
 sse-starlette>=1.8.0
 stripe>=8.0.0
 yt-dlp>=2024.0.0
+apscheduler>=3.10.0

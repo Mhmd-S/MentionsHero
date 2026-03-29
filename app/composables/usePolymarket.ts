@@ -64,44 +64,6 @@ export interface PolySearchResult {
   end_date: string | null
 }
 
-// ----- Swing Analysis types -----
-
-export interface SpikeRecord {
-  market_id: string
-  market_question: string | null
-  event_title: string
-  transcript_name: string
-  spike_time: string
-  spike_magnitude: number
-  spike_direction: 'up' | 'down'
-  price_before: number
-  price_after: number
-  transcript_time: string
-  text_before_spike: string
-  mentioned_terms: string[]
-  speaker: string
-}
-
-export interface SwingProfile {
-  term: string
-  event_title: string
-  spike_count: number
-  avg_magnitude: number
-  max_magnitude: number
-  total_magnitude: number
-  consistency: number
-  spikes: SpikeRecord[]
-}
-
-export interface SwingAnalysisResult {
-  profiles: SwingProfile[]
-  spikes: SpikeRecord[]
-  total_markets_analyzed: number
-  total_briefings: number
-  total_transcripts_available: number
-  total_spikes_detected: number
-}
-
 export function usePolymarket() {
   const { authFetch } = useAuthFetch()
 
@@ -205,20 +167,6 @@ export function usePolymarket() {
     return trimmed
   }
 
-  async function analyzeSwings(params?: {
-    event_id?: string
-    persona_id?: string
-  }): Promise<SwingAnalysisResult | null> {
-    try {
-      return await authFetch<SwingAnalysisResult>('/api/polymarket/swing', {
-        query: params,
-      })
-    } catch (e) {
-      console.error('Failed to analyze swings:', e)
-      return null
-    }
-  }
-
   return {
     searchEvents,
     listStoredEvents,
@@ -228,7 +176,6 @@ export function usePolymarket() {
     reanalyzeEvent,
     deleteEvent,
     extractSlugFromInput,
-    analyzeSwings,
     toggleEventPublic,
   }
 }

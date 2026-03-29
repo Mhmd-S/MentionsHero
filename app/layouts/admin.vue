@@ -14,6 +14,12 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
     active: route.path === '/admin'
   },
   {
+    label: 'Auto Transcribe',
+    icon: 'i-lucide-clock',
+    to: '/admin/auto-transcription',
+    active: route.path === '/admin/auto-transcription'
+  },
+  {
     label: 'Term Search',
     icon: 'i-lucide-search',
     to: '/admin/term-search',
@@ -37,18 +43,6 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
     to: '/admin/markets',
     active: route.path.startsWith('/admin/markets')
   },
-  {
-    label: 'Swing Analysis',
-    icon: 'i-lucide-activity',
-    to: '/admin/backtest',
-    active: route.path === '/admin/backtest'
-  },
-  {
-    label: 'AI Chat',
-    icon: 'i-lucide-bot',
-    to: '/admin/transcript-analysis',
-    active: route.path === '/admin/transcript-analysis'
-  }
 ]])
 </script>
 
