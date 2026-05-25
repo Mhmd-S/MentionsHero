@@ -16,12 +16,9 @@ class AutoSource(BaseModel):
     source_name: str | None = None
     folder_id: str | None = None
     speaker_hint: str | None = None
-    check_interval_minutes: int = 360
     max_videos_per_check: int = 5
-    is_enabled: bool = True
+    backfill_limit: int | None = 500
     title_filter: str | None = None
-    last_run_at: str | None = None
-    last_run_status: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -36,8 +33,8 @@ class AutoSourceCreate(BaseModel):
     youtube_url: str
     folder_id: str | None = None
     speaker_hint: str | None = None
-    check_interval_minutes: int = 360
     max_videos_per_check: int = 5
+    backfill_limit: int | None = 500
     title_filter: str | None = None
 
 
@@ -45,33 +42,40 @@ class AutoSourceUpdate(BaseModel):
     """Request model for updating an auto-source."""
     folder_id: str | None = None
     speaker_hint: str | None = None
-    check_interval_minutes: int | None = None
     max_videos_per_check: int | None = None
+    backfill_limit: int | None = None
     title_filter: str | None = None
-    is_enabled: bool | None = None
 
 
-class AutoRun(BaseModel):
-    """Auto-transcription run history entry."""
+class RunResultDetail(BaseModel):
+    """One video's outcome from a manual run."""
+    url: str
+    title: str
+    action: Literal["queued", "filtered", "exists", "error"]
+    error: str | None = None
+
+
+class RunResult(BaseModel):
+    """Result of a manual run on a source."""
+    videos_found: int
+    videos_filtered: int
+    videos_existing: int
+    videos_queued: int
+    details: list[RunResultDetail] = []
+
+
+class TimelineEntry(BaseModel):
+    """One row in the global auto-transcription timeline."""
     id: str
     auto_source_id: str
     source_name: str | None = None
+    persona_id: str | None = None
     persona_name: str | None = None
-    status: str
-    videos_found: int = 0
-    videos_new: int = 0
-    videos_queued: int = 0
-    videos_skipped: int = 0
-    error_message: str | None = None
-    details: list[dict] = []
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-
-    class Config:
-        from_attributes = True
-
-
-class ManualCheckResponse(BaseModel):
-    """Response for manual check trigger."""
-    message: str
-    source_id: str
+    youtube_url: str
+    video_title: str | None = None
+    action: str
+    job_id: str | None = None
+    job_status: str | None = None
+    job_error: str | None = None
+    transcript_id: str | None = None
+    created_at: datetime | None = None

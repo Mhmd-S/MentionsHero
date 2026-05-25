@@ -1,8 +1,8 @@
-"""Auto-transcription service for periodic YouTube monitoring."""
+"""Auto-transcription service: manual-trigger YouTube monitoring."""
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from backend.core.concurrency import auto_semaphore
 from backend.core.database import get_supabase
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 async def get_all_sources() -> list[dict]:
-    """List all auto-sources with persona name and last run info."""
+    """List all auto-sources with persona name."""
     supabase = get_supabase()
     response = (
         supabase.table("auto_sources")
@@ -26,32 +26,11 @@ async def get_all_sources() -> list[dict]:
         .execute()
     )
     sources = response.data or []
-
-    # Fetch last run for each source
-    source_ids = [s["id"] for s in sources]
-    last_runs: dict[str, dict] = {}
-    if source_ids:
-        for sid in source_ids:
-            run_resp = (
-                supabase.table("auto_runs")
-                .select("status, started_at")
-                .eq("auto_source_id", sid)
-                .order("started_at", desc=True)
-                .limit(1)
-                .execute()
-            )
-            if run_resp.data:
-                last_runs[sid] = run_resp.data[0]
-
     result = []
     for s in sources:
         persona = s.pop("personas", None)
         s["persona_name"] = persona["name"] if persona else None
-        lr = last_runs.get(s["id"]) if source_ids else None
-        s["last_run_at"] = lr["started_at"] if lr else None
-        s["last_run_status"] = lr["status"] if lr else None
         result.append(s)
-
     return result
 
 
@@ -86,18 +65,6 @@ async def get_sources_for_persona(persona_id: str) -> list[dict]:
     return response.data or []
 
 
-async def get_all_enabled_sources() -> list[dict]:
-    """Get all enabled auto-sources (for scheduler startup)."""
-    supabase = get_supabase()
-    response = (
-        supabase.table("auto_sources")
-        .select("*")
-        .eq("is_enabled", True)
-        .execute()
-    )
-    return response.data or []
-
-
 async def create_source(data: dict) -> dict:
     """Create a new auto-source. Fetches source_name from YouTube."""
     source_name = None
@@ -119,8 +86,8 @@ async def create_source(data: dict) -> dict:
         "source_name": source_name,
         "folder_id": data.get("folder_id"),
         "speaker_hint": data.get("speaker_hint"),
-        "check_interval_minutes": data.get("check_interval_minutes", 360),
         "max_videos_per_check": data.get("max_videos_per_check", 5),
+        "backfill_limit": data.get("backfill_limit", 500),
         "title_filter": data.get("title_filter"),
     }
     from postgrest.exceptions import APIError
@@ -135,10 +102,7 @@ async def create_source(data: dict) -> dict:
 
 async def update_source(source_id: str, data: dict) -> dict | None:
     """Update an auto-source."""
-    update_data = {
-        k: v for k, v in data.items()
-        if v is not None
-    }
+    update_data = {k: v for k, v in data.items() if v is not None}
     if not update_data:
         return await get_source(source_id)
 
@@ -157,7 +121,7 @@ async def update_source(source_id: str, data: dict) -> dict | None:
 
 
 async def delete_source(source_id: str) -> bool:
-    """Delete an auto-source (cascades to runs and videos)."""
+    """Delete an auto-source (cascades to videos)."""
     supabase = get_supabase()
     response = (
         supabase.table("auto_sources")
@@ -169,257 +133,251 @@ async def delete_source(source_id: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Run history
+# Timeline
 # ---------------------------------------------------------------------------
 
-async def get_runs_for_source(source_id: str, limit: int = 20) -> list[dict]:
-    """Get recent runs for a specific source."""
+async def get_timeline(limit: int = 200) -> list[dict]:
+    """Global timeline of every video processed across all sources, newest first.
+
+    Joins auto_source_videos with auto_sources (source_name, persona name) and
+    enriches each entry with the linked job's status (when one exists) plus the
+    transcript id (when the URL was eventually transcribed).
+    """
     supabase = get_supabase()
     response = (
-        supabase.table("auto_runs")
-        .select("*")
-        .eq("auto_source_id", source_id)
-        .order("started_at", desc=True)
+        supabase.table("auto_source_videos")
+        .select("*, auto_sources(source_name, persona_id, personas(name))")
+        .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )
-    return response.data or []
+    rows = response.data or []
+    if not rows:
+        return []
 
-
-async def get_recent_runs(limit: int = 50) -> list[dict]:
-    """Get recent runs across all sources."""
-    supabase = get_supabase()
-    response = (
-        supabase.table("auto_runs")
-        .select("*, auto_sources(source_name, personas(name))")
-        .order("started_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    runs = response.data or []
-    for run in runs:
-        source = run.pop("auto_sources", None)
-        run["source_name"] = source["source_name"] if source else None
-        persona = source.get("personas") if source else None
-        run["persona_name"] = persona["name"] if persona else None
-    return runs
-
-
-# ---------------------------------------------------------------------------
-# Stale run cleanup (called on startup)
-# ---------------------------------------------------------------------------
-
-async def mark_stale_runs_as_failed() -> int:
-    """Mark any runs stuck in 'running' for >1 hour as failed."""
-    supabase = get_supabase()
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    response = (
-        supabase.table("auto_runs")
-        .update({
-            "status": "failed",
-            "error_message": "Stale run cleaned up on startup",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        })
-        .eq("status", "running")
-        .lt("started_at", cutoff)
-        .execute()
-    )
-    count = len(response.data) if response.data else 0
-    if count:
-        logger.info("Cleaned up %d stale auto-runs", count)
-    return count
-
-
-# ---------------------------------------------------------------------------
-# Core: check a source for new videos
-# ---------------------------------------------------------------------------
-
-async def check_source_for_new_videos(source_id: str) -> dict | None:
-    """Check a single auto-source for new videos and create transcription jobs."""
-    source = await get_source(source_id)
-    if not source or not source.get("is_enabled"):
-        return None
-
-    # Multi-instance dedup: skip if a recent run exists
-    supabase = get_supabase()
-    half_interval = max(source["check_interval_minutes"] // 2, 5)
-    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=half_interval)).isoformat()
-    recent = (
-        supabase.table("auto_runs")
-        .select("id")
-        .eq("auto_source_id", source_id)
-        .in_("status", ["running", "completed"])
-        .gte("started_at", cutoff)
-        .limit(1)
-        .execute()
-    )
-    if recent.data:
-        logger.info("Source %s was recently checked, skipping", source_id)
-        return None
-
-    # Create run record
-    run_resp = (
-        supabase.table("auto_runs")
-        .insert({"auto_source_id": source_id, "status": "running"})
-        .execute()
-    )
-    run = run_resp.data[0]
-    run_id = run["id"]
-
-    try:
-        # Fetch videos from YouTube
-        if source["source_type"] == "channel":
-            result = await get_channel_videos(source["youtube_url"])
-        else:
-            result = await get_playlist_info(source["youtube_url"])
-
-        all_videos = result.videos
-        videos_found = len(all_videos)
-        videos_skipped = 0
-        details: list[dict] = []
-
-        # Apply title keyword filter (comma-separated keywords, case-insensitive)
-        if source.get("title_filter"):
-            keywords = [k.strip().lower() for k in source["title_filter"].split(",") if k.strip()]
-            filtered = []
-            for v in all_videos:
-                title_lower = v.title.lower()
-                if any(kw in title_lower for kw in keywords):
-                    filtered.append(v)
-                else:
-                    videos_skipped += 1
-                    details.append({
-                        "url": v.url, "title": v.title, "action": "filtered"
-                    })
-                    # Record filtered video
-                    try:
-                        supabase.table("auto_source_videos").upsert({
-                            "auto_source_id": source_id,
-                            "youtube_url": v.url,
-                            "video_title": v.title,
-                            "action": "filtered",
-                        }, on_conflict="auto_source_id,youtube_url").execute()
-                    except Exception:
-                        pass
-            all_videos = filtered
-
-        # Dedup: check which URLs already exist in transcripts or auto_source_videos
-        video_urls = [v.url for v in all_videos]
-        existing_urls: set[str] = set()
-
-        if video_urls:
-            # Check transcripts table
-            tx_resp = (
-                supabase.table("transcripts")
-                .select("youtube_url")
-                .in_("youtube_url", video_urls)
-                .execute()
-            )
-            for row in tx_resp.data or []:
-                existing_urls.add(row["youtube_url"])
-
-            # Check auto_source_videos table
-            asv_resp = (
-                supabase.table("auto_source_videos")
-                .select("youtube_url")
-                .eq("auto_source_id", source_id)
-                .in_("youtube_url", video_urls)
-                .eq("action", "transcribed")
-                .execute()
-            )
-            for row in asv_resp.data or []:
-                existing_urls.add(row["youtube_url"])
-
-        new_videos = [v for v in all_videos if v.url not in existing_urls]
-        for v in all_videos:
-            if v.url in existing_urls:
-                details.append({
-                    "url": v.url, "title": v.title, "action": "exists"
-                })
-
-        # Cap to max_videos_per_check
-        to_process = new_videos[:source["max_videos_per_check"]]
-
-        # Queue transcription jobs
-        videos_queued = 0
-        for video in to_process:
-            try:
-                job = await job_service.create_job(
-                    youtube_url=video.url,
-                    video_title=video.title,
-                )
-
-                # Import here to avoid circular imports
-                from backend.routers.jobs import process_job
-
-                async def _run_with_semaphore(
-                    j_id: str, j_url: str, j_folder: str | None, j_hint: str | None
-                ) -> None:
-                    async with auto_semaphore:
-                        await process_job(j_id, j_url, j_folder, j_hint)
-
-                asyncio.create_task(
-                    _run_with_semaphore(
-                        job["id"],
-                        video.url,
-                        source.get("folder_id"),
-                        source.get("speaker_hint"),
-                    )
-                )
-
-                # Record in auto_source_videos
-                supabase.table("auto_source_videos").upsert({
-                    "auto_source_id": source_id,
-                    "youtube_url": video.url,
-                    "video_title": video.title,
-                    "action": "transcribed",
-                    "job_id": job["id"],
-                }, on_conflict="auto_source_id,youtube_url").execute()
-
-                details.append({
-                    "url": video.url, "title": video.title, "action": "queued"
-                })
-                videos_queued += 1
-
-            except Exception as e:
-                logger.error(
-                    "Source %s: failed to queue job for %s: %s",
-                    source_id, video.url, e
-                )
-                details.append({
-                    "url": video.url, "title": video.title,
-                    "action": "error", "error": str(e)
-                })
-
-        # Update run record
-        supabase.table("auto_runs").update({
-            "status": "completed",
-            "videos_found": videos_found,
-            "videos_new": len(new_videos),
-            "videos_queued": videos_queued,
-            "videos_skipped": videos_skipped,
-            "details": details,
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", run_id).execute()
-
-        logger.info(
-            "Source %s: found=%d, new=%d, queued=%d, skipped=%d",
-            source_id, videos_found, len(new_videos), videos_queued, videos_skipped
+    job_ids = [r["job_id"] for r in rows if r.get("job_id")]
+    jobs_by_id: dict[str, dict] = {}
+    if job_ids:
+        jobs_resp = (
+            supabase.table("jobs")
+            .select("id, status, error_message")
+            .in_("id", job_ids)
+            .execute()
         )
+        for j in jobs_resp.data or []:
+            jobs_by_id[j["id"]] = j
 
-        return {
-            "run_id": run_id,
-            "videos_found": videos_found,
-            "videos_new": len(new_videos),
-            "videos_queued": videos_queued,
-            "videos_skipped": videos_skipped,
-        }
+    youtube_urls = list({r["youtube_url"] for r in rows})
+    transcripts_by_url: dict[str, str] = {}
+    if youtube_urls:
+        tx_resp = (
+            supabase.table("transcripts")
+            .select("id, youtube_url")
+            .in_("youtube_url", youtube_urls)
+            .execute()
+        )
+        for t in tx_resp.data or []:
+            transcripts_by_url[t["youtube_url"]] = t["id"]
 
-    except Exception as e:
-        logger.error("Source %s: check failed: %s", source_id, e, exc_info=True)
-        supabase.table("auto_runs").update({
-            "status": "failed",
-            "error_message": str(e),
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", run_id).execute()
-        return None
+    result: list[dict] = []
+    for r in rows:
+        source = r.pop("auto_sources", None) or {}
+        persona = source.get("personas") or {}
+        job = jobs_by_id.get(r.get("job_id")) if r.get("job_id") else None
+        result.append({
+            "id": r["id"],
+            "auto_source_id": r["auto_source_id"],
+            "source_name": source.get("source_name"),
+            "persona_id": source.get("persona_id"),
+            "persona_name": persona.get("name"),
+            "youtube_url": r["youtube_url"],
+            "video_title": r.get("video_title"),
+            "action": r["action"],
+            "job_id": r.get("job_id"),
+            "job_status": job["status"] if job else None,
+            "job_error": job.get("error_message") if job else None,
+            "transcript_id": transcripts_by_url.get(r["youtube_url"]),
+            "created_at": r["created_at"],
+        })
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Manual run: discover videos and queue transcription jobs
+# ---------------------------------------------------------------------------
+
+async def run_source(source_id: str) -> dict:
+    """Discover new videos for a source, queue transcription jobs, return counts.
+
+    Synchronous (caller awaits): performs the YouTube fetch + filtering +
+    dedup + job creation inline. Each transcription itself runs in the
+    background via `process_job`. Returns a result the UI can show directly.
+    """
+    source = await get_source(source_id)
+    if not source:
+        raise ValueError("Source not found")
+
+    return await _discover_and_queue(
+        source,
+        playlist_end=50,
+        queue_cap=source.get("max_videos_per_check") or 5,
+    )
+
+
+async def backfill_source(source_id: str) -> dict:
+    """One-shot backfill: pull every video yt-dlp can list for the source
+    (no `--playlist-end` cap for channels; playlists are already unbounded),
+    apply title-filter and dedup, then queue up to `backfill_limit` new jobs.
+
+    A `backfill_limit` of None or 0 means no cap on what's queued. The
+    auto_semaphore (max 3 concurrent) still throttles execution so manual
+    jobs are not starved.
+    """
+    source = await get_source(source_id)
+    if not source:
+        raise ValueError("Source not found")
+
+    raw_limit = source.get("backfill_limit")
+    queue_cap = None if not raw_limit else int(raw_limit)
+    return await _discover_and_queue(source, playlist_end=None, queue_cap=queue_cap)
+
+
+async def _discover_and_queue(
+    source: dict,
+    *,
+    playlist_end: int | None,
+    queue_cap: int | None,
+) -> dict:
+    """Shared discovery → filter → dedup → queue pipeline used by both
+    `run_source` (capped) and `backfill_source` (full history).
+
+    `playlist_end` is forwarded to yt-dlp for channel sources; None = no cap.
+    `queue_cap` is the maximum number of new videos to queue this call;
+    None = queue everything.
+    """
+    source_id = source["id"]
+    supabase = get_supabase()
+
+    # Fetch videos from YouTube
+    if source["source_type"] == "channel":
+        result = await get_channel_videos(source["youtube_url"], playlist_end=playlist_end)
+    else:
+        result = await get_playlist_info(source["youtube_url"])
+
+    all_videos = result.videos
+    videos_found = len(all_videos)
+    videos_filtered = 0
+    details: list[dict] = []
+
+    # Title-keyword filter (comma-separated, case-insensitive)
+    if source.get("title_filter"):
+        keywords = [k.strip().lower() for k in source["title_filter"].split(",") if k.strip()]
+        kept = []
+        for v in all_videos:
+            title_lower = v.title.lower()
+            if any(kw in title_lower for kw in keywords):
+                kept.append(v)
+            else:
+                videos_filtered += 1
+                details.append({"url": v.url, "title": v.title, "action": "filtered"})
+                try:
+                    supabase.table("auto_source_videos").upsert({
+                        "auto_source_id": source_id,
+                        "youtube_url": v.url,
+                        "video_title": v.title,
+                        "action": "filtered",
+                    }, on_conflict="auto_source_id,youtube_url").execute()
+                except Exception:
+                    pass
+        all_videos = kept
+
+    # Dedup against transcripts and prior runs
+    video_urls = [v.url for v in all_videos]
+    existing_urls: set[str] = set()
+    if video_urls:
+        tx_resp = (
+            supabase.table("transcripts")
+            .select("youtube_url")
+            .in_("youtube_url", video_urls)
+            .execute()
+        )
+        for row in tx_resp.data or []:
+            existing_urls.add(row["youtube_url"])
+
+        asv_resp = (
+            supabase.table("auto_source_videos")
+            .select("youtube_url")
+            .eq("auto_source_id", source_id)
+            .in_("youtube_url", video_urls)
+            .eq("action", "transcribed")
+            .execute()
+        )
+        for row in asv_resp.data or []:
+            existing_urls.add(row["youtube_url"])
+
+    new_videos = [v for v in all_videos if v.url not in existing_urls]
+    for v in all_videos:
+        if v.url in existing_urls:
+            details.append({"url": v.url, "title": v.title, "action": "exists"})
+
+    to_process = new_videos if queue_cap is None else new_videos[:queue_cap]
+
+    videos_queued = 0
+    for video in to_process:
+        try:
+            job = await job_service.create_job(
+                youtube_url=video.url,
+                video_title=video.title,
+            )
+
+            from backend.routers.jobs import process_job
+
+            async def _run_with_semaphore(
+                j_id: str, j_url: str, j_folder: str | None, j_hint: str | None
+            ) -> None:
+                async with auto_semaphore:
+                    await process_job(j_id, j_url, j_folder, j_hint)
+
+            asyncio.create_task(
+                _run_with_semaphore(
+                    job["id"],
+                    video.url,
+                    source.get("folder_id"),
+                    source.get("speaker_hint"),
+                )
+            )
+
+            supabase.table("auto_source_videos").upsert({
+                "auto_source_id": source_id,
+                "youtube_url": video.url,
+                "video_title": video.title,
+                "action": "transcribed",
+                "job_id": job["id"],
+            }, on_conflict="auto_source_id,youtube_url").execute()
+
+            details.append({"url": video.url, "title": video.title, "action": "queued"})
+            videos_queued += 1
+
+        except Exception as e:
+            logger.error(
+                "Source %s: failed to queue job for %s: %s",
+                source_id, video.url, e
+            )
+            details.append({
+                "url": video.url, "title": video.title,
+                "action": "error", "error": str(e),
+            })
+
+    logger.info(
+        "Source %s manual run: found=%d, filtered=%d, queued=%d, exists=%d",
+        source_id, videos_found, videos_filtered, videos_queued,
+        len(all_videos) - len(new_videos),
+    )
+
+    return {
+        "videos_found": videos_found,
+        "videos_filtered": videos_filtered,
+        "videos_existing": len(all_videos) - len(new_videos),
+        "videos_queued": videos_queued,
+        "details": details,
+    }

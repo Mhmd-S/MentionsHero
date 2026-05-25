@@ -179,6 +179,8 @@ CREATE TABLE public.poly_markets (
   closed_time timestamp with time zone,
   neg_risk boolean DEFAULT false,
   result text,
+  clob_token_ids jsonb,
+  condition_id text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT poly_markets_pkey PRIMARY KEY (id),
@@ -219,6 +221,59 @@ CREATE TABLE public.poly_market_term_results (
   CONSTRAINT poly_market_term_results_market_fkey FOREIGN KEY (market_id) REFERENCES public.poly_markets(id) ON DELETE CASCADE,
   CONSTRAINT poly_market_term_results_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
   CONSTRAINT poly_market_term_results_unique UNIQUE (market_id, persona_id, search_term)
+);
+
+CREATE TABLE public.poly_orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  clob_order_id text NOT NULL UNIQUE,
+  market_id uuid NOT NULL,
+  token_id text NOT NULL,
+  side text NOT NULL CHECK (side IN ('BUY', 'SELL')),
+  outcome text NOT NULL CHECK (outcome IN ('YES', 'NO')),
+  order_type text NOT NULL DEFAULT 'limit' CHECK (order_type IN ('limit', 'market')),
+  price numeric NOT NULL,
+  original_size numeric NOT NULL,
+  size_matched numeric NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'live' CHECK (status IN ('live', 'matched', 'cancelled', 'expired')),
+  asset_id text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT poly_orders_pkey PRIMARY KEY (id),
+  CONSTRAINT poly_orders_market_fkey FOREIGN KEY (market_id) REFERENCES public.poly_markets(id) ON DELETE CASCADE
+);
+
+CREATE TABLE public.poly_trades (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trade_id text NOT NULL UNIQUE,
+  order_id uuid,
+  market_id uuid NOT NULL,
+  token_id text NOT NULL,
+  side text NOT NULL CHECK (side IN ('BUY', 'SELL')),
+  outcome text NOT NULL CHECK (outcome IN ('YES', 'NO')),
+  price numeric NOT NULL,
+  size numeric NOT NULL,
+  fee numeric DEFAULT 0,
+  realized_pnl numeric,
+  traded_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT poly_trades_pkey PRIMARY KEY (id),
+  CONSTRAINT poly_trades_order_fkey FOREIGN KEY (order_id) REFERENCES public.poly_orders(id) ON DELETE SET NULL,
+  CONSTRAINT poly_trades_market_fkey FOREIGN KEY (market_id) REFERENCES public.poly_markets(id) ON DELETE CASCADE
+);
+
+CREATE TABLE public.poly_positions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  market_id uuid NOT NULL,
+  token_id text NOT NULL,
+  outcome text NOT NULL CHECK (outcome IN ('YES', 'NO')),
+  size numeric NOT NULL DEFAULT 0,
+  avg_price numeric NOT NULL DEFAULT 0,
+  realized_pnl numeric NOT NULL DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT poly_positions_pkey PRIMARY KEY (id),
+  CONSTRAINT poly_positions_market_fkey FOREIGN KEY (market_id) REFERENCES public.poly_markets(id) ON DELETE CASCADE,
+  CONSTRAINT poly_positions_unique UNIQUE (market_id, outcome)
 );
 
 CREATE TABLE public.ml_training_jobs (
@@ -388,4 +443,100 @@ CREATE TABLE public.auto_source_videos (
   CONSTRAINT auto_source_videos_pkey PRIMARY KEY (id),
   CONSTRAINT auto_source_videos_source_fkey FOREIGN KEY (auto_source_id) REFERENCES public.auto_sources(id) ON DELETE CASCADE,
   CONSTRAINT auto_source_videos_unique UNIQUE (auto_source_id, youtube_url)
+);
+
+-- ============================================================
+-- Analytical Data Procurement Tables (analytical schema)
+-- ============================================================
+
+CREATE SCHEMA IF NOT EXISTS analytical;
+
+CREATE TABLE analytical.news_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  persona_id uuid NOT NULL,
+  title text NOT NULL,
+  body text,
+  url text NOT NULL,
+  source_name text,
+  source_domain text,
+  published_at timestamp with time zone NOT NULL,
+  procurement_source text NOT NULL DEFAULT 'ddgs',
+  sentiment_score numeric,
+  topics jsonb DEFAULT '[]'::jsonb,
+  raw_payload jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT analytical_news_items_pkey PRIMARY KEY (id),
+  CONSTRAINT analytical_news_items_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
+  CONSTRAINT analytical_news_items_dedup UNIQUE (persona_id, url)
+);
+
+CREATE TABLE analytical.truth_social_posts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  persona_id uuid NOT NULL,
+  external_id text,
+  content text NOT NULL,
+  post_url text,
+  posted_at timestamp with time zone NOT NULL,
+  source text NOT NULL DEFAULT 'ddgs',
+  media_urls jsonb DEFAULT '[]'::jsonb,
+  engagement jsonb,
+  raw_payload jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT analytical_truth_social_posts_pkey PRIMARY KEY (id),
+  CONSTRAINT analytical_truth_social_posts_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
+  CONSTRAINT analytical_truth_social_posts_dedup UNIQUE (persona_id, external_id)
+);
+
+CREATE TABLE analytical.event_tags (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transcript_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type IN ('rally', 'press_conference', 'interview', 'prepared_remarks', 'social_media', 'debate', 'other')),
+  venue text,
+  interviewer text,
+  network text,
+  is_teleprompter boolean,
+  audience_type text CHECK (audience_type IN ('supporters', 'general', 'press', 'congress', 'foreign', 'mixed')),
+  classification_source text NOT NULL DEFAULT 'manual' CHECK (classification_source IN ('manual', 'auto_ddgs', 'auto_llm')),
+  confidence numeric,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT analytical_event_tags_pkey PRIMARY KEY (id),
+  CONSTRAINT analytical_event_tags_transcript_fkey FOREIGN KEY (transcript_id) REFERENCES public.transcripts(id) ON DELETE CASCADE,
+  CONSTRAINT analytical_event_tags_unique UNIQUE (transcript_id)
+);
+
+CREATE TABLE analytical.context_windows (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transcript_id uuid NOT NULL,
+  persona_id uuid NOT NULL,
+  window_start timestamp with time zone NOT NULL,
+  window_end timestamp with time zone NOT NULL,
+  truth_social_post_count integer DEFAULT 0,
+  news_item_count integer DEFAULT 0,
+  news_sentiment_avg numeric,
+  top_news_topics jsonb DEFAULT '[]'::jsonb,
+  truth_social_topics jsonb DEFAULT '[]'::jsonb,
+  market_snapshot jsonb,
+  computed_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT analytical_context_windows_pkey PRIMARY KEY (id),
+  CONSTRAINT analytical_context_windows_transcript_fkey FOREIGN KEY (transcript_id) REFERENCES public.transcripts(id) ON DELETE CASCADE,
+  CONSTRAINT analytical_context_windows_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
+  CONSTRAINT analytical_context_windows_unique UNIQUE (transcript_id, persona_id)
+);
+
+CREATE TABLE analytical.procurement_runs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  source_type text NOT NULL CHECK (source_type IN ('truth_social', 'news_ddgs', 'news_gdelt', 'news_newsapi', 'event_tag_auto')),
+  persona_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed')),
+  items_found integer DEFAULT 0,
+  items_new integer DEFAULT 0,
+  items_skipped integer DEFAULT 0,
+  error_message text,
+  details jsonb DEFAULT '[]'::jsonb,
+  started_at timestamp with time zone DEFAULT now(),
+  completed_at timestamp with time zone,
+  CONSTRAINT analytical_procurement_runs_pkey PRIMARY KEY (id),
+  CONSTRAINT analytical_procurement_runs_persona_fkey FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE
 );

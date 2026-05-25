@@ -3,13 +3,20 @@ definePageMeta({ layout: 'admin', ssr: false })
 </script>
 
 <script setup lang="ts">
-import { useAutoTranscription, type AutoSource, type AutoRun, type CreateSourceBody, type UpdateSourceBody } from '~/composables/useAutoTranscription'
-import { usePersonas, type Persona } from '~/composables/usePersonas'
+import {
+  useAutoTranscription,
+  type AutoSource,
+  type CreateSourceBody,
+  type UpdateSourceBody,
+  type RunResult,
+  type TimelineEntry,
+} from '~/composables/useAutoTranscription'
+import { usePersonas } from '~/composables/usePersonas'
 
 const {
-  sources, runs, loading, error,
+  sources, timeline, loading,
   fetchSources, createSource, updateSource, deleteSource,
-  triggerCheck, fetchRuns,
+  runSource, backfillSource, fetchTimeline,
 } = useAutoTranscription()
 
 const { personas, fetchPersonas } = usePersonas()
@@ -25,24 +32,23 @@ const formSourceType = ref<'channel' | 'playlist'>('channel')
 const formYoutubeUrl = ref('')
 const formFolderId = ref<string | null>(null)
 const formTitleKeywords = ref('')
-const formCheckInterval = ref(360)
 const formMaxVideos = ref(5)
-const formIsEnabled = ref(true)
+const formBackfillLimit = ref<number>(500)
 const saving = ref(false)
 
-// Check trigger state
-const checkingSourceId = ref<string | null>(null)
+// Per-source running state + last result
+const runningSourceId = ref<string | null>(null)
+const backfillingSourceId = ref<string | null>(null)
+const lastRun = ref<{ source: AutoSource; result: RunResult; mode: 'run' | 'backfill' } | null>(null)
+const lastRunError = ref<string | null>(null)
 
-// Expanded run details
-const expandedRunId = ref<string | null>(null)
+// Resume-stuck-jobs state
+const { authFetch } = useAuthFetch()
+const resumingStuck = ref(false)
+const lastResumeMessage = ref<string | null>(null)
 
-const intervalOptions = [
-  { label: 'Every 1 hour', value: 60 },
-  { label: 'Every 3 hours', value: 180 },
-  { label: 'Every 6 hours', value: 360 },
-  { label: 'Every 12 hours', value: 720 },
-  { label: 'Every 24 hours', value: 1440 },
-]
+// Auto-refresh timeline while any entry has an in-flight job
+let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 const personaOptions = computed(() =>
   personas.value.map(p => ({ label: p.name, value: p.id }))
@@ -51,13 +57,13 @@ const personaOptions = computed(() =>
 const folderOptions = computed(() => {
   const buildTree = (parentId: string | null, depth = 0): { label: string; value: string }[] => {
     const children = fileTreeFolders.value.filter(f => f.parent_id === parentId)
-    const result: { label: string; value: string }[] = []
+    const out: { label: string; value: string }[] = []
     for (const folder of children) {
-      const indent = '\u00A0\u00A0'.repeat(depth)
-      result.push({ label: `${indent}${folder.name}`, value: folder.id })
-      result.push(...buildTree(folder.id, depth + 1))
+      const indent = '  '.repeat(depth)
+      out.push({ label: `${indent}${folder.name}`, value: folder.id })
+      out.push(...buildTree(folder.id, depth + 1))
     }
-    return result
+    return out
   }
   return buildTree(null)
 })
@@ -69,9 +75,8 @@ function openCreateModal() {
   formYoutubeUrl.value = ''
   formFolderId.value = null
   formTitleKeywords.value = ''
-  formCheckInterval.value = 360
   formMaxVideos.value = 5
-  formIsEnabled.value = true
+  formBackfillLimit.value = 500
   showSourceModal.value = true
 }
 
@@ -82,9 +87,8 @@ function openEditModal(source: AutoSource) {
   formYoutubeUrl.value = source.youtube_url
   formFolderId.value = source.folder_id
   formTitleKeywords.value = source.title_filter || ''
-  formCheckInterval.value = source.check_interval_minutes
   formMaxVideos.value = source.max_videos_per_check
-  formIsEnabled.value = source.is_enabled
+  formBackfillLimit.value = source.backfill_limit ?? 0
   showSourceModal.value = true
 }
 
@@ -94,10 +98,9 @@ async function handleSave() {
     if (editingSource.value) {
       const body: UpdateSourceBody = {
         folder_id: formFolderId.value,
-        check_interval_minutes: formCheckInterval.value,
         max_videos_per_check: formMaxVideos.value,
+        backfill_limit: formBackfillLimit.value || null,
         title_filter: formTitleKeywords.value || null,
-        is_enabled: formIsEnabled.value,
       }
       await updateSource(editingSource.value.id, body)
     } else {
@@ -106,8 +109,8 @@ async function handleSave() {
         source_type: formSourceType.value,
         youtube_url: formYoutubeUrl.value,
         folder_id: formFolderId.value,
-        check_interval_minutes: formCheckInterval.value,
         max_videos_per_check: formMaxVideos.value,
+        backfill_limit: formBackfillLimit.value || null,
         title_filter: formTitleKeywords.value || null,
       }
       await createSource(body)
@@ -119,40 +122,63 @@ async function handleSave() {
 }
 
 async function handleDelete(source: AutoSource) {
-  if (!confirm(`Delete auto-source "${source.source_name || source.youtube_url}"?`)) return
+  if (!confirm(`Delete source "${source.source_name || source.youtube_url}"?`)) return
   await deleteSource(source.id)
+  await fetchTimeline()
 }
 
-async function handleCheck(source: AutoSource) {
-  checkingSourceId.value = source.id
-  await triggerCheck(source.id)
-  // Refresh runs after a short delay to show the new run
-  setTimeout(() => {
-    fetchRuns()
-    checkingSourceId.value = null
-  }, 2000)
+async function handleRun(source: AutoSource) {
+  runningSourceId.value = source.id
+  lastRun.value = null
+  lastRunError.value = null
+  try {
+    const result = await runSource(source.id)
+    if (result) {
+      lastRun.value = { source, result, mode: 'run' }
+      await fetchTimeline()
+    }
+  } catch (e: any) {
+    lastRunError.value = e?.message || 'Run failed'
+  } finally {
+    runningSourceId.value = null
+  }
 }
 
-async function handleToggleEnabled(source: AutoSource) {
-  await updateSource(source.id, { is_enabled: !source.is_enabled })
+async function handleResumeStuck() {
+  resumingStuck.value = true
+  lastResumeMessage.value = null
+  try {
+    const result = await authFetch<{ resumed: number }>('/api/jobs/resume-orphaned', { method: 'POST' })
+    const n = result?.resumed ?? 0
+    lastResumeMessage.value = n === 0
+      ? 'No stuck jobs to resume.'
+      : `Resumed ${n} stuck job${n === 1 ? '' : 's'}. They will reappear in the timeline as they progress.`
+    await fetchTimeline()
+  } catch (e: any) {
+    lastResumeMessage.value = e?.message || 'Resume failed'
+  } finally {
+    resumingStuck.value = false
+  }
 }
 
-function formatInterval(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`
-  if (minutes < 1440) return `${minutes / 60}h`
-  return `${minutes / 1440}d`
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-function runStatusColor(status: string): string {
-  if (status === 'completed') return 'success'
-  if (status === 'failed') return 'error'
-  return 'warning'
+async function handleBackfill(source: AutoSource) {
+  const cap = source.backfill_limit
+  const capDesc = cap && cap > 0 ? `up to ${cap}` : 'every'
+  if (!confirm(`Backfill "${source.source_name || source.youtube_url}"?\n\nThis will queue ${capDesc} previously-unseen video from this source. Only run this once per source.`)) return
+  backfillingSourceId.value = source.id
+  lastRun.value = null
+  lastRunError.value = null
+  try {
+    const result = await backfillSource(source.id)
+    if (result) {
+      lastRun.value = { source, result, mode: 'backfill' }
+      await fetchTimeline()
+    }
+  } catch (e: any) {
+    lastRunError.value = e?.message || 'Backfill failed'
+  } finally {
+    backfillingSourceId.value = null
+  }
 }
 
 const isCreateValid = computed(() => {
@@ -160,181 +186,363 @@ const isCreateValid = computed(() => {
   return formPersonaId.value && formYoutubeUrl.value.trim()
 })
 
-// Initialize
+// ----- Timeline grouping & status -----
+
+function dayKey(iso: string | null): string {
+  if (!iso) return 'Unknown'
+  const d = new Date(iso)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  if (sameDay(d, today)) return 'Today'
+  if (sameDay(d, yesterday)) return 'Yesterday'
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: today.getFullYear() === d.getFullYear() ? undefined : 'numeric' })
+}
+
+function timeOf(iso: string | null): string {
+  if (!iso) return ''
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+const groupedTimeline = computed(() => {
+  const groups: { day: string; entries: TimelineEntry[] }[] = []
+  for (const entry of timeline.value) {
+    const day = dayKey(entry.created_at)
+    let group = groups[groups.length - 1]
+    if (!group || group.day !== day) {
+      group = { day, entries: [] }
+      groups.push(group)
+    }
+    group.entries.push(entry)
+  }
+  return groups
+})
+
+interface EntryStatus {
+  label: string
+  color: 'success' | 'info' | 'warning' | 'error' | 'neutral' | 'primary'
+  icon: string
+  spinning?: boolean
+}
+
+function statusOf(entry: TimelineEntry): EntryStatus {
+  if (entry.action === 'filtered') {
+    return { label: 'Filtered out', color: 'neutral', icon: 'i-lucide-filter' }
+  }
+  if (entry.action === 'skipped') {
+    return { label: 'Skipped', color: 'neutral', icon: 'i-lucide-skip-forward' }
+  }
+  // action === 'transcribed'
+  const js = entry.job_status
+  if (!js) {
+    return { label: 'Transcribed', color: 'success', icon: 'i-lucide-check' }
+  }
+  if (js === 'completed') {
+    return { label: 'Transcribed', color: 'success', icon: 'i-lucide-check' }
+  }
+  if (js === 'failed') {
+    return { label: 'Failed', color: 'error', icon: 'i-lucide-x' }
+  }
+  if (js === 'cancelled') {
+    return { label: 'Cancelled', color: 'neutral', icon: 'i-lucide-ban' }
+  }
+  if (js === 'pending' || js === 'queued') {
+    return { label: 'Queued', color: 'info', icon: 'i-lucide-clock' }
+  }
+  if (js === 'downloading') {
+    return { label: 'Downloading', color: 'info', icon: 'i-lucide-download', spinning: true }
+  }
+  if (js === 'transcribing') {
+    return { label: 'Transcribing', color: 'info', icon: 'i-lucide-loader', spinning: true }
+  }
+  return { label: js, color: 'info', icon: 'i-lucide-loader', spinning: true }
+}
+
+const hasActiveJob = computed(() =>
+  timeline.value.some(e => {
+    const s = e.job_status
+    return s && s !== 'completed' && s !== 'failed' && s !== 'cancelled'
+  })
+)
+
+function startAutoRefresh() {
+  if (refreshTimer) return
+  refreshTimer = setInterval(() => {
+    if (hasActiveJob.value) {
+      fetchTimeline()
+    }
+  }, 5000)
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
 onMounted(async () => {
   await Promise.all([
     fetchSources(),
-    fetchRuns(),
+    fetchTimeline(),
     fetchPersonas(),
     fetchFileTreeFolders(),
   ])
+  startAutoRefresh()
 })
+
+onBeforeUnmount(stopAutoRefresh)
 </script>
 
 <template>
-  <div class="p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-8">
+  <div class="p-4 sm:p-6 max-w-5xl w-full mx-auto space-y-10">
     <!-- Header -->
-    <div>
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-bold mb-2">Auto Transcription</h1>
-          <p class="text-gray-600 dark:text-gray-400">
-            Automatically transcribe new videos from YouTube channels and playlists
-          </p>
-        </div>
-        <UButton @click="openCreateModal" icon="i-lucide-plus">
-          Add Source
-        </UButton>
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold mb-1">Auto Transcription</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          YouTube channels and playlists you can run on demand to transcribe new videos.
+        </p>
       </div>
+      <UButton @click="openCreateModal" icon="i-lucide-plus">
+        Add Source
+      </UButton>
+    </div>
+
+    <!-- Last run banner -->
+    <div
+      v-if="lastRun"
+      class="flex items-start gap-3 p-3 rounded-lg border border-green-200 dark:border-green-900/40 bg-green-50/60 dark:bg-green-950/20"
+    >
+      <UIcon name="i-lucide-check-circle-2" class="w-5 h-5 mt-0.5 text-green-600 dark:text-green-400 shrink-0" />
+      <div class="flex-1 text-sm">
+        <div class="font-medium">
+          {{ lastRun.source.source_name || lastRun.source.youtube_url }}
+          <span v-if="lastRun.mode === 'backfill'" class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">(backfill)</span>
+        </div>
+        <div class="text-gray-600 dark:text-gray-400">
+          Found {{ lastRun.result.videos_found }}.
+          <span v-if="lastRun.result.videos_queued > 0" class="text-green-700 dark:text-green-400 font-medium">
+            Queued {{ lastRun.result.videos_queued }} new
+          </span>
+          <span v-else>No new videos to queue</span>
+          <span v-if="lastRun.result.videos_existing > 0">
+            · {{ lastRun.result.videos_existing }} already transcribed
+          </span>
+          <span v-if="lastRun.result.videos_filtered > 0">
+            · {{ lastRun.result.videos_filtered }} filtered
+          </span>
+        </div>
+      </div>
+      <UButton variant="ghost" size="xs" icon="i-lucide-x" @click="lastRun = null" />
+    </div>
+
+    <div
+      v-if="lastRunError"
+      class="flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50/60 dark:bg-red-950/20"
+    >
+      <UIcon name="i-lucide-alert-circle" class="w-5 h-5 mt-0.5 text-red-600 dark:text-red-400 shrink-0" />
+      <div class="flex-1 text-sm text-red-700 dark:text-red-300">{{ lastRunError }}</div>
+      <UButton variant="ghost" size="xs" icon="i-lucide-x" @click="lastRunError = null" />
     </div>
 
     <!-- Sources -->
-    <div class="space-y-4">
+    <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold">Sources</h2>
-        <UBadge v-if="sources.length > 0" color="neutral" variant="subtle">
-          {{ sources.length }}
-        </UBadge>
+        <h2 class="text-lg font-semibold">Sources</h2>
+        <UBadge v-if="sources.length > 0" color="neutral" variant="subtle">{{ sources.length }}</UBadge>
       </div>
 
-      <div v-if="loading" class="flex items-center justify-center p-8">
-        <UIcon name="i-lucide-loader" class="w-6 h-6 animate-spin" />
+      <div v-if="loading && sources.length === 0" class="flex items-center justify-center p-8">
+        <UIcon name="i-lucide-loader" class="w-6 h-6 animate-spin text-gray-400" />
       </div>
 
-      <div v-else-if="sources.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
-        No auto-transcription sources configured. Click "Add Source" to monitor a YouTube channel or playlist.
+      <div v-else-if="sources.length === 0" class="text-sm text-gray-500 p-6 border border-dashed rounded-lg text-center">
+        No sources yet. Add a YouTube channel or playlist to get started.
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="grid gap-3">
         <div
           v-for="source in sources"
           :key="source.id"
-          class="p-4 border rounded-lg"
+          class="group flex flex-col sm:flex-row sm:items-center gap-3 p-4 border rounded-lg hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
         >
-          <div class="flex items-start justify-between mb-2">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="font-semibold truncate">{{ source.source_name || source.youtube_url }}</span>
-                <UBadge :color="source.source_type === 'channel' ? 'primary' : 'info'" variant="subtle" size="xs">
-                  {{ source.source_type }}
-                </UBadge>
-                <UBadge v-if="!source.is_enabled" color="neutral" variant="subtle" size="xs">
-                  disabled
-                </UBadge>
-              </div>
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                <span v-if="source.persona_name">{{ source.persona_name }}</span>
-                <span>Every {{ formatInterval(source.check_interval_minutes) }}</span>
-                <span v-if="source.title_filter" class="font-mono text-xs">filter: {{ source.title_filter }}</span>
-                <span v-if="source.last_run_at" class="flex items-center gap-1">
-                  Last run:
-                  <UBadge :color="runStatusColor(source.last_run_status || '')" variant="subtle" size="xs">
-                    {{ source.last_run_status }}
-                  </UBadge>
-                  {{ formatDate(source.last_run_at) }}
-                </span>
-              </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <span class="font-semibold truncate">{{ source.source_name || source.youtube_url }}</span>
+              <UBadge :color="source.source_type === 'channel' ? 'primary' : 'info'" variant="subtle" size="xs">
+                {{ source.source_type }}
+              </UBadge>
             </div>
-            <div class="flex items-center gap-1 shrink-0 ml-2">
-              <UButton
-                size="xs"
-                variant="ghost"
-                icon="i-lucide-play"
-                :loading="checkingSourceId === source.id"
-                @click="handleCheck(source)"
-              />
-              <UButton
-                size="xs"
-                variant="ghost"
-                :icon="source.is_enabled ? 'i-lucide-pause' : 'i-lucide-play-circle'"
-                @click="handleToggleEnabled(source)"
-              />
-              <UButton size="xs" variant="ghost" icon="i-lucide-pencil" @click="openEditModal(source)" />
-              <UButton size="xs" variant="ghost" color="error" icon="i-lucide-trash-2" @click="handleDelete(source)" />
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+              <span v-if="source.persona_name" class="flex items-center gap-1">
+                <UIcon name="i-lucide-user" class="w-3 h-3" />
+                {{ source.persona_name }}
+              </span>
+              <span class="flex items-center gap-1">
+                <UIcon name="i-lucide-hash" class="w-3 h-3" />
+                up to {{ source.max_videos_per_check }} per run
+              </span>
+              <span class="flex items-center gap-1">
+                <UIcon name="i-lucide-history" class="w-3 h-3" />
+                backfill {{ source.backfill_limit && source.backfill_limit > 0 ? source.backfill_limit : '∞' }}
+              </span>
+              <span v-if="source.title_filter" class="flex items-center gap-1 font-mono">
+                <UIcon name="i-lucide-filter" class="w-3 h-3" />
+                {{ source.title_filter }}
+              </span>
             </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <UButton
+              size="sm"
+              icon="i-lucide-play"
+              :loading="runningSourceId === source.id"
+              :disabled="(runningSourceId !== null && runningSourceId !== source.id) || backfillingSourceId !== null"
+              @click="handleRun(source)"
+            >
+              Run
+            </UButton>
+            <UButton
+              size="sm"
+              variant="outline"
+              icon="i-lucide-history"
+              :loading="backfillingSourceId === source.id"
+              :disabled="(backfillingSourceId !== null && backfillingSourceId !== source.id) || runningSourceId !== null"
+              @click="handleBackfill(source)"
+            >
+              Backfill
+            </UButton>
+            <UButton size="sm" variant="ghost" icon="i-lucide-pencil" @click="openEditModal(source)" />
+            <UButton size="sm" variant="ghost" color="error" icon="i-lucide-trash-2" @click="handleDelete(source)" />
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Recent Runs -->
-    <div class="space-y-4">
+    <!-- Timeline -->
+    <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold">Recent Runs</h2>
-        <UButton variant="ghost" size="xs" icon="i-lucide-refresh-cw" @click="fetchRuns()">
-          Refresh
-        </UButton>
-      </div>
-
-      <div v-if="runs.length === 0" class="text-gray-500 text-base p-4 border border-dashed rounded-lg">
-        No runs yet. Add a source and trigger a check to see results here.
-      </div>
-
-      <div v-else class="space-y-2">
-        <div
-          v-for="run in runs"
-          :key="run.id"
-          class="border rounded-lg overflow-hidden"
-        >
-          <div
-            class="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-            @click="expandedRunId = expandedRunId === run.id ? null : run.id"
+        <h2 class="text-lg font-semibold">Timeline</h2>
+        <div class="flex items-center gap-2">
+          <UButton
+            variant="outline"
+            size="xs"
+            icon="i-lucide-play-circle"
+            :loading="resumingStuck"
+            @click="handleResumeStuck"
           >
-            <UIcon
-              :name="expandedRunId === run.id ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-              class="w-4 h-4 shrink-0 text-gray-400"
-            />
-            <UBadge :color="runStatusColor(run.status)" variant="subtle" size="xs">
-              {{ run.status }}
-            </UBadge>
-            <span class="text-sm font-medium truncate">
-              {{ run.source_name || run.persona_name || run.auto_source_id }}
-            </span>
-            <div class="flex items-center gap-3 ml-auto text-xs text-gray-500 shrink-0">
-              <span v-if="run.videos_found">{{ run.videos_found }} found</span>
-              <span v-if="run.videos_queued" class="text-green-600 dark:text-green-400">{{ run.videos_queued }} queued</span>
-              <span v-if="run.videos_skipped">{{ run.videos_skipped }} skipped</span>
-              <span>{{ formatDate(run.started_at) }}</span>
-            </div>
-          </div>
+            Resume stuck jobs
+          </UButton>
+          <UButton variant="ghost" size="xs" icon="i-lucide-refresh-cw" @click="fetchTimeline()">
+            Refresh
+          </UButton>
+        </div>
+      </div>
 
-          <!-- Expanded details -->
-          <div v-if="expandedRunId === run.id" class="border-t px-3 pb-3 pt-2 space-y-2">
-            <div v-if="run.error_message" class="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded">
-              {{ run.error_message }}
-            </div>
-            <div v-if="run.details && run.details.length > 0" class="space-y-1">
-              <div
-                v-for="(detail, i) in run.details"
-                :key="i"
-                class="flex items-center gap-2 text-sm"
+      <div
+        v-if="lastResumeMessage"
+        class="flex items-start gap-3 p-3 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-950/20 text-sm"
+      >
+        <UIcon name="i-lucide-info" class="w-5 h-5 mt-0.5 text-blue-600 dark:text-blue-400 shrink-0" />
+        <div class="flex-1 text-gray-700 dark:text-gray-300">{{ lastResumeMessage }}</div>
+        <UButton variant="ghost" size="xs" icon="i-lucide-x" @click="lastResumeMessage = null" />
+      </div>
+
+      <div v-if="timeline.length === 0" class="text-sm text-gray-500 p-6 border border-dashed rounded-lg text-center">
+        Nothing yet. Run a source to start populating the timeline.
+      </div>
+
+      <div v-else class="relative space-y-8">
+        <div
+          v-for="group in groupedTimeline"
+          :key="group.day"
+          class="space-y-2"
+        >
+          <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 px-1">
+            {{ group.day }}
+          </div>
+          <div class="relative">
+            <!-- Vertical timeline rail -->
+            <div class="absolute left-[15px] top-2 bottom-2 w-px bg-gray-200 dark:bg-gray-800" />
+            <ul class="space-y-1.5">
+              <li
+                v-for="entry in group.entries"
+                :key="entry.id"
+                class="relative flex items-start gap-3 pl-9 pr-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors"
               >
-                <UBadge
-                  :color="detail.action === 'queued' ? 'success' : detail.action === 'exists' ? 'neutral' : detail.action === 'filtered' ? 'warning' : 'error'"
-                  variant="subtle"
-                  size="xs"
-                >
-                  {{ detail.action }}
-                </UBadge>
-                <span class="truncate">{{ detail.title }}</span>
-              </div>
-            </div>
-            <div v-else class="text-sm text-gray-400">No video details recorded.</div>
+                <!-- Status dot on the rail -->
+                <span
+                  class="absolute left-2 top-3 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-950 flex items-center justify-center"
+                  :class="{
+                    'bg-green-500': statusOf(entry).color === 'success',
+                    'bg-blue-500': statusOf(entry).color === 'info' || statusOf(entry).color === 'primary',
+                    'bg-red-500': statusOf(entry).color === 'error',
+                    'bg-gray-400': statusOf(entry).color === 'neutral' || statusOf(entry).color === 'warning',
+                  }"
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <a
+                      :href="entry.youtube_url"
+                      target="_blank"
+                      rel="noopener"
+                      class="text-sm font-medium hover:underline truncate max-w-md"
+                    >
+                      {{ entry.video_title || entry.youtube_url }}
+                    </a>
+                    <UBadge
+                      :color="statusOf(entry).color"
+                      variant="subtle"
+                      size="xs"
+                      class="shrink-0"
+                    >
+                      <UIcon
+                        :name="statusOf(entry).icon"
+                        class="w-3 h-3 mr-1"
+                        :class="{ 'animate-spin': statusOf(entry).spinning }"
+                      />
+                      {{ statusOf(entry).label }}
+                    </UBadge>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <span>{{ timeOf(entry.created_at) }}</span>
+                    <span v-if="entry.source_name">·</span>
+                    <span v-if="entry.source_name" class="truncate max-w-[200px]">{{ entry.source_name }}</span>
+                    <span v-if="entry.persona_name">·</span>
+                    <span v-if="entry.persona_name">{{ entry.persona_name }}</span>
+                    <template v-if="entry.transcript_id">
+                      <span>·</span>
+                      <NuxtLink
+                        :to="`/admin/transcripts/${entry.transcript_id}`"
+                        class="text-primary hover:underline"
+                      >
+                        View transcript
+                      </NuxtLink>
+                    </template>
+                  </div>
+                  <div v-if="entry.job_error" class="text-xs text-red-600 dark:text-red-400 mt-1 truncate">
+                    {{ entry.job_error }}
+                  </div>
+                </div>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Create/Edit Source Modal -->
+    <!-- Create/Edit modal -->
     <UModal v-model:open="showSourceModal">
       <template #content>
         <div class="p-6 max-h-[85vh] overflow-y-auto">
           <h3 class="text-lg font-semibold mb-4">
-            {{ editingSource ? 'Edit Source' : 'Add Auto-Transcription Source' }}
+            {{ editingSource ? 'Edit Source' : 'Add Source' }}
           </h3>
 
           <div class="space-y-4">
-            <!-- Persona (only on create) -->
             <UFormField v-if="!editingSource" label="Persona" required>
               <USelectMenu
                 v-model="formPersonaId"
@@ -347,7 +555,6 @@ onMounted(async () => {
               />
             </UFormField>
 
-            <!-- Source type (only on create) -->
             <UFormField v-if="!editingSource" label="Source Type">
               <div class="flex gap-2">
                 <UButton
@@ -367,7 +574,6 @@ onMounted(async () => {
               </div>
             </UFormField>
 
-            <!-- YouTube URL (only on create) -->
             <UFormField v-if="!editingSource" label="YouTube URL" required>
               <UInput
                 v-model="formYoutubeUrl"
@@ -376,8 +582,7 @@ onMounted(async () => {
               />
             </UFormField>
 
-            <!-- Folder -->
-            <UFormField label="Target Folder" description="Where auto-transcribed videos will be saved">
+            <UFormField label="Target Folder" description="Where transcripts produced by this source will be saved">
               <USelectMenu
                 v-model="formFolderId"
                 :items="folderOptions"
@@ -389,32 +594,17 @@ onMounted(async () => {
               />
             </UFormField>
 
-            <!-- Title keywords filter -->
-            <UFormField label="Title Keywords" description="Only transcribe videos whose title contains any of these words (comma-separated)">
+            <UFormField label="Title Keywords" description="Only transcribe videos whose title contains any of these (comma-separated, case-insensitive). Leave blank to allow all.">
               <UInput v-model="formTitleKeywords" class="w-full" placeholder="e.g., PMQ, prime minister, press briefing" />
             </UFormField>
 
-            <!-- Check interval -->
-            <UFormField label="Check Interval">
-              <USelectMenu
-                v-model="formCheckInterval"
-                :items="intervalOptions"
-                class="w-full"
-                value-key="value"
-                label-key="label"
-              />
+            <UFormField label="Max videos per run" description="Safety cap on how many new videos a single run can queue">
+              <UInput v-model.number="formMaxVideos" type="number" :min="1" :max="50" class="w-full" />
             </UFormField>
 
-            <!-- Max videos per check -->
-            <UFormField label="Max Videos Per Check" description="Limit how many new videos are transcribed per check">
-              <UInput v-model.number="formMaxVideos" type="number" :min="1" :max="20" class="w-full" />
+            <UFormField label="Backfill limit" description="One-shot backfill cap — pulls a source's full history. 0 = unlimited (everything yt-dlp can list).">
+              <UInput v-model.number="formBackfillLimit" type="number" :min="0" class="w-full" />
             </UFormField>
-
-            <!-- Enabled toggle (only on edit) -->
-            <div v-if="editingSource" class="flex items-center justify-between">
-              <span class="text-sm font-medium">Enabled</span>
-              <USwitch v-model="formIsEnabled" />
-            </div>
           </div>
 
           <div class="flex justify-end gap-2 mt-6">

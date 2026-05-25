@@ -12,10 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.45.0",
-    "@nuxt/content": "^3.12.0",
     "@nuxt/eslint": "1.13.0",
-    "@nuxt/hints": "1.0.0-alpha.5",
-    "@nuxt/image": "^2.0.0",
     "@nuxt/ui": "4.4.0",
     "@nuxtjs/device": "4.0.0",
     "@supabase/supabase-js": "^2.99.1",
@@ -32,7 +29,6 @@
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.98",
-    "@nuxtjs/seo": "^3.4.0",
     "@types/node": "^25.5.0",
     "concurrently": "^9.2.1"
   },

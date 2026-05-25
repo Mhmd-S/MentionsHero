@@ -10,6 +10,8 @@ const personaId = route.params.id as string
 
 const { getPersona } = usePersonas()
 const { authFetch } = useAuthFetch()
+const { bulkBackfillMetadata } = useTranscriptMetadata()
+const toast = useToast()
 
 const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
@@ -27,6 +29,8 @@ interface PersonaTranscript {
 
 const personaTranscripts = ref<PersonaTranscript[]>([])
 const loadingTranscripts = ref(false)
+const downloadingTranscripts = ref(false)
+const backfillingMetadata = ref(false)
 
 async function loadPersonaTranscripts() {
   loadingTranscripts.value = true
@@ -36,6 +40,66 @@ async function loadPersonaTranscripts() {
     console.error('Failed to load persona transcripts:', e)
   } finally {
     loadingTranscripts.value = false
+  }
+}
+
+async function downloadAllTranscripts() {
+  downloadingTranscripts.value = true
+  try {
+    const supabase = useSupabaseClient()
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    const response = await fetch(`/api/personas/${personaId}/transcripts/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!response.ok) throw new Error('Download failed')
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${persona.value?.name?.toLowerCase().replace(/\s+/g, '_') ?? personaId}_transcripts.zip`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('Failed to download transcripts:', e)
+  } finally {
+    downloadingTranscripts.value = false
+  }
+}
+
+async function runMetadataBackfill() {
+  if (!persona.value) return
+  const count = personaTranscripts.value.length
+  const confirmed = window.confirm(
+    `Re-extract metadata for ~${count} transcripts of "${persona.value.name}"?\n\n` +
+    `This runs 2 Gemini Flash calls + a DuckDuckGo search per transcript ` +
+    `(roughly 6 seconds each, ~$0.0004 per transcript). ` +
+    `Existing manually-confirmed rows will be skipped.`
+  )
+  if (!confirmed) return
+
+  backfillingMetadata.value = true
+  toast.add({
+    title: 'Metadata backfill started',
+    description: `Processing up to ${count} transcripts. This will take several minutes — keep this tab open.`,
+    color: 'info',
+  })
+  try {
+    const result = await bulkBackfillMetadata(personaId)
+    toast.add({
+      title: 'Backfill complete',
+      description: `${result.succeeded} succeeded, ${result.failed} failed of ${result.candidates} candidates.`,
+      color: result.failed === 0 ? 'success' : 'warning',
+    })
+  } catch (e: any) {
+    console.error('Backfill failed:', e)
+    toast.add({
+      title: 'Backfill failed',
+      description: e?.data?.message || e?.message || 'See console for details.',
+      color: 'error',
+    })
+  } finally {
+    backfillingMetadata.value = false
   }
 }
 
@@ -119,9 +183,31 @@ onMounted(async () => {
     <template v-if="persona">
       <div class="flex items-center justify-between mb-3 mt-8">
         <h2 class="text-xl font-semibold">Transcripts</h2>
-        <UBadge v-if="personaTranscripts.length > 0" color="neutral" variant="subtle">
-          {{ personaTranscripts.length }}
-        </UBadge>
+        <div class="flex items-center gap-2">
+          <UBadge v-if="personaTranscripts.length > 0" color="neutral" variant="subtle">
+            {{ personaTranscripts.length }}
+          </UBadge>
+          <UButton
+            v-if="personaTranscripts.length > 0"
+            size="xs"
+            variant="soft"
+            icon="i-lucide-download"
+            :loading="downloadingTranscripts"
+            @click="downloadAllTranscripts"
+          >
+            Download all
+          </UButton>
+          <UButton
+            v-if="personaTranscripts.length > 0"
+            size="xs"
+            variant="soft"
+            icon="i-lucide-sparkles"
+            :loading="backfillingMetadata"
+            @click="runMetadataBackfill"
+          >
+            Backfill metadata
+          </UButton>
+        </div>
       </div>
 
       <div v-if="loadingTranscripts" class="flex items-center justify-center p-4">

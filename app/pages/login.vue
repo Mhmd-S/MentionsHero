@@ -4,16 +4,9 @@ import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 
 definePageMeta({ layout: false });
 
-useSeoMeta({
-  title: 'Sign In',
-  description: 'Sign in to your MentionsHero account.',
-  robots: 'noindex, nofollow',
-});
-
 const route = useRoute();
 const { login, error: authError, loading } = useAuth();
 
-// Pick up auth errors passed via query param (e.g. expired OTP link)
 const externalError = ref<string | null>(
   route.query.error ? (route.query.error as string).replace(/\+/g, ' ') : null
 );
@@ -44,24 +37,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   externalError.value = null;
   const success = await login(payload.data.email, payload.data.password);
   if (success) {
-    // Check role and redirect accordingly
-    const supabase = useSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (profile?.role === 'admin') {
-        navigateTo('/admin');
-      } else {
-        navigateTo('/');
-      }
-    } else {
-      navigateTo('/');
-    }
+    navigateTo('/admin');
   }
 }
 </script>
@@ -82,12 +58,6 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
           <UAlert color="error" icon="i-lucide-info" :title="error" />
         </template>
       </UAuthForm>
-      <div class="text-center mt-4">
-        <p class="text-sm text-muted">
-          Don't have an account?
-          <NuxtLink to="/signup" class="text-primary hover:underline">Sign up</NuxtLink>
-        </p>
-      </div>
     </UPageCard>
   </div>
 </template>

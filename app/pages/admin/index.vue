@@ -96,14 +96,19 @@ definePageMeta({ layout: 'admin', ssr: false })
       />
 
       <div v-if="isCompleted && progress?.transcript_id" class="space-y-4">
-        <UAlert color="success" title="Transcript saved successfully!" />
+        <UAlert
+          color="success"
+          title="Transcript saved successfully!"
+          description="Auto-extracted metadata (location, event type, audience) is attached as a suggestion — please open the transcript page to review and confirm before relying on it."
+        />
 
         <div class="flex gap-3">
           <UButton
-            variant="outline"
+            color="primary"
+            icon="i-lucide-check-circle"
             :to="`/admin/transcripts/${progress.transcript_id}`"
           >
-            View Transcript
+            Review & confirm metadata
           </UButton>
 
           <UButton
@@ -214,14 +219,19 @@ definePageMeta({ layout: 'admin', ssr: false })
         />
 
         <div v-if="isCompleted && progress?.transcript_id" class="space-y-4">
-          <UAlert color="success" title="Transcript saved successfully!" />
+          <UAlert
+            color="success"
+            title="Transcript saved successfully!"
+            description="Auto-extracted metadata (location, event type, audience) is attached as a suggestion — please open the transcript page to review and confirm before relying on it."
+          />
 
           <div class="flex gap-3">
             <UButton
-              variant="outline"
+              color="primary"
+              icon="i-lucide-check-circle"
               :to="`/admin/transcripts/${progress.transcript_id}`"
             >
-              View Transcript
+              Review & confirm metadata
             </UButton>
 
             <UButton

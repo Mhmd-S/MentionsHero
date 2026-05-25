@@ -239,6 +239,48 @@ async def force_cancel_job(job_id: str) -> bool:
     return True
 
 
+async def find_orphaned_jobs() -> list[dict[str, Any]]:
+    """Return jobs left in a non-terminal state — almost certainly orphaned
+    by a server shutdown / crash, since live jobs would still be advancing.
+
+    Returns rows with `id`, `youtube_url`, `status`, `video_title`,
+    `playlist_id`, `created_at` so the caller can decide how to resume.
+    """
+    supabase = get_supabase()
+    terminal = f"({JobStatus.COMPLETED.value},{JobStatus.FAILED.value},{JobStatus.CANCELLED.value})"
+
+    loop = asyncio.get_running_loop()
+    response = await loop.run_in_executor(
+        _db_executor,
+        lambda: (
+            supabase.table("jobs")
+            .select("id, youtube_url, status, video_title, playlist_id, created_at")
+            .filter("status", "not.in", terminal)
+            .order("created_at", desc=False)
+            .execute()
+        ),
+    )
+    return response.data or []
+
+
+async def reset_job_to_pending(job_id: str) -> None:
+    """Reset a job's status to pending and clear stage_progress + error."""
+    supabase = get_supabase()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        _db_executor,
+        lambda: supabase.table("jobs").update({
+            "status": JobStatus.PENDING.value,
+            "stage_progress": {},
+            "error_message": None,
+            "cancel_requested": False,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", job_id).execute(),
+    )
+    notify_job_changed(job_id)
+    notify_jobs_list_changed()
+
+
 async def bulk_cancel_playlist_jobs(playlist_id: str) -> int:
     """
     Cancel all pending/active jobs for a playlist.

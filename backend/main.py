@@ -12,17 +12,14 @@ setup_logging()
 from backend.core.auth import require_admin
 from backend.routers import (
     analysis,
+    analytical,
+    auth,
     auto_transcription,
     channel,
     folders,
     jobs,
-    kalshi,
     personas,
     playlist,
-    polymarket,
-    profile,
-    public,
-    stripe_router,
     transcripts,
     video,
 )
@@ -63,6 +60,9 @@ async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
 
 
+# Auth router (per-endpoint auth)
+app.include_router(auth.router)
+
 # Admin routers (require admin role)
 app.include_router(jobs.router, dependencies=[Depends(require_admin)])
 app.include_router(transcripts.router, dependencies=[Depends(require_admin)])
@@ -71,15 +71,9 @@ app.include_router(analysis.router, dependencies=[Depends(require_admin)])
 app.include_router(video.router, dependencies=[Depends(require_admin)])
 app.include_router(playlist.router, dependencies=[Depends(require_admin)])
 app.include_router(channel.router, dependencies=[Depends(require_admin)])
-app.include_router(kalshi.router, dependencies=[Depends(require_admin)])
-app.include_router(polymarket.router, dependencies=[Depends(require_admin)])
 app.include_router(personas.router, dependencies=[Depends(require_admin)])
 app.include_router(auto_transcription.router, dependencies=[Depends(require_admin)])
-
-# Public routers (no global auth — per-endpoint auth where needed)
-app.include_router(public.router)
-app.include_router(stripe_router.router)
-app.include_router(profile.router)
+app.include_router(analytical.router, dependencies=[Depends(require_admin)])
 
 
 if __name__ == "__main__":

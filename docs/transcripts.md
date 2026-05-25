@@ -10,11 +10,22 @@ User enters YouTube URL(s)
   → Background task: process_job()
     1. DOWNLOADING: yt-dlp extracts MP3 audio
     2. TRANSCRIBING: Gemini Flash transcribes with speaker diarization
-    3. SAVING: Insert transcript + extract speakers + trigger market reprocessing
+    3. SAVING: Insert transcript + extract speakers
+    4. METADATA: extract event_tag bundle (location/venue/type/audience/event_time)
+       + freeze news/Truth Social context_window snapshot — best-effort, never fails the parent job
   → SSE stream: GET /api/jobs/{job_id}/stream
   → Frontend polls progress via useJobProgress composable
-  → On completion: navigate to /transcripts/{transcript_id}
+  → On completion: navigate to /transcripts/{transcript_id} to review the auto-extracted metadata
 ```
+
+## Per-transcript metadata bundle
+
+After step 3 (saving), `_populate_transcript_metadata` in `jobs.py` runs:
+- Calls `metadata_extraction_service.extract_metadata` — two Gemini Flash calls (location/audience + title-only event_type) plus a DDG search. Writes to `analytical.event_tags` with `classification_source='auto_llm'`.
+- Computes `event_time` from yt-dlp's `release_timestamp` (when `was_live=True`) or upload `timestamp`.
+- Triggers `compute_context_window` against the default persona (Trump) — freezes news + Truth Social counts from the 72 hours before the event.
+
+The transcript detail page renders this via `TranscriptMetadataPanel.vue` (auto-imported component) with an Edit modal. All auto-extracted values are SUGGESTIONS — saving via the modal flips `classification_source` to `manual`. See `docs/analytical.md` for the full taxonomy.
 
 ## Job Lifecycle
 
@@ -34,6 +45,12 @@ Each status update pushes `stage_progress` via SSE:
 - Frontend calls `POST /api/jobs/{job_id}/cancel` → sets `cancel_requested = true` in DB
 - `process_job()` checks `cancel_event` (asyncio.Event) at each stage boundary
 - On cancel: cleans up audio file, marks job as `cancelled`
+
+### Crash recovery (orphaned jobs)
+- An unclean shutdown leaves jobs in non-terminal states (`pending`, `downloading`, `transcribing`, `saving`) — the `process_job()` task died but the DB row was never moved to a terminal state.
+- Recovery is **manual**, triggered by the **Resume stuck jobs** button on the Auto-Transcription page (next to the timeline Refresh button). It hits `POST /api/jobs/resume-orphaned` which calls `resume_orphaned_jobs()` — queries `jobs` for non-terminal rows, resets each to `pending`, and re-dispatches `process_job()` in a background task. Auto-transcription orphans recover their `folder_id` / `speaker_hint` via a lookup against `auto_source_videos → auto_sources`, and route through `auto_semaphore`. Manual orphans run through `job_semaphore`.
+- Idempotent — only non-terminal jobs are touched, so calling it on a healthy system is a no-op.
+- Caveat: resumed jobs restart from `downloading` (no mid-stage checkpointing), so an in-flight `transcribing` job re-downloads the audio and re-runs Gemini.
 
 ### Batch Processing
 - `POST /api/jobs/batch` accepts multiple videos with a shared folder_id

@@ -1,72 +1,24 @@
-# Transcripts Sidebar & Directory
+# Admin Sidebar
 
-The sidebar provides navigation and a hierarchical file tree for organizing transcripts into folders.
+The admin sidebar provides top-level navigation and shows in-flight job progress. Folder hierarchy is still tracked in the database and used by other features (FolderPicker, personas, auto-transcription), but is no longer rendered as a tree in the sidebar.
 
 ## Layout Structure
 
-**File**: `app/layouts/default.vue`
+**File**: `app/layouts/admin.vue`
 
-```
-┌──────────────────┬──────────────────────────────────────────┐
-│  Sidebar (264px) │  Main Content (flex-1, ml-64)            │
-│  fixed, h-screen │                                          │
-│                  │  <slot /> (page content)                  │
-│  Logo + Logout   │                                          │
-│  ─────────────── │                                          │
-│  Nav Links:      │                                          │
-│    New Transcript│                                          │
-│    Term Search   │                                          │
-│    Personas      │                                          │
-│    Events        │                                          │
-│  ─────────────── │                                          │
-│  <FileTree />    │                                          │
-│  ─────────────── │                                          │
-│  <JobsSidebar /> │                                          │
-└──────────────────┴──────────────────────────────────────────┘
-```
+The sidebar uses Nuxt UI's `<UDashboardSidebar>` (collapsible, resizable). Contents from top to bottom:
 
-- Sidebar: `fixed top-0 left-0 h-screen overflow-y-auto`, width `w-64`
-- Main content: `flex-1 p-8 ml-64`
-- Navigation uses `<NuxtLink>` with `active-class` for highlighting current route
+1. Header — logo + "MentionsHero" label
+2. `<UNavigationMenu>` — New Transcript, Auto Transcribe, Transcripts, Personas
+3. `<JobsSidebar />` — live job progress
+4. Footer — sign out + color-mode toggle
 
-## FileTree Component
-
-A recursive component that renders folders and transcripts in a tree structure.
-
-### Component Hierarchy
-
-```
-FileTree.vue (root)
-  ├─ Search input
-  ├─ "New Folder" button
-  ├─ FileTreeFolder.vue (recursive, for each root folder)
-  │   ├─ Folder header (expand/collapse, rename, delete)
-  │   ├─ FileTreeFolder.vue (child folders, recursive)
-  │   └─ FileTreeItem.vue (transcripts in this folder)
-  └─ FileTreeItem.vue (root-level transcripts, no folder)
-```
-
-### Key Behaviors
-
-- **Expand/Collapse**: Folders toggle open/closed on click
-- **Search**: Filters folders by name OR if any descendant matches; filters transcripts by name. Auto-expands matching folders
-- **Active State**: `FileTreeItem` highlights when `route.params.id === transcript.id` (uses `bg-primary-100`)
-- **Drag-and-Drop**: Transcripts and folders can be dragged between folders. Drop target highlighted via `dropTargetId` state
-- **Context Actions**: Right-click or button menu for rename, move, delete operations
-
-### Root-Level Filtering
-
-```
-rootFolders = folders where parent_id === null
-rootTranscripts = transcripts where folder_id === null
-```
-
-## Folder Operations
+## Folder Operations (still available via API + FolderPicker)
 
 - **Create**: `POST /api/folders` with optional `parent_id`
 - **Rename**: `PATCH /api/folders/{id}` with new `name`
 - **Move**: `PATCH /api/folders/{id}` with new `parent_id`
-- **Delete**: `DELETE /api/folders/{id}` — recursively deletes all contents (transcripts and subfolders)
+- **Delete**: `DELETE /api/folders/{id}` — recursively deletes all contents
 
 ## API Endpoints
 
@@ -79,6 +31,9 @@ rootTranscripts = transcripts where folder_id === null
 | `GET` | `/api/folders/{id}/transcripts` | Get transcripts in folder |
 
 Transcript move/rename uses the transcript endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
 | `PATCH` | `/api/transcripts/{id}` | Update name or folder_id |
 | `DELETE` | `/api/transcripts/{id}` | Delete transcript |
 
@@ -86,11 +41,10 @@ Transcript move/rename uses the transcript endpoints:
 
 | Layer | File | Purpose |
 |-------|------|---------|
-| Layout | `app/layouts/default.vue` | Fixed sidebar + main content area |
-| Component | `app/components/FileTree/FileTree.vue` | Root file tree with search and folder creation |
-| Component | `app/components/FileTree/FileTreeFolder.vue` | Recursive folder rendering |
-| Component | `app/components/FileTree/FileTreeItem.vue` | Individual transcript item with active state |
-| Composable | `app/composables/useFileTree.ts` | State management: `folders`, `transcripts`, CRUD operations, drag-and-drop state |
+| Layout | `app/layouts/admin.vue` | Sidebar shell + nav + jobs panel |
+| Component | `app/components/JobsSidebar.vue` | Live job progress list |
+| Component | `app/components/FolderPicker.vue` | Folder selector reused across pages |
+| Composable | `app/composables/useFileTree.ts` | Folder/transcript state used by FolderPicker and pages (no longer renders a tree) |
 | Router | `backend/routers/folders.py` | Folder CRUD endpoints |
 | Router | `backend/routers/transcripts.py` | Transcript CRUD (used for move/rename) |
 | Service | `backend/services/folder_service.py` | Folder DB operations, hierarchy traversal |

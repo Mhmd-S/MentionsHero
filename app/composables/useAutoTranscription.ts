@@ -1,5 +1,5 @@
 /**
- * Composable for auto-transcription source management
+ * Composable for auto-transcription source management (manual-trigger only).
  */
 
 export interface AutoSource {
@@ -11,30 +11,11 @@ export interface AutoSource {
   source_name: string | null
   folder_id: string | null
   speaker_hint: string | null
-  check_interval_minutes: number
   max_videos_per_check: number
-  is_enabled: boolean
+  backfill_limit: number | null
   title_filter: string | null
-  last_run_at: string | null
-  last_run_status: string | null
   created_at: string | null
   updated_at: string | null
-}
-
-export interface AutoRun {
-  id: string
-  auto_source_id: string
-  source_name: string | null
-  persona_name: string | null
-  status: 'running' | 'completed' | 'failed'
-  videos_found: number
-  videos_new: number
-  videos_queued: number
-  videos_skipped: number
-  error_message: string | null
-  details: Array<{ url: string; title: string; action: string; error?: string }>
-  started_at: string | null
-  completed_at: string | null
 }
 
 export interface CreateSourceBody {
@@ -42,23 +23,55 @@ export interface CreateSourceBody {
   source_type: 'channel' | 'playlist'
   youtube_url: string
   folder_id?: string | null
-  check_interval_minutes?: number
   max_videos_per_check?: number
+  backfill_limit?: number | null
   title_filter?: string | null
 }
 
 export interface UpdateSourceBody {
   folder_id?: string | null
-  check_interval_minutes?: number
   max_videos_per_check?: number
+  backfill_limit?: number | null
   title_filter?: string | null
-  is_enabled?: boolean
+}
+
+export type RunDetailAction = 'queued' | 'filtered' | 'exists' | 'error'
+
+export interface RunDetail {
+  url: string
+  title: string
+  action: RunDetailAction
+  error?: string
+}
+
+export interface RunResult {
+  videos_found: number
+  videos_filtered: number
+  videos_existing: number
+  videos_queued: number
+  details: RunDetail[]
+}
+
+export interface TimelineEntry {
+  id: string
+  auto_source_id: string
+  source_name: string | null
+  persona_id: string | null
+  persona_name: string | null
+  youtube_url: string
+  video_title: string | null
+  action: 'transcribed' | 'filtered' | 'skipped'
+  job_id: string | null
+  job_status: string | null
+  job_error: string | null
+  transcript_id: string | null
+  created_at: string | null
 }
 
 export function useAutoTranscription() {
   const { authFetch } = useAuthFetch()
   const sources = useState<AutoSource[]>('auto-sources-list', () => [])
-  const runs = useState<AutoRun[]>('auto-runs-list', () => [])
+  const timeline = useState<TimelineEntry[]>('auto-timeline-list', () => [])
   const loading = useState<boolean>('auto-sources-loading', () => false)
   const error = useState<string | null>('auto-sources-error', () => null)
 
@@ -132,53 +145,52 @@ export function useAutoTranscription() {
     }
   }
 
-  async function triggerCheck(id: string): Promise<boolean> {
+  async function runSource(id: string): Promise<RunResult | null> {
     try {
-      await authFetch(`/api/auto-transcription/sources/${id}/check`, { method: 'POST' })
-      return true
+      return await authFetch<RunResult>(`/api/auto-transcription/sources/${id}/run`, {
+        method: 'POST',
+      })
     } catch (e: any) {
-      console.error('Failed to trigger check:', e)
-      return false
+      console.error('Failed to run source:', e)
+      throw e
     }
   }
 
-  async function fetchRuns(limit: number = 50): Promise<AutoRun[]> {
+  async function backfillSource(id: string): Promise<RunResult | null> {
     try {
-      const result = await authFetch<AutoRun[]>('/api/auto-transcription/runs', {
+      return await authFetch<RunResult>(`/api/auto-transcription/sources/${id}/backfill`, {
+        method: 'POST',
+      })
+    } catch (e: any) {
+      console.error('Failed to backfill source:', e)
+      throw e
+    }
+  }
+
+  async function fetchTimeline(limit: number = 200): Promise<TimelineEntry[]> {
+    try {
+      const result = await authFetch<TimelineEntry[]>('/api/auto-transcription/timeline', {
         query: { limit },
       })
-      runs.value = Array.isArray(result) ? result : []
-      return runs.value
+      timeline.value = Array.isArray(result) ? result : []
+      return timeline.value
     } catch (e: any) {
-      console.error('Failed to fetch runs:', e)
-      return []
-    }
-  }
-
-  async function fetchRunsForSource(sourceId: string, limit: number = 20): Promise<AutoRun[]> {
-    try {
-      const result = await authFetch<AutoRun[]>(
-        `/api/auto-transcription/sources/${sourceId}/runs`,
-        { query: { limit } },
-      )
-      return Array.isArray(result) ? result : []
-    } catch (e: any) {
-      console.error('Failed to fetch source runs:', e)
+      console.error('Failed to fetch timeline:', e)
       return []
     }
   }
 
   return {
     sources: readonly(sources),
-    runs: readonly(runs),
+    timeline: readonly(timeline),
     loading: readonly(loading),
     error: readonly(error),
     fetchSources,
     createSource,
     updateSource,
     deleteSource,
-    triggerCheck,
-    fetchRuns,
-    fetchRunsForSource,
+    runSource,
+    backfillSource,
+    fetchTimeline,
   }
 }

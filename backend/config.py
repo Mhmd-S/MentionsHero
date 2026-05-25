@@ -25,13 +25,8 @@ class Settings(BaseSettings):
     # Replicate API
     replicate_api_token: str = ""
 
-    # Stripe
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    stripe_price_id: str = ""
-
-    # Auto-transcription scheduler
-    auto_transcription_enabled: bool = True
+    # Analytical data procurement
+    analytical_procurement_enabled: bool = True
 
     # Server
     host: str = "0.0.0.0"

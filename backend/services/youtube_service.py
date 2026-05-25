@@ -58,7 +58,11 @@ async def get_video_info(url: str) -> VideoInfo:
         thumbnail=data.get("thumbnail") or (data.get("thumbnails", [{}])[0].get("url", "") if data.get("thumbnails") else ""),
         channel=data.get("channel") or data.get("uploader", ""),
         view_count=data.get("view_count", 0),
-        upload_date=data.get("upload_date", "")
+        upload_date=data.get("upload_date", ""),
+        description=data.get("description") or "",
+        timestamp=data.get("timestamp"),
+        release_timestamp=data.get("release_timestamp"),
+        was_live=bool(data.get("was_live")),
     )
 
 
@@ -133,8 +137,12 @@ async def get_playlist_info(url: str) -> PlaylistInfo:
     )
 
 
-async def get_channel_videos(url: str) -> "ChannelInfo":
-    """Fetch recent videos from a YouTube channel using yt-dlp."""
+async def get_channel_videos(url: str, playlist_end: int | None = 50) -> "ChannelInfo":
+    """Fetch videos from a YouTube channel using yt-dlp.
+
+    `playlist_end` caps how many of the channel's most recent videos yt-dlp
+    enumerates. Pass `None` to remove the cap (used by the backfill action).
+    """
     from backend.models.video import ChannelInfo
 
     yt_dlp_args = get_yt_dlp_base_args()
@@ -142,9 +150,10 @@ async def get_channel_videos(url: str) -> "ChannelInfo":
         '--flat-playlist',
         '-j',
         '--no-download',
-        '--playlist-end', '50',
-        url
     ])
+    if playlist_end is not None:
+        yt_dlp_args.extend(['--playlist-end', str(playlist_end)])
+    yt_dlp_args.append(url)
 
     proc = await asyncio.create_subprocess_exec(
         *yt_dlp_args,

@@ -20,12 +20,6 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
     active: route.path === '/admin/auto-transcription'
   },
   {
-    label: 'Term Search',
-    icon: 'i-lucide-search',
-    to: '/admin/term-search',
-    active: route.path === '/admin/term-search'
-  },
-  {
     label: 'Transcripts',
     icon: 'i-lucide-file-text',
     to: '/admin/transcripts',
@@ -36,12 +30,6 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
     icon: 'i-lucide-users',
     to: '/admin/personas',
     active: route.path.startsWith('/admin/personas')
-  },
-  {
-    label: 'Markets',
-    icon: 'i-lucide-bar-chart-2',
-    to: '/admin/markets',
-    active: route.path.startsWith('/admin/markets')
   },
 ]])
 </script>
@@ -73,7 +61,6 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
             orientation="vertical"
             class="shrink-0"
           />
-          <FileTree />
           <JobsSidebar />
         </template>
 

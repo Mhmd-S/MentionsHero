@@ -69,6 +69,8 @@ definePageMeta({ layout: 'admin', ssr: false })
         </div>
       </div>
 
+      <TranscriptMetadataPanel :transcript-id="String(route.params.id)" />
+
       <div :class="speakerFrequencies.length > 0 ? 'grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6' : ''">
         <UCard>
           <template #header>

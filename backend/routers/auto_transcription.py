@@ -1,22 +1,31 @@
-"""Auto-transcription API routes."""
+"""Auto-transcription API routes (manual-trigger only, no scheduler)."""
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from backend.models.auto_transcription import (
     AutoSource,
     AutoSourceCreate,
     AutoSourceUpdate,
-    AutoRun,
-    ManualCheckResponse,
+    RunResult,
+    TimelineEntry,
 )
 from backend.services import auto_transcription_service
-from backend.scheduler import reschedule_source, remove_source
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auto-transcription", tags=["auto-transcription"])
+
+
+# ---------------------------------------------------------------------------
+# Static routes BEFORE parameterized routes
+# ---------------------------------------------------------------------------
+
+@router.get("/timeline", response_model=list[TimelineEntry])
+async def get_timeline(limit: int = 200):
+    """Global timeline of every video processed across all sources."""
+    return await auto_transcription_service.get_timeline(limit)
 
 
 # ---------------------------------------------------------------------------
@@ -25,13 +34,11 @@ router = APIRouter(prefix="/api/auto-transcription", tags=["auto-transcription"]
 
 @router.get("/sources", response_model=list[AutoSource])
 async def list_sources():
-    """List all auto-transcription sources."""
     return await auto_transcription_service.get_all_sources()
 
 
 @router.get("/sources/{source_id}", response_model=AutoSource)
 async def get_source(source_id: str):
-    """Get a single auto-transcription source."""
     source = await auto_transcription_service.get_source(source_id)
     if not source:
         raise HTTPException(404, "Source not found")
@@ -40,39 +47,27 @@ async def get_source(source_id: str):
 
 @router.post("/sources", response_model=AutoSource)
 async def create_source(body: AutoSourceCreate):
-    """Create a new auto-transcription source."""
     try:
-        source = await auto_transcription_service.create_source(body.model_dump())
+        return await auto_transcription_service.create_source(body.model_dump())
     except ValueError as e:
         raise HTTPException(400, str(e))
-
-    # Schedule it
-    reschedule_source(source)
-    return source
 
 
 @router.patch("/sources/{source_id}", response_model=AutoSource)
 async def update_source(source_id: str, body: AutoSourceUpdate):
-    """Update an auto-transcription source."""
     try:
         source = await auto_transcription_service.update_source(
             source_id, body.model_dump(exclude_none=True)
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
-
     if not source:
         raise HTTPException(404, "Source not found")
-
-    # Reschedule with new settings
-    reschedule_source(source)
     return source
 
 
 @router.delete("/sources/{source_id}")
 async def delete_source(source_id: str):
-    """Delete an auto-transcription source."""
-    remove_source(source_id)
     deleted = await auto_transcription_service.delete_source(source_id)
     if not deleted:
         raise HTTPException(404, "Source not found")
@@ -80,36 +75,39 @@ async def delete_source(source_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Manual trigger
+# Manual run
 # ---------------------------------------------------------------------------
 
-@router.post("/sources/{source_id}/check", response_model=ManualCheckResponse)
-async def trigger_check(source_id: str, background_tasks: BackgroundTasks):
-    """Manually trigger a check for a specific source."""
-    source = await auto_transcription_service.get_source(source_id)
-    if not source:
-        raise HTTPException(404, "Source not found")
+@router.post("/sources/{source_id}/run", response_model=RunResult)
+async def run_source(source_id: str):
+    """Run discovery + transcription queueing for a single source.
 
-    background_tasks.add_task(
-        auto_transcription_service.check_source_for_new_videos, source_id
-    )
-    return ManualCheckResponse(
-        message="Check triggered",
-        source_id=source_id,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Run history
-# ---------------------------------------------------------------------------
-
-@router.get("/sources/{source_id}/runs", response_model=list[AutoRun])
-async def get_source_runs(source_id: str, limit: int = 20):
-    """Get run history for a specific source."""
-    return await auto_transcription_service.get_runs_for_source(source_id, limit)
+    Synchronous: returns counts and per-video details once jobs have been
+    queued. Each transcription itself continues in the background.
+    """
+    try:
+        return await auto_transcription_service.run_source(source_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        logger.exception("Manual run failed for source %s", source_id)
+        raise HTTPException(500, f"Run failed: {e}")
 
 
-@router.get("/runs", response_model=list[AutoRun])
-async def get_recent_runs(limit: int = 50):
-    """Get recent runs across all sources."""
-    return await auto_transcription_service.get_recent_runs(limit)
+@router.post("/sources/{source_id}/backfill", response_model=RunResult)
+async def backfill_source(source_id: str):
+    """One-shot full-history backfill for a single source.
+
+    Ignores the regular `max_videos_per_check` cap; channels are pulled
+    without yt-dlp's `--playlist-end` limit so every listable upload is
+    considered. Jobs queued this way are capped by the source's
+    `backfill_limit` (0 / null = unlimited) and still throttled by
+    `auto_semaphore` (max 3 concurrent).
+    """
+    try:
+        return await auto_transcription_service.backfill_source(source_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        logger.exception("Backfill failed for source %s", source_id)
+        raise HTTPException(500, f"Backfill failed: {e}")

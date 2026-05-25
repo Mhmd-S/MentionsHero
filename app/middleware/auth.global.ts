@@ -11,23 +11,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  // Public routes - no auth needed
-  const publicPaths = ["/login", "/signup", "/pricing"]
-  const publicPrefixes = ["/personas", "/transcripts", "/blog", "/markets"]
-
-  const isPublicRoute =
-    to.path === "/" ||
-    publicPaths.includes(to.path) ||
-    publicPrefixes.some((prefix) => to.path.startsWith(prefix))
-
-  if (isPublicRoute) return
+  // Login is the only public route
+  if (to.path === "/login") return
 
   // Skip on server side
   if (import.meta.server) return
 
   const { session, loading } = useAuth()
 
-  // Wait for the auth plugin to finish initializing
   if (loading.value) {
     await new Promise<void>((resolve) => {
       const stop = watch(loading, (val) => {
@@ -39,11 +30,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     })
   }
 
-  // Check for session
   let currentSession = session.value
 
   if (!currentSession) {
-    // Fallback: check Supabase directly
     const supabase = useSupabaseClient()
     const { data } = await supabase.auth.getSession()
     if (data.session) {
@@ -57,11 +46,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo("/login")
   }
 
-  // Admin routes require admin role (fetched from backend via useAuth)
-  if (to.path.startsWith("/admin")) {
-    const { role } = useAuth()
-    if (role.value !== "admin") {
-      return navigateTo("/")
-    }
+  const { role } = useAuth()
+  if (role.value !== "admin") {
+    return navigateTo("/login")
   }
 })

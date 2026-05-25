@@ -9,7 +9,7 @@ export function useAuth() {
 
   async function fetchRole(accessToken: string) {
     try {
-      const data = await $fetch<{ role: string | null }>("/api/profile", {
+      const data = await $fetch<{ role: string | null }>("/api/auth/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       role.value = data.role;

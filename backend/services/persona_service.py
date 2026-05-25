@@ -295,13 +295,46 @@ async def get_all_aliases() -> dict[str, str]:
     return {a["alias"]: a["persona_id"] for a in aliases}
 
 
+async def _find_transcript_ids_by_aliases(aliases: list[str]) -> set[str]:
+    """Find transcript IDs where a speaker name matches any alias (case-insensitive)."""
+    supabase = get_supabase()
+    if not aliases:
+        return set()
+
+    speaker_ids: list[str] = []
+    for alias in aliases:
+        resp = (
+            supabase.table("speakers")
+            .select("id")
+            .ilike("name", alias)
+            .execute()
+        )
+        speaker_ids.extend(r["id"] for r in (resp.data or []))
+
+    if not speaker_ids:
+        return set()
+
+    batch_size = 200
+    transcript_ids: set[str] = set()
+    unique_speaker_ids = list(set(speaker_ids))
+    for i in range(0, len(unique_speaker_ids), batch_size):
+        batch = unique_speaker_ids[i:i + batch_size]
+        ts_resp = (
+            supabase.table("transcript_speakers")
+            .select("transcript_id")
+            .in_("speaker_id", batch)
+            .execute()
+        )
+        transcript_ids.update(r["transcript_id"] for r in (ts_resp.data or []))
+
+    return transcript_ids
+
+
 async def get_transcripts_for_persona(
     persona_id: str,
     folder_id: str | None = None
 ) -> list[dict[str, Any]]:
     """Find transcripts where the persona is an actual speaker (via aliases)."""
-    from backend.services.public_service import _find_transcript_ids_by_aliases
-
     supabase = get_supabase()
 
     # Get persona aliases

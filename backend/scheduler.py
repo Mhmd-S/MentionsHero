@@ -1,4 +1,4 @@
-"""Background scheduler for auto-transcription checks."""
+"""Background scheduler for analytical data procurement."""
 
 import logging
 
@@ -18,52 +18,21 @@ def get_scheduler() -> AsyncIOScheduler:
 
 
 async def start_scheduler() -> None:
-    """Start the scheduler and load all enabled auto-sources."""
+    """Start the scheduler for analytical procurement jobs.
+
+    Auto-transcription is manual-only — no background scheduling.
+    """
     from backend.config import get_settings
     settings = get_settings()
-    if not settings.auto_transcription_enabled:
-        logger.info("Auto-transcription scheduler disabled by config")
-        return
 
-    from backend.services.auto_transcription_service import (
-        get_all_enabled_sources,
-        mark_stale_runs_as_failed,
-    )
+    scheduler = get_scheduler()
 
-    try:
-        # Clean up stale runs from previous crashes
-        await mark_stale_runs_as_failed()
+    if settings.analytical_procurement_enabled:
+        _schedule_analytical_procurement(scheduler)
 
-        scheduler = get_scheduler()
-
-        sources = await get_all_enabled_sources()
-        for source in sources:
-            _schedule_source(scheduler, source)
-
+    if not scheduler.running:
         scheduler.start()
-        logger.info("Auto-transcription scheduler started with %d sources", len(sources))
-    except Exception as e:
-        logger.warning("Auto-transcription scheduler failed to start: %s (migration may not have run yet)", e)
-
-
-def _schedule_source(scheduler: AsyncIOScheduler, source: dict) -> None:
-    """Add or replace a scheduled job for an auto-source."""
-    job_id = f"auto_source_{source['id']}"
-
-    if scheduler.get_job(job_id):
-        scheduler.remove_job(job_id)
-
-    from backend.services.auto_transcription_service import check_source_for_new_videos
-
-    scheduler.add_job(
-        check_source_for_new_videos,
-        trigger=IntervalTrigger(minutes=source["check_interval_minutes"]),
-        id=job_id,
-        args=[source["id"]],
-        replace_existing=True,
-        max_instances=1,
-    )
-    logger.debug("Scheduled source %s every %d min", source["id"], source["check_interval_minutes"])
+        logger.info("Scheduler started")
 
 
 async def stop_scheduler() -> None:
@@ -71,27 +40,55 @@ async def stop_scheduler() -> None:
     scheduler = get_scheduler()
     if scheduler.running:
         scheduler.shutdown(wait=False)
-        logger.info("Auto-transcription scheduler stopped")
+        logger.info("Scheduler stopped")
 
 
-def reschedule_source(source: dict) -> None:
-    """Called when an auto-source is created, updated, or toggled."""
-    scheduler = get_scheduler()
-    if not scheduler.running:
-        return
+def _schedule_analytical_procurement(scheduler: AsyncIOScheduler) -> None:
+    """Add scheduled jobs for analytical data procurement."""
+    from backend.services.analytical_news_service import procure_news
+    from backend.services.analytical_truth_social_service import procure_truth_social_posts
 
-    if source.get("is_enabled"):
-        _schedule_source(scheduler, source)
-    else:
-        remove_source(source["id"])
+    async def _procure_news_task() -> None:
+        persona_id = await _get_trump_persona_id()
+        if persona_id:
+            await procure_news(persona_id, query="Trump", days_back=3)
+
+    async def _procure_truth_social_task() -> None:
+        persona_id = await _get_trump_persona_id()
+        if persona_id:
+            await procure_truth_social_posts(persona_id, days_back=3)
+
+    scheduler.add_job(
+        _procure_news_task,
+        trigger=IntervalTrigger(hours=6),
+        id="analytical_news_procurement",
+        replace_existing=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        _procure_truth_social_task,
+        trigger=IntervalTrigger(hours=12),
+        id="analytical_truth_social_procurement",
+        replace_existing=True,
+        max_instances=1,
+    )
+    logger.info("Analytical procurement jobs scheduled (news: 6h, truth social: 12h)")
 
 
-def remove_source(source_id: str) -> None:
-    """Remove a scheduled job for an auto-source."""
-    scheduler = get_scheduler()
-    if not scheduler.running:
-        return
-    job_id = f"auto_source_{source_id}"
-    if scheduler.get_job(job_id):
-        scheduler.remove_job(job_id)
-        logger.debug("Removed schedule for source %s", source_id)
+async def _get_trump_persona_id() -> str | None:
+    """Look up Trump's persona ID from the database."""
+    try:
+        from backend.core.database import get_supabase
+        supabase = get_supabase()
+        response = (
+            supabase.table("personas")
+            .select("id")
+            .ilike("name", "%trump%")
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return response.data[0]["id"]
+    except Exception as e:
+        logger.warning("Failed to look up Trump persona: %s", e)
+    return None

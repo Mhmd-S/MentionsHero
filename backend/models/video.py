@@ -18,6 +18,10 @@ class VideoInfo(BaseModel):
     channel: str
     view_count: int
     upload_date: str
+    description: str = ""
+    timestamp: int | None = None
+    release_timestamp: int | None = None
+    was_live: bool = False
 
     class Config:
         # Allow camelCase from frontend

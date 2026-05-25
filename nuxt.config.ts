@@ -6,16 +6,9 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ignore: ['backend/**'],
 
-  site: {
-    url: 'https://mentionshero.com',
-    name: 'MentionsHero',
-    description: 'Search and analyze press briefing transcripts. Track what public figures say, linked to Kalshi mentions prediction markets.',
-    defaultLocale: 'en',
-  },
-
   app: {
     head: {
-      titleTemplate: '%s | MentionsHero',
+      titleTemplate: '%s | MentionsHero Admin',
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       ],
@@ -28,6 +21,7 @@ export default defineNuxtConfig({
     }
   },
   routeRules: {
+    '/': { redirect: '/admin' },
     '/api/_nuxt_icon/**': {},
     '/api/**': {
       proxy: 'http://localhost:8001/api/**'
@@ -40,27 +34,7 @@ export default defineNuxtConfig({
     serverBundle: false,
   },
   css: ['~/assets/css/main.css'],
-  modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo', '@nuxtjs/device', '@nuxt/image', '@nuxt/content'],
-  
-  image: {
-    quality: 80,
-  },
-
-  sitemap: {
-    exclude: ['/admin/**', '/login', '/signup', '/account'],
-    sources: [
-      `${process.env.BACKEND_URL || 'http://localhost:8001'}/api/public/sitemap-urls`,
-    ],
-    urls: [
-      { loc: '/', changefreq: 'daily', priority: 1.0 },
-      { loc: '/pricing', changefreq: 'monthly', priority: 0.6 },
-      { loc: '/blog', changefreq: 'weekly', priority: 0.7 },
-    ],
-  },
-
-  robots: {
-    disallow: ['/admin/', '/account'],
-  },
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxtjs/device'],
 
   runtimeConfig: {
     public: {

@@ -1,8 +1,14 @@
 """Persona management API routes."""
 
+import io
+import re
+import zipfile
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from postgrest.exceptions import APIError
 
+from backend.core.database import get_supabase
 from backend.models.persona import (
     Persona,
     PersonaCreate,
@@ -118,6 +124,44 @@ async def remove_aliases(persona_id: str, request: RemoveAliasesRequest) -> Pers
     if not persona:
         raise HTTPException(status_code=404, detail="Persona not found")
     return persona
+
+
+@router.get("/{persona_id}/transcripts/download")
+async def download_persona_transcripts(persona_id: str):
+    """Download all transcripts for a persona as a ZIP of .txt files."""
+    persona = await persona_service.get_persona_by_id(persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    transcripts = await persona_service.get_transcripts_for_persona(persona_id)
+    if not transcripts:
+        raise HTTPException(status_code=404, detail="No transcripts found for this persona")
+
+    supabase = get_supabase()
+    ids = [t["id"] for t in transcripts]
+    rows = supabase.table("transcripts").select("id, name, upload_date, transcript").in_("id", ids).execute()
+    full_map = {r["id"]: r for r in (rows.data or [])}
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for meta in transcripts:
+            row = full_map.get(meta["id"])
+            if not row or not row.get("transcript"):
+                continue
+            raw_name = meta.get("name") or meta["id"]
+            safe_name = re.sub(r'[^\w\s\-.]', '_', raw_name).strip()[:80]
+            date_prefix = meta.get("upload_date") or ""
+            filename = f"{date_prefix}_{safe_name}.txt".lstrip("_")
+            zf.writestr(filename, row["transcript"])
+
+    buf.seek(0)
+    persona_slug = re.sub(r'[^\w\-]', '_', persona["name"]).lower()
+    zip_name = f"{persona_slug}_transcripts.zip"
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
+    )
 
 
 @router.get("/{persona_id}/transcripts")

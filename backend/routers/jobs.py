@@ -26,13 +26,133 @@ from backend.models.job import (
     BulkCancelResponse,
     CancelResponse,
 )
-from backend.core.concurrency import job_semaphore
+from backend.core.concurrency import job_semaphore, auto_semaphore
 from backend.services import job_service, speaker_service
 from backend.services.download_service import download_audio, cleanup_audio_file
+from backend.services.metadata_extraction_service import populate_for_transcript
 from backend.services.transcription_service import transcribe_audio
 from backend.services.youtube_service import validate_youtube_url, get_video_info
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+
+
+async def resume_orphaned_jobs() -> int:
+    """Re-launch jobs that were left in a non-terminal state by a server
+    shutdown / crash. Resets each to `pending`, then dispatches `process_job`
+    in the background through the appropriate semaphore (auto vs. manual).
+
+    Returns the number of jobs resumed. Safe to call on every startup.
+    """
+    orphans = await job_service.find_orphaned_jobs()
+    if not orphans:
+        return 0
+
+    supabase = get_supabase()
+    job_ids = [j["id"] for j in orphans]
+
+    # Look up which orphans belong to auto-transcription sources so we can
+    # restore their folder_id / speaker_hint and route them through the
+    # auto_semaphore. Any job without a matching row is a manual job.
+    auto_context: dict[str, dict] = {}
+    try:
+        asv_resp = (
+            supabase.table("auto_source_videos")
+            .select("job_id, auto_source_id, auto_sources(folder_id, speaker_hint)")
+            .in_("job_id", job_ids)
+            .execute()
+        )
+        for row in asv_resp.data or []:
+            source = row.get("auto_sources") or {}
+            auto_context[row["job_id"]] = {
+                "folder_id": source.get("folder_id"),
+                "speaker_hint": source.get("speaker_hint"),
+                "is_auto": True,
+            }
+    except Exception as e:
+        logger.warning("Failed to load auto_source_videos for orphan resume: %s", e)
+
+    async def _resume_one(job: dict) -> None:
+        ctx = auto_context.get(job["id"])
+        sem = auto_semaphore if ctx else job_semaphore
+        folder_id = ctx["folder_id"] if ctx else None
+        speaker_hint = ctx["speaker_hint"] if ctx else None
+        try:
+            async with sem:
+                await process_job(job["id"], job["youtube_url"], folder_id, speaker_hint)
+        except Exception:
+            logger.exception("Resume failed for job %s", job["id"])
+
+    resumed = 0
+    for job in orphans:
+        try:
+            await job_service.reset_job_to_pending(job["id"])
+        except Exception:
+            logger.exception("Failed to reset job %s to pending", job["id"])
+            continue
+        asyncio.create_task(_resume_one(job))
+        resumed += 1
+
+    logger.info(
+        "Resumed %d orphaned job(s) (auto=%d, manual=%d)",
+        resumed,
+        sum(1 for j in orphans if j["id"] in auto_context),
+        sum(1 for j in orphans if j["id"] not in auto_context),
+    )
+    return resumed
+
+
+async def _get_default_persona_id() -> str | None:
+    """Look up the default (Trump) persona by name. Mirrors scheduler.py."""
+    try:
+        supabase = get_supabase()
+        resp = (
+            supabase.table("personas")
+            .select("id, name")
+            .ilike("name", "%trump%")
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            return resp.data[0]["id"]
+    except Exception as e:
+        logger.warning("Failed to look up default persona: %s", e)
+    return None
+
+
+async def _populate_transcript_metadata(
+    job_id: str,
+    transcript_id: str,
+    transcript_text: str,
+    video_info: Any | None,
+) -> None:
+    """Run metadata extraction + context-window snapshot after a transcript is
+    saved. Delegates to the shared `populate_for_transcript` helper so the
+    single-transcript and bulk-backfill paths share code.
+
+    Best-effort: any failure logs a warning and returns.
+    """
+    if video_info is None:
+        logger.info("Job %s: skipping metadata extraction — no video_info", job_id)
+        return
+
+    persona_id = await _get_default_persona_id()
+    try:
+        status = await populate_for_transcript(
+            transcript_id=transcript_id,
+            title=getattr(video_info, "title", None) or "",
+            description=getattr(video_info, "description", None) or "",
+            transcript_text=transcript_text,
+            was_live=getattr(video_info, "was_live", False),
+            release_timestamp=getattr(video_info, "release_timestamp", None),
+            timestamp=getattr(video_info, "timestamp", None),
+            persona_id=persona_id,
+        )
+        logger.info(
+            "Job %s: metadata populated (event_type=%s, city=%s, venue=%s)",
+            job_id, status.get("event_type"), status.get("city"), status.get("venue"),
+        )
+    except Exception:
+        logger.warning("Job %s: metadata population failed", job_id, exc_info=True)
 
 
 async def process_job(
@@ -164,6 +284,17 @@ async def process_job(
                 )
             except Exception:
                 logger.warning("Job %s: speaker extraction failed", job_id, exc_info=True)
+
+        # Extract per-transcript metadata bundle (location, event_type,
+        # audience, event_time) and freeze the news/TS context snapshot.
+        # Best-effort: failures log a warning, never fail the parent job.
+        if transcript_id and transcript:
+            await _populate_transcript_metadata(
+                job_id=job_id,
+                transcript_id=transcript_id,
+                transcript_text=transcript,
+                video_info=video_info if 'video_info' in locals() else None,
+            )
 
         # Mark job as completed
         logger.info("Job %s: completed (transcript_id=%s)", job_id, transcript_id)
@@ -311,6 +442,18 @@ async def create_batch_jobs(
     background_tasks.add_task(process_batch)
 
     return BatchJobsResponse(jobIds=job_ids, total=len(job_ids))
+
+
+@router.post("/resume-orphaned")
+async def resume_orphaned_jobs_endpoint() -> dict:
+    """Re-launch any jobs left in a non-terminal state.
+
+    Use after a server crash / unclean shutdown to pick back up where the
+    previous process left off. Idempotent and safe to call repeatedly: only
+    jobs whose current status is non-terminal are touched.
+    """
+    resumed = await resume_orphaned_jobs()
+    return {"resumed": resumed}
 
 
 @router.post("/bulk-cancel")

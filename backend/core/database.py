@@ -17,6 +17,11 @@ def get_supabase() -> Client:
     return create_client(settings.supabase_url, settings.supabase_service_key)
 
 
+def get_analytical_table(table_name: str):
+    """Get a PostgREST query builder for a table in the analytical schema."""
+    return get_supabase().schema("analytical").table(table_name)
+
+
 def is_missing_speakers_column(error: APIError) -> bool:
     """Check if error is due to missing speakers column."""
     if not error.args:
