@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -48,6 +48,7 @@ class TruthSocialPost(BaseModel):
     source: str = "ddgs"
     media_urls: list[str] = []
     engagement: dict | None = None
+    is_retruth: bool = False
     created_at: datetime | None = None
 
     class Config:
@@ -57,6 +58,28 @@ class TruthSocialPost(BaseModel):
 class ProcureTruthSocialRequest(BaseModel):
     persona_id: str
     days_back: int = 3
+
+
+# ---------------------------------------------------------------------------
+# Unified scrape request (real sources: Truth Social posts / Fox News articles)
+# ---------------------------------------------------------------------------
+
+class ScrapeRequest(BaseModel):
+    """Trigger a date-ranged scrape for one source.
+
+    ``end_date`` defaults to "now" server-side when omitted.
+    """
+
+    persona_id: str
+    source_type: Literal["truth_social", "news_fox"]
+    start_date: datetime
+    end_date: datetime | None = None
+
+    @model_validator(mode="after")
+    def _check_range(self) -> "ScrapeRequest":
+        if self.end_date is not None and self.end_date <= self.start_date:
+            raise ValueError("end_date must be after start_date")
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -70,11 +93,6 @@ EVENT_TYPES = Literal[
     "announcement", "greeting", "troop_address", "other"
 ]
 
-AUDIENCE_TYPES = Literal[
-    "supporters", "general", "press", "congress", "foreign", "military",
-    "cabinet", "invited", "industry", "mixed", "other"
-]
-
 
 class EventTag(BaseModel):
     id: str
@@ -84,15 +102,10 @@ class EventTag(BaseModel):
     state: str | None = None
     country: str | None = None
     venue: str | None = None
-    interviewer: str | None = None
-    network: str | None = None
-    is_teleprompter: bool | None = None
-    audience_type: str | None = None
     event_time: datetime | None = None
-    event_time_local: str | None = None
+    # Provenance only (manual / auto_llm / auto_ddgs) — drives the confirm
+    # workflow and the source badge; not user-facing event content.
     classification_source: str = "manual"
-    confidence: float | None = None
-    notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -107,13 +120,7 @@ class EventTagCreate(BaseModel):
     state: str | None = None
     country: str | None = None
     venue: str | None = None
-    interviewer: str | None = None
-    network: str | None = None
-    is_teleprompter: bool | None = None
-    audience_type: AUDIENCE_TYPES | None = None
     event_time: datetime | None = None
-    event_time_local: str | None = None
-    notes: str | None = None
 
 
 class EventTagUpdate(BaseModel):
@@ -122,13 +129,7 @@ class EventTagUpdate(BaseModel):
     state: str | None = None
     country: str | None = None
     venue: str | None = None
-    interviewer: str | None = None
-    network: str | None = None
-    is_teleprompter: bool | None = None
-    audience_type: AUDIENCE_TYPES | None = None
     event_time: datetime | None = None
-    event_time_local: str | None = None
-    notes: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +166,16 @@ class ProcurementRun(BaseModel):
     items_found: int = 0
     items_new: int = 0
     items_skipped: int = 0
+    current_item_index: int | None = None
+    current_item_name: str | None = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cancel_requested: bool = False
     error_message: str | None = None
     details: list[dict] = []
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True

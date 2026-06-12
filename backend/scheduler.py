@@ -44,35 +44,44 @@ async def stop_scheduler() -> None:
 
 
 def _schedule_analytical_procurement(scheduler: AsyncIOScheduler) -> None:
-    """Add scheduled jobs for analytical data procurement."""
-    from backend.services.analytical_news_service import procure_news
-    from backend.services.analytical_truth_social_service import procure_truth_social_posts
+    """Add scheduled jobs that keep the real sources current.
 
-    async def _procure_news_task() -> None:
+    Each run scrapes a short rolling window (last 2 days) for the Trump persona —
+    the one-off Jan→now backfill is triggered manually from the Analytical page.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    from backend.services.analytical_procurement_service import run_scrape
+
+    ROLLING_WINDOW_DAYS = 2
+
+    async def _scrape_task(source_type: str) -> None:
         persona_id = await _get_trump_persona_id()
         if persona_id:
-            await procure_news(persona_id, query="Trump", days_back=3)
+            start = datetime.now(timezone.utc) - timedelta(days=ROLLING_WINDOW_DAYS)
+            await run_scrape(source_type, persona_id, start)
 
-    async def _procure_truth_social_task() -> None:
-        persona_id = await _get_trump_persona_id()
-        if persona_id:
-            await procure_truth_social_posts(persona_id, days_back=3)
+    async def _news_task() -> None:
+        await _scrape_task("news_fox")
+
+    async def _truth_social_task() -> None:
+        await _scrape_task("truth_social")
 
     scheduler.add_job(
-        _procure_news_task,
+        _news_task,
         trigger=IntervalTrigger(hours=6),
         id="analytical_news_procurement",
         replace_existing=True,
         max_instances=1,
     )
     scheduler.add_job(
-        _procure_truth_social_task,
+        _truth_social_task,
         trigger=IntervalTrigger(hours=12),
         id="analytical_truth_social_procurement",
         replace_existing=True,
         max_instances=1,
     )
-    logger.info("Analytical procurement jobs scheduled (news: 6h, truth social: 12h)")
+    logger.info("Analytical procurement jobs scheduled (Fox news: 6h, Truth Social: 12h)")
 
 
 async def _get_trump_persona_id() -> str | None:

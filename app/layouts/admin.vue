@@ -31,6 +31,18 @@ const navItems = computed<NavigationMenuItem[][]>(() => [[
     to: '/admin/personas',
     active: route.path.startsWith('/admin/personas')
   },
+  {
+    label: 'Analytical',
+    icon: 'i-lucide-newspaper',
+    to: '/admin/analytical',
+    active: route.path.startsWith('/admin/analytical')
+  },
+  {
+    label: 'Operations',
+    icon: 'i-lucide-activity',
+    to: '/admin/operations',
+    active: route.path === '/admin/operations'
+  },
 ]])
 </script>
 

@@ -24,19 +24,6 @@ export type EventTypeValue =
   | 'troop_address'
   | 'other'
 
-export type AudienceTypeValue =
-  | 'supporters'
-  | 'general'
-  | 'press'
-  | 'congress'
-  | 'foreign'
-  | 'military'
-  | 'cabinet'
-  | 'invited'
-  | 'industry'
-  | 'mixed'
-  | 'other'
-
 export const EVENT_TYPE_VALUES: EventTypeValue[] = [
   'rally',
   'press_conference',
@@ -56,20 +43,6 @@ export const EVENT_TYPE_VALUES: EventTypeValue[] = [
   'other',
 ]
 
-export const AUDIENCE_TYPE_VALUES: AudienceTypeValue[] = [
-  'supporters',
-  'general',
-  'press',
-  'congress',
-  'foreign',
-  'military',
-  'cabinet',
-  'invited',
-  'industry',
-  'mixed',
-  'other',
-]
-
 export interface EventTag {
   id: string
   transcript_id: string
@@ -78,15 +51,8 @@ export interface EventTag {
   state: string | null
   country: string | null
   venue: string | null
-  interviewer: string | null
-  network: string | null
-  is_teleprompter: boolean | null
-  audience_type: AudienceTypeValue | null
   event_time: string | null
-  event_time_local: string | null
   classification_source: 'manual' | 'auto_ddgs' | 'auto_llm'
-  confidence: number | null
-  notes: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -97,13 +63,7 @@ export interface EventTagPatch {
   state?: string | null
   country?: string | null
   venue?: string | null
-  interviewer?: string | null
-  network?: string | null
-  is_teleprompter?: boolean | null
-  audience_type?: AudienceTypeValue | null
   event_time?: string | null
-  event_time_local?: string | null
-  notes?: string | null
 }
 
 export interface BulkBackfillMetadataResult {
@@ -202,6 +162,5 @@ export function useTranscriptMetadata() {
     getContextWindow,
     bulkBackfillMetadata,
     EVENT_TYPE_VALUES,
-    AUDIENCE_TYPE_VALUES,
   }
 }

@@ -7,7 +7,7 @@ import { usePersonas, type Persona } from '~/composables/usePersonas'
 
 const NuxtLink = resolveComponent('NuxtLink')
 const { personas, loading, fetchPersonas, createPersona, updatePersona, deletePersona, addAliases, removeAliases } = usePersonas()
-const { fetchFolders, getSpeakers } = useAnalysis()
+const { getSpeakers } = useAnalysis()
 const { folders: fileTreeFolders, fetchFolders: fetchFileTreeFolders } = useFileTree()
 
 // Type for readonly persona from the composable
@@ -285,7 +285,6 @@ async function handleRemoveAlias(persona: ReadonlyPersona, alias: string) {
 onMounted(async () => {
   await Promise.all([
     fetchPersonas(),
-    fetchFolders(),
     fetchFileTreeFolders()
   ])
 })

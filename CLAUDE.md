@@ -70,7 +70,9 @@ backend/                        # FastAPI backend
     persona_service.py, youtube_service.py, yt_dlp_utils.py,
     auto_transcription_service.py,
     analytical_news_service.py, analytical_truth_social_service.py,
-    analytical_event_tag_service.py, analytical_context_service.py
+    analytical_event_tag_service.py, analytical_context_service.py,
+    analytical_procurement_service.py,   # orchestrates scraper runs
+    scrapers/                            # base.py, truth_social.py, fox_news.py, __init__.py (registry)
   models/                       # Pydantic models for the surviving routers
     job.py, transcript.py, folder.py, analysis.py, auto_transcription.py,
     speaker.py, persona.py, video.py, analytical.py
@@ -129,11 +131,11 @@ When you edit code that belongs to a feature, you MUST also update the correspon
 
 | Table | Purpose |
 |-------|---------|
-| `analytical.news_items` | News headlines about a persona (via DDG) |
-| `analytical.truth_social_posts` | Truth Social posts via DDG proxy |
-| `analytical.event_tags` | Per-transcript metadata bundle: event_type (16-value taxonomy), audience_type (11-value), city/state/country/venue, event_time (timestamptz), event_time_local, plus interviewer/network/is_teleprompter. Populated by `metadata_extraction_service` (LLM + DDG) on transcript creation; admin confirms via UI. |
+| `analytical.news_items` | Real news articles about a persona (currently Fox News via dated sitemap). Has `source_domain`/`source_name`; indexed for outlet + date-range filtering. |
+| `analytical.truth_social_posts` | Real @realDonaldTrump posts via the public Truth Social (Mastodon) API. `external_id` = stable post id; has `is_retruth`, `media_urls`, `engagement`. |
+| `analytical.event_tags` | Per-transcript metadata bundle. Surfaced fields: event_type (16-value taxonomy), city/state/country/venue, event_time (timestamptz), classification_source. Populated by `metadata_extraction_service` (Gemini + DDG, with retry) on transcript creation; admin confirms via UI. NOTE: `audience_type`, `event_time_local`, `confidence`, `interviewer`, `network`, `is_teleprompter`, `notes` remain as columns but are no longer extracted or exposed by the API/UI (droppable in a future cleanup). |
+| `analytical.procurement_runs` | Audit + live-status log for every analytical job. Source types include `truth_social`, `news_fox`, `event_tag_auto`, `metadata_backfill`. Scrape runs now populate `current_item_index/name` + counts (cancel via `cancel_requested`); metadata runs also populate `prompt_tokens/completion_tokens`, so the `/admin/operations` dashboard shows live progress + Gemini cost. |
 | `analytical.context_windows` | Pre-speech atmosphere snapshots |
-| `analytical.procurement_runs` | Audit log of procurement runs |
 
 ### Legacy / Unused Tables
 
@@ -172,7 +174,7 @@ All `/api/*` routes except `/api/auth/me` require admin role. `/api/auth/me` req
 | `/api/channel` | `channel.py` | Admin | YouTube channel video listing |
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
 | `/api/auto-transcription` | `auto_transcription.py` | Admin | Auto-transcription sources, manual `/run`, global `/timeline` |
-| `/api/analytical` | `analytical.py` | Admin | News, Truth Social, event tags, context |
+| `/api/analytical` | `analytical.py` | Admin | `POST /scrape` (date-ranged Truth Social / Fox News), News/Truth-Social reads (range + outlet filter), event tags, context, procurement-runs control |
 
 ## Key Conventions & Gotchas
 
@@ -190,7 +192,8 @@ All `/api/*` routes except `/api/auth/me` require admin role. `/api/auth/me` req
 - **Composables pattern**: All API calls go through composables in `app/composables/`
 - **Speaker regex**: Pattern `^([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$` — supports "Name:", "SPEAKER_00:", etc.
 - **Auto-transcription is manual-only**: there is no scheduler for auto-sources. `POST /api/auto-transcription/sources/{id}/run` is synchronous (returns counts once jobs are queued); transcription itself runs in background tasks gated by `auto_semaphore` (max 3) so it doesn't starve manual jobs
-- **Analytical procurement scheduler**: APScheduler `AsyncIOScheduler` starts via FastAPI lifespan in `main.py` for news / Truth Social procurement. Disable with `ANALYTICAL_PROCUREMENT_ENABLED=false`
+- **Analytical procurement scheduler**: APScheduler `AsyncIOScheduler` starts via FastAPI lifespan in `main.py`. Jobs scrape a rolling 2-day window for the Trump persona (Fox news every 6h, Truth Social every 12h) via `analytical_procurement_service.run_scrape`. Disable with `ANALYTICAL_PROCUREMENT_ENABLED=false`. The one-off Jan→now backfill is triggered manually from `/admin/analytical`.
+- **Real scrapers (modular)**: `backend/services/scrapers/` holds one `BaseScraper` per source (`truth_social.py` = Mastodon API via `curl_cffi`, credential-free; `fox_news.py` = dated sitemap + `trafilatura`), registered in `scrapers/__init__.SCRAPERS`. `analytical_procurement_service.run_scrape(source_type, persona_id, start, end)` owns the run lifecycle. New deps: `curl_cffi`, `trafilatura`, `beautifulsoup4`, `lxml`. NOTE: the backend runs on the **framework Python** (`/Library/Frameworks/Python.framework/Versions/3.13/bin/python3`), not `.venv`.
 - **Mandatory CLAUDE.md updates**: Any code change that affects project structure, conventions, API endpoints, database schema, key files, or development workflow MUST be reflected here
 
 ## Development

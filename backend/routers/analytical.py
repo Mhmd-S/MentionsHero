@@ -1,6 +1,7 @@
 """Analytical data procurement API routes."""
 
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
@@ -15,13 +16,13 @@ from backend.models.analytical import (
     NewsItem,
     ProcurementResult,
     ProcurementRun,
-    ProcureNewsRequest,
-    ProcureTruthSocialRequest,
+    ScrapeRequest,
     TruthSocialPost,
 )
 from backend.services import (
     analytical_news_service,
     analytical_truth_social_service,
+    analytical_procurement_service,
     analytical_event_tag_service,
     analytical_context_service,
     metadata_extraction_service,
@@ -34,95 +35,78 @@ router = APIRouter(prefix="/api/analytical", tags=["analytical"])
 
 
 # ---------------------------------------------------------------------------
-# News procurement
+# Scrape procurement (real sources: Truth Social posts / Fox News articles)
+# ---------------------------------------------------------------------------
+
+@router.post("/scrape", response_model=ProcurementResult)
+async def start_scrape(body: ScrapeRequest, background_tasks: BackgroundTasks):
+    """Start a date-ranged scrape in the background; returns the real run_id
+    so the caller can track live progress via /procurement-runs."""
+    try:
+        run_id = await analytical_procurement_service.start_run(
+            body.source_type, body.persona_id
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    background_tasks.add_task(
+        analytical_procurement_service.execute_run,
+        run_id,
+        body.source_type,
+        body.persona_id,
+        body.start_date,
+        body.end_date,
+    )
+    return ProcurementResult(message="Scrape started", run_id=run_id)
+
+
+@router.post("/scrape-sync", response_model=ProcurementResult)
+async def start_scrape_sync(body: ScrapeRequest):
+    """Run a scrape synchronously (small ranges / testing)."""
+    try:
+        result = await analytical_procurement_service.run_scrape(
+            body.source_type, body.persona_id, body.start_date, body.end_date
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return ProcurementResult(
+        message=f"Scrape {result['status']}",
+        run_id=result["run_id"],
+        items_found=result["items_found"],
+        items_new=result["items_new"],
+        items_skipped=result["items_skipped"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# News + Truth Social reads (date-range + outlet filtering)
 # ---------------------------------------------------------------------------
 
 @router.get("/news", response_model=list[NewsItem])
 async def list_news(
     persona_id: str = Query(...),
-    days: int = Query(7, ge=1, le=90),
-    limit: int = Query(100, ge=1, le=500),
+    days: int = Query(7, ge=1, le=3650),
+    limit: int = Query(100, ge=1, le=2000),
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    source: str | None = Query(None, description="Outlet filter, e.g. 'foxnews.com' or 'Fox News'"),
 ):
-    """List news items for a persona."""
-    return await analytical_news_service.get_news_items(persona_id, days, limit)
-
-
-@router.post("/news/procure", response_model=ProcurementResult)
-async def procure_news(
-    body: ProcureNewsRequest,
-    background_tasks: BackgroundTasks,
-):
-    """Trigger news procurement via DuckDuckGo."""
-    background_tasks.add_task(
-        analytical_news_service.procure_news,
-        body.persona_id,
-        body.query,
-        body.days_back,
-    )
-    return ProcurementResult(
-        message="News procurement started",
-        run_id="pending",
+    """List news items for a persona (optional explicit window + outlet filter)."""
+    return await analytical_news_service.get_news_items(
+        persona_id, days, limit, start, end, source
     )
 
-
-@router.post("/news/procure-sync", response_model=ProcurementResult)
-async def procure_news_sync(body: ProcureNewsRequest):
-    """Trigger news procurement synchronously (for testing)."""
-    result = await analytical_news_service.procure_news(
-        body.persona_id, body.query, body.days_back,
-    )
-    return ProcurementResult(
-        message="News procurement completed",
-        run_id=result["run_id"],
-        items_found=result["items_found"],
-        items_new=result["items_new"],
-        items_skipped=result["items_skipped"],
-    )
-
-
-# ---------------------------------------------------------------------------
-# Truth Social procurement
-# ---------------------------------------------------------------------------
 
 @router.get("/truth-social", response_model=list[TruthSocialPost])
 async def list_truth_social(
     persona_id: str = Query(...),
-    days: int = Query(7, ge=1, le=90),
-    limit: int = Query(100, ge=1, le=500),
+    days: int = Query(7, ge=1, le=3650),
+    limit: int = Query(100, ge=1, le=2000),
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
 ):
-    """List Truth Social posts for a persona."""
-    return await analytical_truth_social_service.get_posts(persona_id, days, limit)
-
-
-@router.post("/truth-social/procure", response_model=ProcurementResult)
-async def procure_truth_social(
-    body: ProcureTruthSocialRequest,
-    background_tasks: BackgroundTasks,
-):
-    """Trigger Truth Social procurement via DuckDuckGo."""
-    background_tasks.add_task(
-        analytical_truth_social_service.procure_truth_social_posts,
-        body.persona_id,
-        body.days_back,
-    )
-    return ProcurementResult(
-        message="Truth Social procurement started",
-        run_id="pending",
-    )
-
-
-@router.post("/truth-social/procure-sync", response_model=ProcurementResult)
-async def procure_truth_social_sync(body: ProcureTruthSocialRequest):
-    """Trigger Truth Social procurement synchronously (for testing)."""
-    result = await analytical_truth_social_service.procure_truth_social_posts(
-        body.persona_id, body.days_back,
-    )
-    return ProcurementResult(
-        message="Truth Social procurement completed",
-        run_id=result["run_id"],
-        items_found=result["items_found"],
-        items_new=result["items_new"],
-        items_skipped=result["items_skipped"],
+    """List Truth Social posts for a persona (optional explicit window)."""
+    return await analytical_truth_social_service.get_posts(
+        persona_id, days, limit, start, end
     )
 
 
@@ -283,3 +267,32 @@ async def list_procurement_runs(
         query = query.eq("persona_id", persona_id)
     response = query.order("started_at", desc=True).limit(limit).execute()
     return response.data or []
+
+
+@router.post("/procurement-runs/reset-stale")
+async def reset_stale_procurement_runs():
+    """Mark any 'running' procurement_run with no recent heartbeat as cancelled.
+    Use this to recover after a backend crash."""
+    return await metadata_extraction_service.reset_stale_runs()
+
+
+@router.post("/procurement-runs/{run_id}/cancel")
+async def cancel_procurement_run(run_id: str):
+    """Request cancellation of an in-flight procurement_run. The worker
+    polls the cancel flag at each iteration and exits cleanly."""
+    try:
+        return await metadata_extraction_service.cancel_run(run_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.delete("/procurement-runs/{run_id}")
+async def delete_procurement_run(run_id: str):
+    """Delete a procurement_run record. Refuses to delete an in-flight run."""
+    try:
+        ok = await metadata_extraction_service.delete_run(run_id)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    if not ok:
+        raise HTTPException(404, "procurement_run not found")
+    return {"deleted": True, "run_id": run_id}

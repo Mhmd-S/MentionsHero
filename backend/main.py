@@ -24,13 +24,21 @@ from backend.routers import (
     video,
 )
 from backend.scheduler import start_scheduler, stop_scheduler
+from backend.services.metadata_extraction_service import reset_orphaned_runs_on_startup
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start/stop background scheduler."""
+    """Start/stop background scheduler. Also reset orphaned procurement_runs
+    that were left in 'running' state by a crashed/restarted previous boot."""
+    try:
+        await reset_orphaned_runs_on_startup()
+    except Exception as e:
+        # Don't let DB hiccups block server startup.
+        import logging
+        logging.getLogger(__name__).warning("orphaned-run reset failed: %s", e)
     await start_scheduler()
     yield
     await stop_scheduler()

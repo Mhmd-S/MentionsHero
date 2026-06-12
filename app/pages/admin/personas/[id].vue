@@ -11,7 +11,26 @@ const personaId = route.params.id as string
 const { getPersona } = usePersonas()
 const { authFetch } = useAuthFetch()
 const { bulkBackfillMetadata } = useTranscriptMetadata()
+const {
+  runs: procurementRuns,
+  startPolling: startProcurementPolling,
+  stopPolling: stopProcurementPolling,
+  estimateCostUsd,
+  formatCostUsd,
+} = useProcurementRuns()
 const toast = useToast()
+
+const activeBackfillRun = computed(() =>
+  procurementRuns.value.find(
+    (r) =>
+      r.persona_id === personaId &&
+      r.source_type === 'metadata_backfill' &&
+      r.status === 'running',
+  ) || null,
+)
+
+onMounted(() => startProcurementPolling({ persona_id: personaId }))
+onUnmounted(() => stopProcurementPolling())
 
 const persona = ref<Awaited<ReturnType<typeof getPersona>>>(null)
 const loadingPersona = ref(true)
@@ -197,8 +216,23 @@ onMounted(async () => {
           >
             Download all
           </UButton>
+          <NuxtLink
+            v-if="activeBackfillRun"
+            to="/admin/operations"
+            class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-xs hover:bg-blue-100 dark:hover:bg-blue-950/50 transition"
+            :title="`Click to view live progress on the Operations page`"
+          >
+            <span class="inline-block size-1.5 rounded-full bg-current animate-pulse"></span>
+            Running… {{ activeBackfillRun.items_new + activeBackfillRun.items_skipped }} / {{ activeBackfillRun.items_found || '?' }}
+            <span
+              v-if="activeBackfillRun.prompt_tokens + activeBackfillRun.completion_tokens > 0"
+              class="text-gray-500"
+            >
+              · {{ formatCostUsd(estimateCostUsd(activeBackfillRun.prompt_tokens, activeBackfillRun.completion_tokens)) }}
+            </span>
+          </NuxtLink>
           <UButton
-            v-if="personaTranscripts.length > 0"
+            v-else-if="personaTranscripts.length > 0"
             size="xs"
             variant="soft"
             icon="i-lucide-sparkles"
