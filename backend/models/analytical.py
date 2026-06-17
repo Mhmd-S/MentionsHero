@@ -173,6 +173,11 @@ class ProcurementRun(BaseModel):
     cancel_requested: bool = False
     error_message: str | None = None
     details: list[dict] = []
+    # Input params the run was launched with — enough to re-run it (Retry).
+    params: dict = {}
+    # Retry lineage: the run this one re-ran, and which attempt it is.
+    retry_of: str | None = None
+    attempt: int = 1
     started_at: datetime | None = None
     completed_at: datetime | None = None
     updated_at: datetime | None = None

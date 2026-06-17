@@ -1,7 +1,7 @@
 """Analytical data procurement API routes."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
@@ -44,7 +44,11 @@ async def start_scrape(body: ScrapeRequest, background_tasks: BackgroundTasks):
     so the caller can track live progress via /procurement-runs."""
     try:
         run_id = await analytical_procurement_service.start_run(
-            body.source_type, body.persona_id
+            body.source_type,
+            body.persona_id,
+            params=analytical_procurement_service.scrape_params(
+                body.start_date, body.end_date
+            ),
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -257,6 +261,7 @@ async def get_context_window(
 async def list_procurement_runs(
     source_type: str | None = Query(None),
     persona_id: str | None = Query(None),
+    status: str | None = Query(None, description="Filter by status (running/completed/failed/cancelled)"),
     limit: int = Query(20, ge=1, le=100),
 ):
     """Get recent procurement runs."""
@@ -265,6 +270,8 @@ async def list_procurement_runs(
         query = query.eq("source_type", source_type)
     if persona_id:
         query = query.eq("persona_id", persona_id)
+    if status:
+        query = query.eq("status", status)
     response = query.order("started_at", desc=True).limit(limit).execute()
     return response.data or []
 
@@ -284,6 +291,79 @@ async def cancel_procurement_run(run_id: str):
         return await metadata_extraction_service.cancel_run(run_id)
     except ValueError as e:
         raise HTTPException(404, str(e))
+
+
+def _parse_iso(value) -> datetime | None:
+    if not value:
+        return None
+    s = str(value)
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+@router.post("/procurement-runs/{run_id}/retry")
+async def retry_procurement_run(run_id: str, background_tasks: BackgroundTasks):
+    """Re-run a finished procurement_run with its original params, as a fresh
+    run linked back via `retry_of`. Refuses to retry a run that's still active.
+
+    The new run is dispatched in the background and shows up in the dashboard's
+    next poll. Scrape retries replay the original date window (defaulting to the
+    last 2 days for legacy runs that pre-date params persistence)."""
+    run = await metadata_extraction_service.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "procurement_run not found")
+    if run["status"] == "running":
+        raise HTTPException(409, "Run is still active — cancel it before retrying")
+
+    source_type = run["source_type"]
+    persona_id = run["persona_id"]
+    params = run.get("params") or {}
+    attempt = int(run.get("attempt") or 1) + 1
+
+    if source_type in ("truth_social", "news_fox"):
+        start = _parse_iso(params.get("start_date")) or (datetime.now(timezone.utc) - timedelta(days=2))
+        end = _parse_iso(params.get("end_date"))
+        try:
+            new_id = await analytical_procurement_service.start_run(
+                source_type,
+                persona_id,
+                params=analytical_procurement_service.scrape_params(start, end),
+                retry_of=run_id,
+                attempt=attempt,
+            )
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        background_tasks.add_task(
+            analytical_procurement_service.execute_run,
+            new_id, source_type, persona_id, start, end,
+        )
+        return {"message": "Retry started", "run_id": new_id, "source_type": source_type}
+
+    if source_type == "metadata_backfill":
+        background_tasks.add_task(
+            metadata_extraction_service.bulk_backfill_metadata,
+            persona_id,
+            force=bool(params.get("force", False)),
+            limit=params.get("limit"),
+            retry_of=run_id,
+            attempt=attempt,
+        )
+        return {"message": "Retry started", "source_type": source_type}
+
+    if source_type == "event_tag_auto":
+        background_tasks.add_task(
+            analytical_event_tag_service.bulk_auto_tag,
+            persona_id,
+            retry_of=run_id,
+            attempt=attempt,
+        )
+        return {"message": "Retry started", "source_type": source_type}
+
+    raise HTTPException(400, f"source_type '{source_type}' is not retryable")
 
 
 @router.delete("/procurement-runs/{run_id}")

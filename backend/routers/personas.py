@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from postgrest.exceptions import APIError
 
 from backend.core.database import get_analytical_table, get_supabase
+from backend.models.analytical import EventTag
 from backend.models.persona import (
     Persona,
     PersonaCreate,
@@ -127,52 +128,13 @@ async def remove_aliases(persona_id: str, request: RemoveAliasesRequest) -> Pers
     return persona
 
 
-def _format_metadata_header(transcript: dict, event_tag: dict | None) -> str:
-    """Build a human-readable header block prepended to each downloaded .txt."""
-    lines: list[str] = []
-    lines.append("=" * 70)
-    lines.append(f"Transcript: {transcript.get('name') or '(no name)'}")
-    if transcript.get("youtube_url"):
-        lines.append(f"YouTube: {transcript['youtube_url']}")
-    if transcript.get("upload_date"):
-        # YYYYMMDD → YYYY-MM-DD
-        ud = transcript["upload_date"]
-        if len(ud) == 8 and ud.isdigit():
-            ud = f"{ud[:4]}-{ud[4:6]}-{ud[6:]}"
-        lines.append(f"Upload date: {ud}")
-
-    if event_tag:
-        lines.append("-" * 70)
-        lines.append("Event metadata:")
-        if event_tag.get("event_type"):
-            lines.append(f"  Type: {event_tag['event_type']}")
-        location_parts = [
-            event_tag.get("city"),
-            event_tag.get("state"),
-            event_tag.get("country"),
-        ]
-        location = ", ".join(p for p in location_parts if p)
-        if location:
-            lines.append(f"  Location: {location}")
-        if event_tag.get("venue"):
-            lines.append(f"  Venue: {event_tag['venue']}")
-        if event_tag.get("event_time"):
-            lines.append(f"  Event time: {event_tag['event_time']}")
-    else:
-        lines.append("(no event metadata recorded)")
-
-    lines.append("=" * 70)
-    lines.append("")
-    return "\n".join(lines)
-
-
 @router.get("/{persona_id}/transcripts/download")
 async def download_persona_transcripts(persona_id: str):
     """Download all transcripts for a persona as a ZIP.
 
-    Each .txt file is prefixed with a metadata header (type, location, venue,
-    time, etc.). A `_metadata.json` file at the top of the ZIP carries the full
-    event_tag bundle for every transcript for programmatic consumption.
+    Each .txt file holds only the raw transcript text. A `_metadata.json` file
+    at the top of the ZIP carries the metadata (name, youtube_url, upload_date,
+    event_tag) for every transcript for programmatic consumption.
     """
     persona = await persona_service.get_persona_by_id(persona_id)
     if not persona:
@@ -228,16 +190,14 @@ async def download_persona_transcripts(persona_id: str):
             date_prefix = meta.get("upload_date") or ""
             filename = f"{date_prefix}_{safe_name}.txt".lstrip("_")
 
-            header = _format_metadata_header(
-                {
-                    "id": tid,
-                    "name": meta.get("name"),
-                    "youtube_url": row.get("youtube_url"),
-                    "upload_date": meta.get("upload_date"),
-                },
-                event_tag,
+            zf.writestr(filename, row["transcript"])
+
+            # Project the raw row through the EventTag model so the export
+            # exposes ONLY the surfaced fields (event_type/city/state/country/
+            # venue/event_time + provenance) — never the vestigial columns.
+            public_tag = (
+                EventTag(**event_tag).model_dump(mode="json") if event_tag else None
             )
-            zf.writestr(filename, header + row["transcript"])
 
             aggregate.append({
                 "transcript_id": tid,
@@ -245,7 +205,7 @@ async def download_persona_transcripts(persona_id: str):
                 "name": meta.get("name"),
                 "youtube_url": row.get("youtube_url"),
                 "upload_date": meta.get("upload_date"),
-                "event_tag": event_tag,
+                "event_tag": public_tag,
             })
 
         # Top-of-ZIP aggregate manifest (sorted so it appears first in most

@@ -1,10 +1,17 @@
 """LLM-driven extraction of per-transcript metadata.
 
-Two-call architecture (locked in via Phase 0 spike):
-  Call A: location/venue/audience/event_time_local — Gemini sees title,
-          description, DDG snippets, transcript excerpt. Venue extraction
-          prioritizes DDG snippets (room-level detail lives there).
-  Call B: event_type — Gemini sees the title only. Strict 16-rule mapping.
+Single grounded-call architecture (replaced the old DDG + two-call design):
+  ONE Gemini call per transcript with Google Search grounding ON
+  (`google_search` tool) returns location / venue / event datetime AND a
+  semantic event_type — using the title, description, transcript opening, and
+  the model's own live web search. A deterministic keyword pre-classifier
+  (`event_type_classifier`) provides a high-precision guardrail: when the title
+  has an unambiguous keyword the event_type is fixed in Python and overrides the
+  LLM (so e.g. "...Call with Service Members" can never regress to `other`).
+
+  Verified via `backend/scripts/probe_thinking_config.py`: on
+  `gemini-3-flash-preview`, `google_search` + `response_schema` combine in one
+  call, and `thinking_level=MINIMAL` is the best quality/latency point.
 
 All outputs are SUGGESTIONS — the admin-confirm UI is the source of truth.
 """
@@ -14,14 +21,20 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
+import time
 from datetime import datetime, timezone
 
-from ddgs import DDGS
 from google import genai
 from google.genai import types
 
 from backend.config import get_settings
 from backend.core.database import get_analytical_table, get_supabase
+from backend.services.event_type_classifier import (
+    EVENT_TYPE_DEFINITIONS,
+    EVENT_TYPES,
+    classify_event_type_deterministic,
+)
 from backend.services.transcription_service import with_retry
 
 logger = logging.getLogger(__name__)
@@ -30,93 +43,113 @@ logger = logging.getLogger(__name__)
 GEMINI_MODEL = "gemini-3-flash-preview"
 DESCRIPTION_CHARS = 1500
 TRANSCRIPT_EXCERPT_CHARS = 2000
-DDG_MAX_RESULTS = 10
-DDG_SNIPPET_CHARS = 1800
 
-# Per-call wall-clock timeouts (seconds). Each is generous but bounded so a
-# single hung video/network/API can't stall the whole bulk run.
-#
-# GEMINI_TIMEOUT was 30s, which routinely cut off `gemini-3-flash-preview`
-# (a thinking model) mid-response — the swallowed timeout was the root cause of
-# the "everything null" bug. The working transcription path has no such cap and
-# wraps calls in `with_retry`; we now mirror both.
-DDG_TIMEOUT = 20
-GEMINI_TIMEOUT = 120
+# Generation knobs (probe-confirmed on gemini-3-flash-preview):
+#  - thinking_level=MINIMAL: fast (~3s) yet still reasons enough to pick good
+#    search queries and synthesize grounded results. budget=0 is marginally
+#    faster but fumbles genuinely-ambiguous events; LOW is slower with no gain.
+#  - temperature=0 + a fixed seed: deterministic, reproducible eval runs.
+_THINKING = types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL)
+_SEED = 42
+
+# Per-call wall-clock timeouts (seconds). Bounded so one hung video/API can't
+# stall the whole bulk run. GEMINI_TIMEOUT dropped from 120s now that thinking
+# is minimized (the 120s existed to accommodate unthrottled thinking); the
+# grounded call + retries/backoff still fit comfortably.
+GEMINI_TIMEOUT = 60
 YTDLP_TIMEOUT = 45
+# yt-dlp is the only per-item external call without retry; a single retry with
+# a short backoff recovers most transient YouTube/network blips. (Gemini calls
+# already retry inside `_call_gemini` via `with_retry`.)
+YTDLP_ATTEMPTS = 2
+YTDLP_RETRY_DELAY = 2.0
+POPULATE_TIMEOUT = GEMINI_TIMEOUT + 30  # one grounded call + context-window compute + upsert
 PROGRESS_FLUSH_EVERY = 5  # update procurement_runs.items_new every N transcripts
-# Transcripts processed in parallel during a backfill. Each fires 2 Gemini calls,
-# so peak in-flight requests ≈ BULK_CONCURRENCY * 2. Kept low (matches the
-# auto_semaphore=3 cap elsewhere) to avoid 429 rate-limit storms.
-BULK_CONCURRENCY = 3
+# Transcripts processed in parallel during a backfill. Grounded (google_search)
+# calls share a *lower* quota than plain generation: a single 6-wide burst is
+# fine, but sustained 6-wide load over a long run trips a throttle that hangs
+# every call to the 60s timeout (observed: a 142-item run timing out 142/142).
+# 4 keeps us comfortably under that ceiling; raise cautiously.
+BULK_CONCURRENCY = 4
 
-EVENT_TYPES = [
-    "rally", "press_conference", "press_briefing", "interview",
-    "prepared_remarks", "signing_ceremony", "bilateral_meeting",
-    "cabinet_meeting", "reception", "ceremony", "summit", "roundtable",
-    "announcement", "greeting", "troop_address", "other",
-]
+# Per-transcript resilience. A *transient* outcome (Gemini timeout / llm_failed,
+# usually throttling) is retried with backoff rather than permanently failing
+# the transcript — so a brief throttle window no longer wipes a whole run.
+ITEM_MAX_ATTEMPTS = 3
+ITEM_RETRY_BASE_DELAY = 4.0  # seconds; multiplied by the attempt number
+TRANSIENT_ACTIONS = {"llm_failed", "populate_timeout"}
 
-# ---------------------------------------------------------------------------
-# DDG search
-# ---------------------------------------------------------------------------
-
-def _ddg_search(query: str) -> str:
-    """Return a combined snippet string from DuckDuckGo text search.
-    Returns empty string on failure — never raises."""
-    try:
-        results = list(DDGS().text(query, max_results=DDG_MAX_RESULTS))
-    except Exception as e:
-        logger.warning("DDG search failed for %r: %s", query, e)
-        return ""
-    snippets: list[str] = []
-    for r in results:
-        title = (r.get("title") or "").strip()
-        body = (r.get("body") or "").strip()
-        if title or body:
-            snippets.append(f"- {title} — {body}")
-    return "\n".join(snippets)[:DDG_SNIPPET_CHARS]
+# Soft circuit-breaker: once transient failures cluster, pause *new* attempts
+# briefly so we ride out a throttle instead of hammering the API with doomed
+# calls. Strikes reset on any success or once a cooldown is armed.
+THROTTLE_TRIP = 6
+THROTTLE_COOLDOWN = 45.0  # seconds
 
 
 # ---------------------------------------------------------------------------
-# Call A: location / venue / audience / event_time_local
+# Combined grounded extraction prompt + schema
 # ---------------------------------------------------------------------------
 
-def _build_location_prompt(
-    title: str, description: str, transcript_excerpt: str, web_snippets: str
+def _build_extraction_prompt(
+    title: str,
+    description: str,
+    transcript_excerpt: str,
+    persona_name: str,
+    det_type: str | None,
+    det_signal: str | None,
 ) -> str:
-    return f"""You are extracting event metadata from a YouTube video about a US political speech or appearance.
+    if det_type:
+        event_type_block = (
+            f"A high-precision keyword classifier already determined "
+            f"event_type = `{det_type}` (matched: \"{det_signal}\"). Return that "
+            f"exact value as event_type unless the content flatly contradicts it.\n"
+            f"  - matched_signal: \"keyword:{det_signal}\""
+        )
+    else:
+        event_type_block = (
+            "Classify the event into exactly ONE event_type using these definitions:\n"
+            f"{EVENT_TYPE_DEFINITIONS}\n"
+            "Choose `other` ONLY if the event genuinely fits none of the 15 specific "
+            "types. A generic-sounding title is NOT grounds for `other` — use the "
+            "description, transcript, and your web search to decide what actually "
+            "happened (e.g. a 'Champion of Coal Event' in the East Room is a `ceremony`).\n"
+            "  - matched_signal: short phrase + source that drove the event_type choice"
+        )
 
-Use these inputs. PRIORITY DIFFERS BY FIELD:
+    return f"""You extract structured metadata about a U.S. political event from a YouTube video. \
+You have a Google Search tool — USE IT to find news coverage of THIS specific event and verify the details.
 
-  - For `city` / `state` / `country`: VIDEO TITLE is the primary signal, then VIDEO DESCRIPTION, then WEB SEARCH SNIPPETS, then TRANSCRIPT EXCERPT.
-  - For `venue`: WEB SEARCH SNIPPETS are the PRIMARY signal — room-level detail (East Room, Rose Garden, Oval Office, Brady Press Briefing Room, etc.) almost always comes from news articles, not the title or description. Fall back to TRANSCRIPT EXCERPT and VIDEO DESCRIPTION only if web snippets don't name the venue. Do NOT guess a venue from the title alone.
-  - (event_type is classified separately from the title only — not part of this call.)
-
-Return ONLY these fields. Use null if you cannot find a confident value.
-
-  - city: city name only, no state suffix (e.g. "Phoenix")
-  - state: US state name (full name, e.g. "Arizona"); for DC use "District of Columbia"; null for non-US events
-  - country: full country name. Default to "US" for US events. Use the actual country for non-US events ("Japan", "Malaysia", etc.)
-  - venue: building / facility name if mentioned (e.g. "The White House", "Mar-a-Lago", "Madison Square Garden"). Be as specific as the inputs allow. If the inputs name a specific room or sub-location (e.g. "East Room of the White House", "Rose Garden", "Briefing Room"), include it here — prefer the most specific form actually stated.
-  - event_datetime_utc: if you can determine the FULL event start (date AND time) from the inputs, return it as an ISO-8601 UTC timestamp like "2026-05-07T15:47:00Z". Try hard — TITLES often embed it (e.g. "May 7, 2026 15:47"), DDG snippets often include it (e.g. "5/19/26 1250 hours" or "at 3 p.m. ET on May 21"), and transcripts sometimes open with the date. Convert any local-time references to UTC using these defaults: White House / DC / Florida → ET (UTC-5 in winter, UTC-4 in summer); California → PT; if you can't determine the timezone, assume ET. null if no time can be determined.
-  - primary_source: which input the location came from — one of ["title", "web", "description", "transcript", "none"]
-  - reasoning: one short sentence explaining what you used and why any field is null
+PERSONA: {persona_name}
 
 VIDEO TITLE:
 {title or "(empty)"}
-
-WEB SEARCH SNIPPETS (DuckDuckGo, query roughly "Trump {{title}}"):
-{web_snippets or "(empty)"}
 
 VIDEO DESCRIPTION:
 {description or "(empty)"}
 
 TRANSCRIPT EXCERPT (first ~{TRANSCRIPT_EXCERPT_CHARS} chars):
 {transcript_excerpt or "(empty)"}
+
+Return these fields (use null when you cannot find a confident value):
+
+LOCATION — the title/description usually give the city; news articles give the room/venue:
+  - city: city name only, no state suffix (e.g. "Phoenix"); null if unknown
+  - state: full US state name (e.g. "Arizona"); use "District of Columbia" for DC; null for non-US events
+  - country: full country name; default "US" for US events; the actual country otherwise ("Japan", "Malaysia")
+  - venue: the MOST SPECIFIC building/room named anywhere (e.g. "East Room of the White House", "Rose Garden", "Mar-a-Lago", "Madison Square Garden"). Prefer room-level detail from news articles. If your search is unhelpful, fall back to the TRANSCRIPT/DESCRIPTION — speakers and chyrons routinely state the location ("here in Phoenix", "the East Room"). Do NOT invent a venue.
+  - event_datetime_utc: full event START as an ISO-8601 UTC timestamp (e.g. "2026-05-07T15:47:00Z") if determinable from the title, your search, or the transcript; null otherwise. Convert local times to UTC: White House / DC / Florida → ET, California → PT; assume ET if unsure.
+
+EVENT TYPE:
+{event_type_block}
+
+  - event_type: one of {EVENT_TYPES}
+  - event_type_confidence: number 0..1
+  - primary_source: which input the LOCATION came from — one of ["title", "web", "description", "transcript", "none"]
+  - reasoning: one short sentence on what you used and why any field is null
 """
 
 
-def _location_response_schema() -> types.Schema:
+def _extraction_response_schema() -> types.Schema:
     return types.Schema(
         type=types.Type.OBJECT,
         properties={
@@ -125,63 +158,16 @@ def _location_response_schema() -> types.Schema:
             "country": types.Schema(type=types.Type.STRING, nullable=True),
             "venue": types.Schema(type=types.Type.STRING, nullable=True),
             "event_datetime_utc": types.Schema(type=types.Type.STRING, nullable=True),
+            "event_type": types.Schema(type=types.Type.STRING, enum=EVENT_TYPES),
+            "event_type_confidence": types.Schema(type=types.Type.NUMBER, nullable=True),
+            "matched_signal": types.Schema(type=types.Type.STRING, nullable=True),
             "primary_source": types.Schema(
                 type=types.Type.STRING,
                 enum=["title", "web", "description", "transcript", "none"],
             ),
             "reasoning": types.Schema(type=types.Type.STRING),
         },
-        required=["primary_source", "reasoning"],
-    )
-
-
-# ---------------------------------------------------------------------------
-# Call B: event_type from title only
-# ---------------------------------------------------------------------------
-
-def _build_event_type_prompt(title: str) -> str:
-    return f"""Classify the YouTube video title below into a single event_type.
-
-Use ONLY the title. Ignore everything else.
-
-IMPORTANT: Check rules in the order listed. The FIRST rule whose condition is satisfied wins, even if a later rule would also match. In particular, ceremony triggers (rule #14) MUST be checked before prepared_remarks (rule #15) — so "Delivers Remarks at the Congressional Ball" becomes `ceremony`, not `prepared_remarks`.
-
-1. If the title contains "Cabinet Meeting" -> cabinet_meeting
-2. If the title contains "Bilateral Meeting" / "Bilateral Lunch" / "Bilateral Dinner" / "Bilateral Breakfast" OR matches the pattern "(Meeting|Lunch|Dinner|Breakfast|Tea|Working Lunch|Working Dinner) with the (Secretary General|President|Prime Minister|King|Queen|Chancellor|Crown Prince|Ambassador|Premier|Emir|Sultan|Chairman|Foreign Minister|Director|Vice President) of [country/org]" -> bilateral_meeting
-3. If the title contains "Signing Ceremony" / "Bill Signing" / "Signs " / "Signing with" -> signing_ceremony
-4. If the title contains "Press Conference" -> press_conference
-5. If the title contains "Press Briefing" / "Briefs Members of the Media" / "Briefs the Media" -> press_briefing
-6. If the title contains "Rally" -> rally
-7. If the title contains "Interview" / "Sits Down with" / "Joins " (network name) -> interview
-8. If the title contains "Reception" -> reception
-9. If the title contains "Roundtable" / "Task Force" / "Listening Session" -> roundtable
-10. If the title contains "Summit" -> summit
-11. If the title contains "Announcement" / "Makes an Announcement" / "Announces" -> announcement
-12. If the title contains "Greeting" / "Welcomes" / "Photo Op" -> greeting
-13. If the title contains "Troop" / "Troops" / "Address to the Military" / "Service Members" -> troop_address
-14. If the title contains any of: "Halloween", "Easter", "Christmas", "Thanksgiving", "Turkey Pardoning", "Mother's Day", "Father's Day", "Veterans Day", "Memorial Day", "Independence Day", "Medal of Honor", "Medal Presentation", "Honors", "State Dinner", "Hanukkah", "Tree Lighting", "Awards", "Swearing-In", "Ball", "Gala", "Inauguration" -> ceremony
-15. If the title contains "Delivers Remarks" / "Remarks at" / "Remarks on" / "Address to" / "Speech" -> prepared_remarks
-16. Otherwise -> other
-
-Allowed event_types: {EVENT_TYPES}
-
-Return JSON with:
-  - event_type: one of the allowed values
-  - matched_rule: the rule number that fired (1-16), or null if none applied
-
-VIDEO TITLE:
-{title or "(empty)"}
-"""
-
-
-def _event_type_response_schema() -> types.Schema:
-    return types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "event_type": types.Schema(type=types.Type.STRING, enum=EVENT_TYPES),
-            "matched_rule": types.Schema(type=types.Type.INTEGER, nullable=True),
-        },
-        required=["event_type"],
+        required=["event_type", "primary_source", "reasoning"],
     )
 
 
@@ -213,25 +199,86 @@ def _finish_reason(response) -> str | None:
         return None
 
 
+def _grounding_from_response(response) -> dict | None:
+    """Best-effort extract Google Search grounding signals (queries it ran +
+    how many web chunks it cited). Lets callers distinguish 'searched but found
+    nothing' from 'never searched'."""
+    try:
+        gm = response.candidates[0].grounding_metadata
+    except (AttributeError, IndexError, TypeError):
+        return None
+    if not gm:
+        return None
+    return {
+        "queries": list(gm.web_search_queries or []),
+        "chunks": len(gm.grounding_chunks or []),
+    }
+
+
+def _lenient_json(text: str) -> dict | None:
+    """Parse a JSON object out of text, tolerating ``` fences / leading prose.
+    With response_schema the text is already clean JSON; this is a safety net."""
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    t = re.sub(r"^```(?:json)?", "", text.strip()).strip()
+    t = re.sub(r"```$", "", t).strip()
+    start = t.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    for i in range(start, len(t)):
+        if t[i] == "{":
+            depth += 1
+        elif t[i] == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(t[start : i + 1])
+                except json.JSONDecodeError:
+                    return None
+    return None
+
+
+def _extraction_config(schema: types.Schema, *, grounded: bool) -> types.GenerateContentConfig:
+    """Structured-output config with thinking minimized + (optionally) the
+    Google Search grounding tool. Probe-confirmed that grounding + response_schema
+    + thinking_config all combine on gemini-3-flash-preview."""
+    kwargs: dict = {
+        "response_mime_type": "application/json",
+        "response_schema": schema,
+        "temperature": 0.0,
+        "seed": _SEED,
+        "thinking_config": _THINKING,
+    }
+    if grounded:
+        kwargs["tools"] = [types.Tool(google_search=types.GoogleSearch())]
+    return types.GenerateContentConfig(**kwargs)
+
+
 async def _call_gemini(
-    client: genai.Client, prompt: str, schema: types.Schema, *, label: str = "metadata"
+    client: genai.Client,
+    prompt: str,
+    schema: types.Schema,
+    *,
+    label: str = "metadata",
+    grounded: bool = False,
 ) -> tuple[dict | None, dict, dict]:
-    """Run one structured-output Gemini call.
+    """Run one structured-output Gemini call (optionally Google-Search grounded).
 
     Returns (parsed_json | None, usage_dict, diag_dict). `usage_dict` is always
-    present (zeroed on failure). `diag_dict` is {"error", "raw", "finish_reason"}
-    and is the ONLY place a failure reason is recorded — callers surface it into
-    procurement_runs.details so an empty row is never indistinguishable from a
-    failed extraction.
+    present (zeroed on failure). `diag_dict` is {"error", "raw", "finish_reason",
+    "grounding"} and is the ONLY place a failure reason is recorded — callers
+    surface it into procurement_runs.details so an empty row is never
+    indistinguishable from a failed extraction.
 
     Mirrors the working transcription path: wrapped in `with_retry` (retries
-    429/5xx/rate-limit) and given a generous timeout instead of the old 30s cap
-    that was silently truncating the thinking model.
+    429/5xx/rate-limit) under a bounded timeout.
     """
-    config = types.GenerateContentConfig(
-        response_mime_type="application/json",
-        response_schema=schema,
-    )
+    config = _extraction_config(schema, grounded=grounded)
     loop = asyncio.get_event_loop()
 
     async def _generate():
@@ -252,23 +299,24 @@ async def _call_gemini(
     except asyncio.TimeoutError:
         msg = f"timed out after {GEMINI_TIMEOUT}s"
         logger.error("Gemini %s extraction %s", label, msg)
-        return None, dict(_ZERO_USAGE), {"error": msg, "raw": None, "finish_reason": None}
+        return None, dict(_ZERO_USAGE), {"error": msg, "raw": None, "finish_reason": None, "grounding": None}
     except Exception as e:
         logger.error("Gemini %s extraction failed: %s", label, e)
-        return None, dict(_ZERO_USAGE), {"error": f"call failed: {e}", "raw": None, "finish_reason": None}
+        return None, dict(_ZERO_USAGE), {"error": f"call failed: {e}", "raw": None, "finish_reason": None, "grounding": None}
 
     usage = _usage_from_response(response)
     finish = _finish_reason(response)
+    grounding = _grounding_from_response(response)
     text = (response.text or "").strip()
     if not text:
         msg = f"empty response (finish_reason={finish})"
         logger.error("Gemini %s extraction returned %s", label, msg)
-        return None, usage, {"error": msg, "raw": None, "finish_reason": finish}
-    try:
-        return json.loads(text), usage, {"error": None, "raw": None, "finish_reason": finish}
-    except json.JSONDecodeError as e:
-        logger.error("Gemini %s extraction returned non-JSON: %s", label, e)
-        return None, usage, {"error": f"non-JSON: {e}", "raw": text[:500], "finish_reason": finish}
+        return None, usage, {"error": msg, "raw": None, "finish_reason": finish, "grounding": grounding}
+    parsed = _lenient_json(text)
+    if parsed is None:
+        logger.error("Gemini %s extraction returned non-JSON", label)
+        return None, usage, {"error": "non-JSON", "raw": text[:500], "finish_reason": finish, "grounding": grounding}
+    return parsed, usage, {"error": None, "raw": None, "finish_reason": finish, "grounding": grounding}
 
 
 # ---------------------------------------------------------------------------
@@ -308,7 +356,7 @@ def compute_event_time(
          VODs (verified in Phase 0 spike to match the actual stream start to
          within ~2 minutes).
       2. `llm_event_datetime` — when the LLM was able to read a full date+time
-         from the title / DDG snippets / transcript / description (e.g. titles
+         from the title / web search / transcript / description (e.g. titles
          like "May 7, 2026 15:47"). Better than upload time for non-live videos.
       3. `timestamp` (upload time) — weakest fallback. For non-live videos this
          is when the video was POSTED, not when the speech happened.
@@ -340,13 +388,16 @@ async def extract_metadata(
     transcript_text: str,
     persona_name: str = "Trump",
 ) -> dict:
-    """Run both LLM calls and return a dict ready to upsert into event_tags.
+    """Run the single grounded extraction call and return a dict ready to upsert
+    into event_tags.
 
-    Extracts only the fields we keep: event_type (Call B) and
-    city/state/country/venue + the full event datetime (Call A), plus
-    `classification_source='auto_llm'`. Diagnostics (`_errors`, `_llm_failed`,
-    `_reasoning`, `_tokens_used`) are surfaced for procurement_runs but not
-    persisted. Returns {} only when the API key is missing.
+    One Gemini call (Google Search grounding ON) returns
+    city/state/country/venue + the full event datetime + a semantic event_type.
+    A deterministic keyword pre-classifier overrides event_type whenever the
+    title has an unambiguous keyword (high-precision guardrail). Diagnostics
+    (`_errors`, `_llm_failed`, `_reasoning`, `_grounding`, `_event_type_source`,
+    `_tokens_used`) are surfaced for procurement_runs but not persisted. Returns
+    {} only when the API key is missing.
     """
     settings = get_settings()
     if not settings.gemini_api_key:
@@ -358,67 +409,54 @@ async def extract_metadata(
     description = (description or "")[:DESCRIPTION_CHARS]
     transcript_excerpt = (transcript_text or "")[:TRANSCRIPT_EXCERPT_CHARS]
 
-    # DDG search runs in a thread because the lib is synchronous.
-    loop = asyncio.get_event_loop()
-    ddg_query = f"{persona_name} {title}".strip()
-    try:
-        web_snippets = await asyncio.wait_for(
-            loop.run_in_executor(None, _ddg_search, ddg_query),
-            timeout=DDG_TIMEOUT,
-        )
-    except asyncio.TimeoutError:
-        logger.warning("DDG search timed out after %ds for %r", DDG_TIMEOUT, ddg_query[:80])
-        web_snippets = ""
+    # Deterministic guardrail: a clear keyword fixes event_type before the LLM,
+    # so e.g. "...Call with Service Members" can never regress to `other`.
+    det_type, det_signal = classify_event_type_deterministic(title)
 
-    location_prompt = _build_location_prompt(
-        title, description, transcript_excerpt, web_snippets
+    prompt = _build_extraction_prompt(
+        title, description, transcript_excerpt, persona_name, det_type, det_signal
     )
-    event_type_prompt = _build_event_type_prompt(title)
-
-    location_task = _call_gemini(
-        client, location_prompt, _location_response_schema(), label="location"
+    parsed, usage, diag = await _call_gemini(
+        client, prompt, _extraction_response_schema(), label="extract", grounded=True
     )
-    event_type_task = _call_gemini(
-        client, event_type_prompt, _event_type_response_schema(), label="event_type"
-    )
-    (
-        (location_result, location_usage, location_diag),
-        (event_type_result, event_type_usage, event_type_diag),
-    ) = await asyncio.gather(location_task, event_type_task)
 
     result: dict = {"classification_source": "auto_llm"}
-    if location_result:
+    llm_type = None
+    if parsed:
         for field in ("city", "state", "country", "venue"):
-            val = location_result.get(field)
+            val = parsed.get(field)
             if val is not None:
                 result[field] = val
         # Surface the LLM-extracted full datetime separately — callers feed it
         # to compute_event_time as a fallback when release_timestamp is absent.
-        if location_result.get("event_datetime_utc"):
-            result["_llm_event_datetime"] = location_result["event_datetime_utc"]
-        if location_result.get("reasoning"):
-            result["_reasoning"] = location_result["reasoning"]
+        if parsed.get("event_datetime_utc"):
+            result["_llm_event_datetime"] = parsed["event_datetime_utc"]
+        if parsed.get("reasoning"):
+            result["_reasoning"] = parsed["reasoning"]
+        llm_type = parsed.get("event_type")
 
-    if event_type_result and event_type_result.get("event_type"):
-        result["event_type"] = event_type_result["event_type"]
-    # No fallback event_type here — the caller defaults to "other".
+    # event_type: deterministic keyword wins; else the grounded LLM; else the
+    # caller defaults to "other".
+    if det_type:
+        result["event_type"] = det_type
+        result["_event_type_source"] = "deterministic"
+        result["_matched_signal"] = det_signal
+    elif llm_type:
+        result["event_type"] = llm_type
+        result["_event_type_source"] = "llm"
+        result["_matched_signal"] = parsed.get("matched_signal")
+        result["_event_type_confidence"] = parsed.get("event_type_confidence")
 
     # Distinguish "ran but found nothing" from "the call failed", so an empty
     # row is never mistaken for a clean extraction (the original null bug).
-    errors = []
-    if location_diag.get("error"):
-        errors.append({"call": "location", **location_diag})
-    if event_type_diag.get("error"):
-        errors.append({"call": "event_type", **event_type_diag})
-    if errors:
-        result["_errors"] = errors
-    result["_llm_failed"] = bool(errors)
+    if diag.get("error"):
+        result["_errors"] = [{"call": "extract", **diag}]
+    result["_llm_failed"] = bool(diag.get("error"))
+    if diag.get("grounding"):
+        result["_grounding"] = diag["grounding"]
 
-    # Surface cumulative token usage for observability (procurement_runs).
-    result["_tokens_used"] = {
-        "prompt_tokens": location_usage["prompt_tokens"] + event_type_usage["prompt_tokens"],
-        "completion_tokens": location_usage["completion_tokens"] + event_type_usage["completion_tokens"],
-    }
+    # Surface token usage for observability (procurement_runs).
+    result["_tokens_used"] = dict(usage)
     return result
 
 
@@ -504,11 +542,14 @@ async def populate_for_transcript(
     status: dict = {
         "transcript_id": transcript_id,
         "event_type": row.get("event_type"),
+        "event_type_source": extracted.get("_event_type_source"),
         "city": row.get("city"),
+        "state": row.get("state"),
         "venue": row.get("venue"),
         "event_time": event_time.isoformat() if event_time else None,
         "event_time_source": event_time_source,
         "reasoning": extracted.get("_reasoning"),
+        "grounding": extracted.get("_grounding"),
         "action": action,
         "tokens_used": extracted.get("_tokens_used", {"prompt_tokens": 0, "completion_tokens": 0}),
     }
@@ -621,6 +662,8 @@ async def bulk_backfill_metadata(
     persona_id: str,
     force: bool = False,
     limit: int | None = None,
+    retry_of: str | None = None,
+    attempt: int = 1,
 ) -> dict:
     """Backfill the metadata bundle for every transcript belonging to a
     persona. Mirrors the bulk_auto_tag pattern: creates a procurement_runs
@@ -671,6 +714,9 @@ async def bulk_backfill_metadata(
         "source_type": "metadata_backfill",
         "persona_id": persona_id,
         "status": "running",
+        "params": {"force": force, "limit": limit},
+        "retry_of": retry_of,
+        "attempt": attempt,
     }).execute()
     run_id = run_resp.data[0]["id"]
 
@@ -740,6 +786,28 @@ async def bulk_backfill_metadata(
             except Exception:
                 return False
 
+        # Soft circuit-breaker shared across the in-flight tasks. Single-threaded
+        # asyncio, so a plain dict needs no lock.
+        throttle = {"strikes": 0, "cooldown_until": 0.0}
+
+        def _note_transient() -> None:
+            throttle["strikes"] += 1
+            if throttle["strikes"] >= THROTTLE_TRIP:
+                throttle["cooldown_until"] = time.monotonic() + THROTTLE_COOLDOWN
+                throttle["strikes"] = 0
+                logger.warning(
+                    "metadata backfill %s: transient failures clustered — cooling down %.0fs",
+                    run_id, THROTTLE_COOLDOWN,
+                )
+
+        def _note_success() -> None:
+            throttle["strikes"] = 0
+
+        async def _await_cooldown() -> None:
+            wait = throttle["cooldown_until"] - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(min(wait, THROTTLE_COOLDOWN))
+
         # Parallel processing — up to BULK_CONCURRENCY transcripts in flight.
         # Single-threaded asyncio so the shared counters (succeeded, failed,
         # tokens, details) don't need locks; we only mutate them from inside
@@ -763,70 +831,95 @@ async def bulk_backfill_metadata(
                 logger.info("metadata backfill [%d/%d]: %s", i, total, name[:80])
                 _mark_current(i, name)
 
-                # yt-dlp with timeout — most common hang source.
-                try:
-                    video_info = await asyncio.wait_for(
-                        get_video_info(t["youtube_url"]),
-                        timeout=YTDLP_TIMEOUT,
-                    )
-                except asyncio.TimeoutError:
-                    logger.warning("  [%d] yt-dlp timed out after %ds — skipping", i, YTDLP_TIMEOUT)
+                # yt-dlp with timeout + a single transient retry — most common
+                # hang/blip source.
+                video_info = None
+                ytdlp_err: tuple[str, str] | None = None  # (action, error)
+                for ydl_attempt in range(YTDLP_ATTEMPTS):
+                    if cancel_event.is_set():
+                        return
+                    try:
+                        video_info = await asyncio.wait_for(
+                            get_video_info(t["youtube_url"]),
+                            timeout=YTDLP_TIMEOUT,
+                        )
+                        ytdlp_err = None
+                        break
+                    except asyncio.TimeoutError:
+                        ytdlp_err = ("ytdlp_timeout", f"timed out after {YTDLP_TIMEOUT}s")
+                        logger.warning("  [%d] yt-dlp timed out (attempt %d/%d)",
+                                       i, ydl_attempt + 1, YTDLP_ATTEMPTS)
+                    except Exception as e:
+                        ytdlp_err = ("ytdlp_failed", str(e))
+                        logger.warning("  [%d] yt-dlp failed (attempt %d/%d): %s",
+                                       i, ydl_attempt + 1, YTDLP_ATTEMPTS, e)
+                    if ydl_attempt < YTDLP_ATTEMPTS - 1:
+                        await asyncio.sleep(YTDLP_RETRY_DELAY)
+
+                if ytdlp_err is not None:
+                    action, err = ytdlp_err
                     failed += 1
                     completed_count += 1
-                    details.append({
+                    detail = {
                         "transcript_id": t["id"],
                         "name": name,
-                        "action": "ytdlp_timeout",
-                    })
-                    if completed_count % PROGRESS_FLUSH_EVERY == 0:
-                        _flush_progress()
-                    return
-                except Exception as e:
-                    logger.warning("  [%d] yt-dlp failed: %s", i, e)
-                    failed += 1
-                    completed_count += 1
-                    details.append({
-                        "transcript_id": t["id"],
-                        "name": name,
-                        "action": "ytdlp_failed",
-                        "error": str(e),
-                    })
+                        "action": action,
+                        "attempts": YTDLP_ATTEMPTS,
+                    }
+                    if action == "ytdlp_failed":
+                        detail["error"] = err
+                    details.append(detail)
                     if completed_count % PROGRESS_FLUSH_EVERY == 0:
                         _flush_progress()
                     return
 
-                # Generous overall budget per transcript.
-                try:
-                    status = await asyncio.wait_for(
-                        populate_for_transcript(
-                            transcript_id=t["id"],
-                            title=video_info.title or name,
-                            description=video_info.description or "",
-                            transcript_text=t.get("transcript") or "",
-                            was_live=video_info.was_live,
-                            release_timestamp=video_info.release_timestamp,
-                            timestamp=video_info.timestamp,
-                            persona_id=persona_id,
-                        ),
-                        timeout=GEMINI_TIMEOUT * 3 + DDG_TIMEOUT,
-                    )
-                except asyncio.TimeoutError:
-                    logger.warning("  [%d] populate_for_transcript timed out — skipping", i)
-                    failed += 1
-                    completed_count += 1
-                    details.append({
-                        "transcript_id": t["id"],
-                        "name": name,
-                        "action": "populate_timeout",
-                    })
-                    if completed_count % PROGRESS_FLUSH_EVERY == 0:
-                        _flush_progress()
-                    return
+                # Extraction with bounded item-level retries. A transient outcome
+                # (Gemini timeout / llm_failed — usually throttling under sustained
+                # grounded load) is retried with backoff instead of permanently
+                # failing the transcript, and the circuit-breaker pauses new
+                # attempts when failures cluster — so a brief throttle window no
+                # longer wipes the whole run.
+                status: dict = {}
+                attempts_made = 0
+                for item_attempt in range(1, ITEM_MAX_ATTEMPTS + 1):
+                    if cancel_event.is_set():
+                        return
+                    await _await_cooldown()
+                    attempts_made = item_attempt
+                    try:
+                        status = await asyncio.wait_for(
+                            populate_for_transcript(
+                                transcript_id=t["id"],
+                                title=video_info.title or name,
+                                description=video_info.description or "",
+                                transcript_text=t.get("transcript") or "",
+                                was_live=video_info.was_live,
+                                release_timestamp=video_info.release_timestamp,
+                                timestamp=video_info.timestamp,
+                                persona_id=persona_id,
+                            ),
+                            timeout=POPULATE_TIMEOUT,
+                        )
+                    except asyncio.TimeoutError:
+                        status = {"transcript_id": t["id"], "action": "populate_timeout"}
+
+                    # Every attempt is a real (billable) Gemini call — count its
+                    # tokens whether it succeeded or not.
+                    used = status.get("tokens_used") or {}
+                    prompt_tokens += int(used.get("prompt_tokens", 0))
+                    completion_tokens += int(used.get("completion_tokens", 0))
+
+                    if status.get("action") not in TRANSIENT_ACTIONS:
+                        _note_success()
+                        break
+                    _note_transient()
+                    if item_attempt < ITEM_MAX_ATTEMPTS:
+                        logger.warning("  [%d] %s (attempt %d/%d) — retrying",
+                                       i, status.get("action"), item_attempt, ITEM_MAX_ATTEMPTS)
+                        await asyncio.sleep(ITEM_RETRY_BASE_DELAY * item_attempt)
 
                 status["name"] = name
-                used = status.get("tokens_used") or {}
-                prompt_tokens += int(used.get("prompt_tokens", 0))
-                completion_tokens += int(used.get("completion_tokens", 0))
+                status["attempts"] = attempts_made
                 if status.get("action") == "extracted":
                     succeeded += 1
                     logger.info("  [%d] -> %s | %s | %s | time=%s (%s)",
@@ -834,7 +927,7 @@ async def bulk_backfill_metadata(
                                 status.get("event_time") or "—", status.get("event_time_source"))
                 else:
                     failed += 1
-                    logger.info("  [%d] -> %s", i, status.get("action"))
+                    logger.info("  [%d] -> %s after %d attempt(s)", i, status.get("action"), attempts_made)
                 completed_count += 1
                 details.append(status)
                 if completed_count % PROGRESS_FLUSH_EVERY == 0:
@@ -941,6 +1034,20 @@ async def reset_orphaned_runs_on_startup() -> dict:
     )
     logger.info("startup: reset %d orphaned procurement_runs: %s", len(ids), ids)
     return {"reset": len(ids), "run_ids": ids}
+
+
+async def get_run(run_id: str) -> dict | None:
+    """Fetch a single procurement_run row (or None). Shared by the retry
+    dispatcher and any single-run inspection."""
+    resp = (
+        get_analytical_table("procurement_runs")
+        .select("*")
+        .eq("id", run_id)
+        .limit(1)
+        .execute()
+    )
+    rows = resp.data or []
+    return rows[0] if rows else None
 
 
 async def cancel_run(run_id: str) -> dict:

@@ -3,7 +3,7 @@ definePageMeta({ layout: 'admin', ssr: false })
 </script>
 
 <script setup lang="ts">
-import type { ProcurementRun, SourceType } from '~/composables/useProcurementRuns'
+import type { ProcurementRun, SourceType, RunStatusExtended } from '~/composables/useProcurementRuns'
 
 const {
   runs,
@@ -14,6 +14,7 @@ const {
   stopPolling,
   cancelRun,
   deleteRun,
+  retryRun,
   resetStaleRuns,
   estimateCostUsd,
   formatCostUsd,
@@ -24,6 +25,15 @@ const { personas, fetchPersonas } = usePersonas()
 
 const sourceTypeFilter = ref<SourceType | ''>('')
 const personaIdFilter = ref<string>('')
+const statusFilter = ref<RunStatusExtended | ''>('')
+
+const STATUS_OPTIONS: { value: RunStatusExtended | ''; label: string }[] = [
+  { value: '', label: 'All statuses' },
+  { value: 'running', label: 'Running' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
 
 const SOURCE_TYPE_OPTIONS: { value: SourceType | ''; label: string }[] = [
   { value: '', label: 'All sources' },
@@ -49,6 +59,7 @@ const personaNames = computed<Record<string, string>>(() => {
 
 const cancellingId = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
+const retryingId = ref<string | null>(null)
 const resettingStale = ref(false)
 
 async function handleCancel(run: ProcurementRun) {
@@ -77,6 +88,22 @@ async function handleDelete(run: ProcurementRun) {
   }
 }
 
+async function handleRetry(run: ProcurementRun) {
+  retryingId.value = run.id
+  try {
+    const r = await retryRun(run.id)
+    toast.add({
+      title: 'Retry started',
+      description: `A new ${r.source_type.replace(/_/g, ' ')} run was queued.`,
+      color: 'success',
+    })
+  } catch (e: any) {
+    toast.add({ title: 'Retry failed', description: e?.data?.detail || e?.message, color: 'error' })
+  } finally {
+    retryingId.value = null
+  }
+}
+
 async function handleResetStale() {
   resettingStale.value = true
   try {
@@ -96,10 +123,11 @@ function refresh() {
   const opts: Parameters<typeof listRuns>[0] = {}
   if (sourceTypeFilter.value) opts.source_type = sourceTypeFilter.value
   if (personaIdFilter.value) opts.persona_id = personaIdFilter.value
+  if (statusFilter.value) opts.status = statusFilter.value
   return listRuns(opts)
 }
 
-watch([sourceTypeFilter, personaIdFilter], () => {
+watch([sourceTypeFilter, personaIdFilter, statusFilter], () => {
   refresh()
 })
 
@@ -192,6 +220,14 @@ onUnmounted(() => {
           class="w-56"
         />
       </UFormField>
+      <UFormField label="Status">
+        <USelectMenu
+          v-model="statusFilter"
+          :items="STATUS_OPTIONS"
+          value-key="value"
+          class="w-44"
+        />
+      </UFormField>
     </div>
 
     <UAlert
@@ -208,9 +244,11 @@ onUnmounted(() => {
         :loading="loading"
         :cancelling-id="cancellingId"
         :deleting-id="deletingId"
+        :retrying-id="retryingId"
         empty-text="No procurement runs yet. Trigger one from the Analytical page or the persona detail page (Backfill metadata)."
         @cancel="handleCancel"
         @delete="handleDelete"
+        @retry="handleRetry"
       />
     </UCard>
   </div>

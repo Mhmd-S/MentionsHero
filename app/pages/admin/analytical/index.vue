@@ -13,6 +13,7 @@ const {
   stopPolling,
   cancelRun,
   deleteRun,
+  retryRun,
   POLL_INTERVAL_MS,
 } = useProcurementRuns()
 const toast = useToast()
@@ -28,6 +29,7 @@ const personaNames = computed<Record<string, string>>(() =>
 
 const cancellingId = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
+const retryingId = ref<string | null>(null)
 
 function repoll() {
   stopPolling()
@@ -60,6 +62,22 @@ async function handleDelete(run: ProcurementRun) {
     toast.add({ title: 'Delete failed', description: e?.data?.detail || e?.message, color: 'error' })
   } finally {
     deletingId.value = null
+  }
+}
+
+async function handleRetry(run: ProcurementRun) {
+  retryingId.value = run.id
+  try {
+    const r = await retryRun(run.id)
+    toast.add({
+      title: 'Retry started',
+      description: `A new ${r.source_type.replace(/_/g, ' ')} run was queued.`,
+      color: 'success',
+    })
+  } catch (e: any) {
+    toast.add({ title: 'Retry failed', description: e?.data?.detail || e?.message, color: 'error' })
+  } finally {
+    retryingId.value = null
   }
 }
 
@@ -136,9 +154,11 @@ onUnmounted(() => {
           :loading="loading"
           :cancelling-id="cancellingId"
           :deleting-id="deletingId"
+          :retrying-id="retryingId"
           empty-text="No runs yet for this persona. Trigger a scrape above."
           @cancel="handleCancel"
           @delete="handleDelete"
+          @retry="handleRetry"
         />
       </UCard>
     </div>

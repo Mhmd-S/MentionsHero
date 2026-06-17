@@ -76,7 +76,8 @@ Pre-speech atmosphere snapshots aggregating news + Truth Social data.
 ### `analytical_procurement_runs`
 Audit + live-status trail for all procurement operations.
 - Source types: `truth_social`, `news_fox`, `news_ddgs`, `news_gdelt`, `news_newsapi`, `event_tag_auto`, `metadata_backfill`
-- Tracks: `items_found`, `items_new`, `items_skipped`, `details` (JSONB), plus live `current_item_index`/`current_item_name`, `prompt_tokens`/`completion_tokens`, `cancel_requested`. Scrape runs now populate the live-progress fields (previously only metadata runs did).
+- Tracks: `items_found`, `items_new`, `items_skipped`, `details` (JSONB), plus live `current_item_index`/`current_item_name`, `prompt_tokens`/`completion_tokens`, `cancel_requested`. Scrape runs now populate the live-progress fields (previously only metadata runs did) **and write a `details` trail + `error_message` on failure/dropped chunks** (previously only a truncated string).
+- Retry/lineage: `params` (JSONB — the inputs the run was launched with, e.g. the scrape date window or metadata `force`/`limit`; enough to re-run it), `retry_of` (the run a retry re-ran), `attempt` (1 for an original, incremented per retry).
 - Statuses: `running`, `completed`, `failed`, `cancelled`
 
 ## API Endpoints
@@ -189,7 +190,14 @@ There are now two extraction paths:
 
 `compute_event_time` then sets `event_time` with priority: yt-dlp `release_timestamp` (if `was_live=True`) → the LLM-extracted `event_datetime_utc` → upload `timestamp`.
 
-**Reliability:** both Gemini calls are wrapped in `with_retry` (retries 429/5xx/rate-limit) with a generous 120s timeout, and bulk backfills run at `BULK_CONCURRENCY=3` to avoid rate-limit storms. Any call that fails (timeout / error / empty / non-JSON) is logged at ERROR and recorded in `procurement_runs.details` as `action="llm_failed"` with the error reason — so an empty row is never mistaken for a clean extraction. (This replaced a silent-swallow bug where a hard 30s cap + no retry made every field come back null.)
+**Reliability:** the grounded Gemini call is wrapped in `with_retry` (retries 429/5xx/rate-limit) under a `GEMINI_TIMEOUT=60s` cap. Any call that fails (timeout / error / empty / non-JSON) is recorded in `procurement_runs.details` as `action="llm_failed"`/`"populate_timeout"` with the error reason — so an empty row is never mistaken for a clean extraction.
+
+**Timeout resilience (bulk backfill):** grounded (`google_search`) calls share a *lower* quota than plain generation — sustained wide-concurrency load trips a throttle that hangs every call to the 60s cap (observed: a 142-item run that timed out 142/142). The bulk backfill defends against this three ways, all tunable as constants in `metadata_extraction_service.py`:
+- `BULK_CONCURRENCY=4` — kept under the grounded-call ceiling (a single 6-wide burst is fine, but sustained 6-wide is not).
+- **Item-level retry** — a *transient* outcome (`llm_failed`/`populate_timeout`) is retried up to `ITEM_MAX_ATTEMPTS=3` with `ITEM_RETRY_BASE_DELAY`-scaled backoff, so a brief throttle window no longer permanently fails a transcript. The final attempt count lands in `details[].attempts`. Token usage is summed across *all* attempts (each is a billable call).
+- **Soft circuit-breaker** — once transient failures cluster (`THROTTLE_TRIP=6`), new attempts pause for `THROTTLE_COOLDOWN=45s` so the run rides out a throttle instead of hammering the API with doomed calls; any success resets the strike counter.
+
+When timeouts spike, `backend/scripts/diagnose_timeouts.py` tallies recent runs' `details` by action (e.g. `llm_failed` vs `ytdlp_timeout`) and prints sample errors; `probe_concurrency.py` fires N concurrent grounded calls to measure live latency / throttling.
 
 All values are written with `classification_source='auto_llm'` and surfaced as **suggestions** in the UI — admin must confirm via the metadata edit modal on the transcript detail page.
 
@@ -206,11 +214,13 @@ Audit trail: query `analytical.procurement_runs` where `source_type='metadata_ba
 
 ### Operations dashboard
 
-`/admin/operations` is a live status table backed by `GET /api/analytical/procurement-runs`. It polls every 4 seconds and surfaces:
+`/admin/operations` is a live status table backed by `GET /api/analytical/procurement-runs` (filterable by `source_type`, `persona_id`, and now `status`). It polls every 4 seconds and surfaces:
 - Per-run progress (items done / total + bar)
 - Current item title and index for any `status='running'` run (powered by `procurement_runs.current_item_index` and `current_item_name`, which the bulk loop writes at the start of every transcript — also acts as a heartbeat via `updated_at`)
 - ETA (linear extrapolation from elapsed time and items completed so far)
 - Cumulative Gemini token totals (input + output) and a USD estimate
+- **Expandable "what went wrong"**: any run with an `error_message` or item-level failures gets a ▸ chevron. Expanding shows the top-level error, a per-`action` count breakdown (`extracted`, `llm_failed`, `ytdlp_timeout`, `chunk_failed`, …) and a scrollable list of the failed items with their error text. Failed runs are tinted red. The detail-summary helpers (`summarizeDetails`/`hasDetail`) live in `app/composables/useProcurementRuns.ts`.
+- **Retry attempt badge** (`#2`, `#3`, …) next to the source type when `attempt > 1`.
 
 Token totals come from `procurement_runs.prompt_tokens` / `completion_tokens`, populated by accumulating `response.usage_metadata.prompt_token_count` / `candidates_token_count` from each Gemini Flash call. Cost estimate is derived in the frontend (`app/composables/useProcurementRuns.ts`) from a hard-coded pricing table — **update `GEMINI_PRICING` when Google changes Flash rates** (https://ai.google.dev/pricing).
 
@@ -221,10 +231,13 @@ The persona detail page also shows an inline pulse with the current progress + c
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/procurement-runs/{run_id}/cancel` | Request cancellation. Sets `cancel_requested=true`; the bulk loop polls this flag at the top of each iteration and exits cleanly with `status='cancelled'`. |
+| POST | `/procurement-runs/{run_id}/retry` | Re-run a **terminal** run (failed/completed/cancelled) with its original `params`, as a fresh run linked via `retry_of` + incremented `attempt`. Dispatched in the background (shows up on the next poll). Scrape retries replay the stored date window (defaulting to the last 2 days for legacy runs created before `params` persistence). 409 if the run is still active; 400 if the `source_type` isn't retryable. |
 | POST | `/procurement-runs/reset-stale` | Find any `status='running'` row whose `updated_at` is older than `STALE_THRESHOLD_SECONDS` (2 min) and mark it cancelled. Use after a backend crash. Idempotent. |
 | DELETE | `/procurement-runs/{run_id}` | Delete a procurement_run record. Refuses while `status='running'` — cancel first. |
 
-The Operations page exposes all three: per-row **Cancel** button (for running rows) or **Delete** button (for terminal rows), plus a top-of-page **Reset stale** button. New `status` value `cancelled` joins `running`/`completed`/`failed`.
+The Operations page (and the Analytical page's run table, which share `<AnalyticalProcurementRunTable>`) expose these: per-row **Cancel** button (for running rows), or **Retry** + **Delete** buttons (for terminal rows), plus a top-of-page **Reset stale** button. New `status` value `cancelled` joins `running`/`completed`/`failed`.
+
+**Robustness / auto-retry:** the scrape path (`execute_run`) retries transient DB upserts with backoff via `_retry_to_thread` and records a dropped chunk in `details` rather than failing the whole window; the metadata backfill retries yt-dlp once (`YTDLP_ATTEMPTS`) before recording `ytdlp_timeout`/`ytdlp_failed`. Gemini calls already retry inside `_call_gemini`.
 
 ### Fallback: DDG keyword classifier
 

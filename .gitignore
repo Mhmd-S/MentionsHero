@@ -6,6 +6,8 @@
 .cache
 dist
 
+donald_trump_transcripts
+
 backend/**/__pycache__/
 
 # Node dependencies

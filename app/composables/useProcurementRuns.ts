@@ -24,6 +24,26 @@ export type SourceType =
 
 export type RunStatusExtended = RunStatus | 'cancelled'
 
+/**
+ * One entry in `procurement_runs.details` — heterogeneous across source types
+ * (metadata backfill, event-tag auto, scrape) but with a common `action` key
+ * and best-effort `error`/`errors` fields. Typed loosely on purpose.
+ */
+export interface RunDetailItem {
+  action?: string
+  name?: string | null
+  transcript_id?: string
+  error?: string | null
+  errors?: Array<{ call?: string; error?: string; finish_reason?: string | null }>
+  event_type?: string | null
+  // scrape-path failure shapes
+  label?: string
+  chunk_size?: number
+  attempts?: number
+  items_found_before_failure?: number
+  [k: string]: unknown
+}
+
 export interface ProcurementRun {
   id: string
   source_type: SourceType
@@ -38,7 +58,10 @@ export interface ProcurementRun {
   completion_tokens: number
   cancel_requested: boolean
   error_message: string | null
-  details: unknown[]
+  details: RunDetailItem[]
+  params?: Record<string, unknown>
+  retry_of?: string | null
+  attempt?: number
   started_at: string | null
   completed_at: string | null
   updated_at: string | null
@@ -47,7 +70,57 @@ export interface ProcurementRun {
 export interface ListRunsOptions {
   source_type?: SourceType
   persona_id?: string
+  status?: RunStatusExtended
   limit?: number
+}
+
+/** Actions in `details` that represent a successful item (everything else is a failure). */
+const SUCCESS_ACTIONS = new Set(['extracted', 'tagged'])
+
+/** Source types whose runs the backend can re-launch via the retry endpoint. */
+const RETRYABLE_SOURCE_TYPES = new Set<SourceType>([
+  'truth_social',
+  'news_fox',
+  'metadata_backfill',
+  'event_tag_auto',
+])
+
+export interface DetailSummary {
+  counts: Record<string, number>
+  failures: Array<{ name: string; action: string; error: string }>
+}
+
+/** Group a run's `details` by action and pull out a flat list of failures. */
+export function summarizeDetails(details: RunDetailItem[] | undefined | null): DetailSummary {
+  const counts: Record<string, number> = {}
+  const failures: DetailSummary['failures'] = []
+  for (const d of details || []) {
+    const action = (d?.action as string) || 'unknown'
+    counts[action] = (counts[action] || 0) + 1
+    if (!SUCCESS_ACTIONS.has(action)) {
+      const err =
+        (d?.error as string) ||
+        (Array.isArray(d?.errors) && d.errors[0]?.error) ||
+        action
+      failures.push({
+        name: (d?.name as string) || (d?.label as string) || (d?.transcript_id as string) || '—',
+        action,
+        error: String(err),
+      })
+    }
+  }
+  return { counts, failures }
+}
+
+/** A terminal run from a source type the backend knows how to re-launch. */
+export function isRetryable(run: ProcurementRun): boolean {
+  return run.status !== 'running' && RETRYABLE_SOURCE_TYPES.has(run.source_type)
+}
+
+/** True if a run has anything worth expanding (an error or non-success details). */
+export function hasDetail(run: ProcurementRun): boolean {
+  if (run.error_message) return true
+  return (run.details || []).some((d) => d?.action && !SUCCESS_ACTIONS.has(d.action))
 }
 
 /**
@@ -117,6 +190,7 @@ export function useProcurementRuns() {
       const query: Record<string, string> = {}
       if (opts.source_type) query.source_type = opts.source_type
       if (opts.persona_id) query.persona_id = opts.persona_id
+      if (opts.status) query.status = opts.status
       query.limit = String(opts.limit ?? 50)
       const result = await authFetch<ProcurementRun[]>(
         '/api/analytical/procurement-runs',
@@ -171,6 +245,17 @@ export function useProcurementRuns() {
     void listRuns(lastOpts.value)
   }
 
+  async function retryRun(
+    runId: string,
+  ): Promise<{ message: string; run_id?: string; source_type: string }> {
+    const result = await authFetch<{ message: string; run_id?: string; source_type: string }>(
+      `/api/analytical/procurement-runs/${runId}/retry`,
+      { method: 'POST' },
+    )
+    void listRuns(lastOpts.value)
+    return result
+  }
+
   async function resetStaleRuns(): Promise<{ reset: number; run_ids?: string[] }> {
     const result = await authFetch<{ reset: number; run_ids?: string[] }>(
       '/api/analytical/procurement-runs/reset-stale',
@@ -190,11 +275,15 @@ export function useProcurementRuns() {
     hasActiveRun,
     cancelRun,
     deleteRun,
+    retryRun,
     resetStaleRuns,
     estimateCostUsd,
     formatCostUsd,
     estimateEtaSeconds,
     formatDurationSeconds,
+    summarizeDetails,
+    isRetryable,
+    hasDetail,
     POLL_INTERVAL_MS,
   }
 }

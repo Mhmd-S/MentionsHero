@@ -14,52 +14,12 @@ def _tbl(name: str):
     return get_analytical_table(name)
 
 
-# Event type detection keywords used when searching DDG results.
-# Fallback classifier — primary classification now runs via
-# metadata_extraction_service. Taxonomy mirrors the expanded event_type enum.
-_EVENT_TYPE_KEYWORDS: dict[str, list[str]] = {
-    "rally": ["rally", "campaign event", "campaign rally", "maga rally", "supporters gathered"],
-    "press_briefing": [
-        "press briefing", "briefs members of the media", "briefs the media",
-        "briefing room", "podium", "white house briefing", "press secretary",
-    ],
-    "press_conference": [
-        "press conference", "news conference", "joint press conference", "gaggle",
-    ],
-    "interview": [
-        "interview", "sat down with", "spoke with", "told fox",
-        "told cnn", "told msnbc", "told newsmax", "exclusive",
-    ],
-    "signing_ceremony": [
-        "signing ceremony", "bill signing", "signed into law", "signs ",
-        "executive order signing",
-    ],
-    "bilateral_meeting": [
-        "bilateral meeting", "bilateral", "meeting with the president",
-        "meeting with the prime minister", "meeting with the king",
-        "meeting with the chancellor", "meeting with the crown prince",
-        "meeting with the secretary general",
-    ],
-    "cabinet_meeting": ["cabinet meeting"],
-    "reception": ["reception"],
-    "summit": ["summit"],
-    "roundtable": ["roundtable", "task force", "listening session"],
-    "announcement": ["announcement", "announces", "makes an announcement"],
-    "greeting": ["greeting", "welcomes", "photo op"],
-    "troop_address": ["troop visit", "address to the military", "service members"],
-    "ceremony": [
-        "swearing-in", "swearing in", "medal of honor", "medal presentation",
-        "state dinner", "tree lighting", "turkey pardoning",
-        "thanksgiving", "halloween", "christmas", "easter",
-        "mother's day", "father's day", "veterans day", "memorial day",
-        "independence day", "honors", "ball ", "gala", "awards",
-    ],
-    "prepared_remarks": [
-        "state of the union", "address to", "remarks at", "inaugural",
-        "teleprompter", "prepared statement", "oval office address",
-        "joint session", "commencement",
-    ],
-}
+# Event type detection keywords used when searching DDG result text. The
+# canonical dict now lives in event_type_classifier (single source of truth);
+# this legacy DDG auto-tagger scans search-result bodies with it.
+from backend.services.event_type_classifier import (  # noqa: E402
+    EVENT_TYPE_KEYWORDS as _EVENT_TYPE_KEYWORDS,
+)
 
 # Known networks for interview detection
 _NETWORKS = [
@@ -132,7 +92,11 @@ async def auto_tag_transcript(transcript_id: str) -> dict | None:
         return None
 
 
-async def bulk_auto_tag(persona_id: str) -> dict:
+async def bulk_auto_tag(
+    persona_id: str,
+    retry_of: str | None = None,
+    attempt: int = 1,
+) -> dict:
     """Run auto-tagger on all untagged transcripts for a persona.
 
     Finds transcripts linked to persona via speaker aliases, then
@@ -143,6 +107,9 @@ async def bulk_auto_tag(persona_id: str) -> dict:
         "source_type": "event_tag_auto",
         "persona_id": persona_id,
         "status": "running",
+        "params": {},
+        "retry_of": retry_of,
+        "attempt": attempt,
     }).execute()
     run_id = run_resp.data[0]["id"]
 

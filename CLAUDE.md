@@ -134,7 +134,7 @@ When you edit code that belongs to a feature, you MUST also update the correspon
 | `analytical.news_items` | Real news articles about a persona (currently Fox News via dated sitemap). Has `source_domain`/`source_name`; indexed for outlet + date-range filtering. |
 | `analytical.truth_social_posts` | Real @realDonaldTrump posts via the public Truth Social (Mastodon) API. `external_id` = stable post id; has `is_retruth`, `media_urls`, `engagement`. |
 | `analytical.event_tags` | Per-transcript metadata bundle. Surfaced fields: event_type (16-value taxonomy), city/state/country/venue, event_time (timestamptz), classification_source. Populated by `metadata_extraction_service` (Gemini + DDG, with retry) on transcript creation; admin confirms via UI. NOTE: `audience_type`, `event_time_local`, `confidence`, `interviewer`, `network`, `is_teleprompter`, `notes` remain as columns but are no longer extracted or exposed by the API/UI (droppable in a future cleanup). |
-| `analytical.procurement_runs` | Audit + live-status log for every analytical job. Source types include `truth_social`, `news_fox`, `event_tag_auto`, `metadata_backfill`. Scrape runs now populate `current_item_index/name` + counts (cancel via `cancel_requested`); metadata runs also populate `prompt_tokens/completion_tokens`, so the `/admin/operations` dashboard shows live progress + Gemini cost. |
+| `analytical.procurement_runs` | Audit + live-status log for every analytical job. Source types include `truth_social`, `news_fox`, `event_tag_auto`, `metadata_backfill`. Scrape runs now populate `current_item_index/name` + counts (cancel via `cancel_requested`); metadata runs also populate `prompt_tokens/completion_tokens`, so the `/admin/operations` dashboard shows live progress + Gemini cost. Failures land in `error_message` + the `details` JSONB (per-item `action`/`error`), surfaced as expandable rows in the dashboard. `params`/`retry_of`/`attempt` back the **Retry** action (`POST /procurement-runs/{id}/retry` re-runs a terminal run with its original params as a new linked run). |
 | `analytical.context_windows` | Pre-speech atmosphere snapshots |
 
 ### Legacy / Unused Tables
@@ -174,7 +174,7 @@ All `/api/*` routes except `/api/auth/me` require admin role. `/api/auth/me` req
 | `/api/channel` | `channel.py` | Admin | YouTube channel video listing |
 | `/api/personas` | `personas.py` | Admin | Persona CRUD, alias management |
 | `/api/auto-transcription` | `auto_transcription.py` | Admin | Auto-transcription sources, manual `/run`, global `/timeline` |
-| `/api/analytical` | `analytical.py` | Admin | `POST /scrape` (date-ranged Truth Social / Fox News), News/Truth-Social reads (range + outlet filter), event tags, context, procurement-runs control |
+| `/api/analytical` | `analytical.py` | Admin | `POST /scrape` (date-ranged Truth Social / Fox News), News/Truth-Social reads (range + outlet filter), event tags, context, procurement-runs control (list w/ status filter, cancel, **retry**, reset-stale, delete) |
 
 ## Key Conventions & Gotchas
 
