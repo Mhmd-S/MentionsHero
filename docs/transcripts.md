@@ -92,6 +92,7 @@ Stored as plain text in `transcripts.transcript`. Speakers are also:
 - Uses yt-dlp to extract audio as MP3
 - Audio quality: `--audio-quality 5` (medium, optimized for speech transcription)
 - Mono audio: `--postprocessor-args "-ac 1"` (speech doesn't need stereo)
+- **`--live-from-start`**: livestream VODs (press briefings/rallies, common in auto-transcription) are often grabbed while YouTube still serves the live/post-live DASH manifest; without this flag yt-dlp downloads from the live edge and silently drops the start of the event, producing a transcript that begins mid-event (re-timestamped from 00:00) — i.e. "first half missing". No-op for fully-processed VODs.
 - Supports cancellation via asyncio.Event (terminates subprocess)
 
 ## Gemini Integration

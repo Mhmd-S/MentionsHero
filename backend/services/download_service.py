@@ -31,6 +31,14 @@ async def download_audio(
 
     yt_dlp_args = get_yt_dlp_base_args()
     yt_dlp_args.extend([
+        # Livestream VODs (press briefings, rallies) are frequently picked up by
+        # auto-transcription while YouTube is still serving the live/post-live
+        # DASH manifest. Without this, yt-dlp downloads from the *live edge* and
+        # silently drops the start of the event — the transcript then begins
+        # mid-event (timestamped from 00:00 of the truncated audio) so it looks
+        # complete but the first half is missing. Forcing from-start fetches all
+        # fragments. No-op for normal, fully-processed VODs.
+        '--live-from-start',
         '--format', 'bestaudio/best',
         '-x',
         '--audio-format', 'mp3',
