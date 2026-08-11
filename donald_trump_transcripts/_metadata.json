@@ -1,0 +1,2837 @@
+{
+  "persona": {
+    "id": "3c1fe5c4-ff15-474b-9420-b0cb0176a94b",
+    "name": "Donald Trump",
+    "aliases": [
+      "Donald Trump",
+      "President Trump",
+      "Donald J. Trump",
+      "President Donald Trump",
+      "President Donald J. Trump"
+    ]
+  },
+  "transcript_count": 141,
+  "tagged_count": 141,
+  "transcripts": [
+    {
+      "transcript_id": "8f36ae29-0811-4f14-b981-a154e141d397",
+      "filename": "20260609_President Trump Signs a Proclamation_ Jun. 11_ 2026 2026-06-11 20_18.txt",
+      "name": "President Trump Signs a Proclamation, Jun. 11, 2026 2026-06-11 20:18",
+      "youtube_url": "https://www.youtube.com/watch?v=Kldm14Dno_s",
+      "upload_date": "20260609",
+      "event_tag": {
+        "id": "509bdb12-a0c6-4a9f-bf48-25bdca9717ab",
+        "transcript_id": "8f36ae29-0811-4f14-b981-a154e141d397",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-06-11T19:21:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-12T02:31:53.018267Z",
+        "updated_at": "2026-06-12T02:31:53.018267Z"
+      }
+    },
+    {
+      "transcript_id": "1426eebe-cf1d-4dea-b455-47ac647f3348",
+      "filename": "20260605_President Trump Participates in a Roundtable on American Agriculture 2026-06-05 .txt",
+      "name": "President Trump Participates in a Roundtable on American Agriculture 2026-06-05 20:18",
+      "youtube_url": "https://www.youtube.com/watch?v=0cS50WGBj84",
+      "upload_date": "20260605",
+      "event_tag": {
+        "id": "f4ac1a51-1c17-45ea-9042-ec7882546e38",
+        "transcript_id": "1426eebe-cf1d-4dea-b455-47ac647f3348",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-06-05T20:11:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:42:28.135259Z",
+        "updated_at": "2026-06-10T16:42:28.135259Z"
+      }
+    },
+    {
+      "transcript_id": "7407f7d6-51a2-4133-b92c-3ea5eac7c7d6",
+      "filename": "20260605_President Trump Gaggles with Press on Air Force One En Route Chippewa Falls_ WI_.txt",
+      "name": "President Trump Gaggles with Press on Air Force One En Route Chippewa Falls, WI, Jun. 5, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=odNMRF4ADFk",
+      "upload_date": "20260605",
+      "event_tag": {
+        "id": "746e7bbc-cc4d-41eb-bcdd-8181bbf11c4f",
+        "transcript_id": "7407f7d6-51a2-4133-b92c-3ea5eac7c7d6",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-06-05T17:39:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:10:53.661869Z",
+        "updated_at": "2026-06-10T16:10:53.661869Z"
+      }
+    },
+    {
+      "transcript_id": "7f314b13-c491-441b-89c7-abccfb577774",
+      "filename": "20260603_President Trump Signs Executive Orders_ Jun. 3_ 2026 2026-06-03 20_18.txt",
+      "name": "President Trump Signs Executive Orders, Jun. 3, 2026 2026-06-03 20:18",
+      "youtube_url": "https://www.youtube.com/watch?v=4EUzlV7-Dew",
+      "upload_date": "20260603",
+      "event_tag": {
+        "id": "158fdbd1-7071-4abb-b46c-ab470e94e3f3",
+        "transcript_id": "7f314b13-c491-441b-89c7-abccfb577774",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-06-03T19:50:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:10:37.090292Z",
+        "updated_at": "2026-06-10T16:10:37.090292Z"
+      }
+    },
+    {
+      "transcript_id": "611a2c02-3439-4517-bdd0-31b560f44f02",
+      "filename": "20260603_President Trump Makes an Announcement on Beautiful_ Clean Coal 2026-06-04 19_18.txt",
+      "name": "President Trump Makes an Announcement on Beautiful, Clean Coal 2026-06-04 19:18",
+      "youtube_url": "https://www.youtube.com/watch?v=eafk0lNExQE",
+      "upload_date": "20260603",
+      "event_tag": {
+        "id": "bdb2f724-c18a-427f-a4c0-e5dfe79e2fcb",
+        "transcript_id": "611a2c02-3439-4517-bdd0-31b560f44f02",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-06-04T19:13:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:10:48.107818Z",
+        "updated_at": "2026-06-10T16:10:48.107818Z"
+      }
+    },
+    {
+      "transcript_id": "53602ced-eac2-4b23-b379-aba19a52c168",
+      "filename": "20260524_President Trump Participates in a Wreath Laying Ceremony and Delivers Remarks 20.txt",
+      "name": "President Trump Participates in a Wreath Laying Ceremony and Delivers Remarks 2026-05-25 16:18",
+      "youtube_url": "https://www.youtube.com/watch?v=Of5RgBTc4Bg",
+      "upload_date": "20260524",
+      "event_tag": {
+        "id": "b49bb21c-5945-4977-b328-c04e0eed2880",
+        "transcript_id": "53602ced-eac2-4b23-b379-aba19a52c168",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-25T15:53:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-26T14:30:27.494222Z",
+        "updated_at": "2026-05-26T14:30:27.494222Z"
+      }
+    },
+    {
+      "transcript_id": "7951a8c6-d9d2-4fb6-96ab-0cf725b1c87a",
+      "filename": "20260522_President Trump Delivers Remarks_ May 22_ 2026 2026-05-22 19_18.txt",
+      "name": "President Trump Delivers Remarks, May 22, 2026 2026-05-22 19:18",
+      "youtube_url": "https://www.youtube.com/watch?v=-N6NIXzXliM",
+      "upload_date": "20260522",
+      "event_tag": {
+        "id": "a4450aad-774a-47fd-a6e1-b32aabb74529",
+        "transcript_id": "7951a8c6-d9d2-4fb6-96ab-0cf725b1c87a",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-22T19:06:11Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:33:10.878906Z",
+        "updated_at": "2026-05-25T12:33:10.878906Z"
+      }
+    },
+    {
+      "transcript_id": "f6565db5-3a0a-4c4d-b561-aec1024645ef",
+      "filename": "20260522_President Trump Participates in a Swearing-In Ceremony for the Chairman of the F.txt",
+      "name": "President Trump Participates in a Swearing-In Ceremony for the Chairman of the Federal Reserve",
+      "youtube_url": "https://www.youtube.com/watch?v=QVU9AJNANoU",
+      "upload_date": "20260522",
+      "event_tag": {
+        "id": "d29e5d08-c2a5-4b13-b9b9-ad0576e54228",
+        "transcript_id": "f6565db5-3a0a-4c4d-b561-aec1024645ef",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-22T15:31:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:33:23.875253Z",
+        "updated_at": "2026-06-10T16:33:23.875253Z"
+      }
+    },
+    {
+      "transcript_id": "49c3f170-f4e6-44bc-a400-013d210589ec",
+      "filename": "20260522_President Trump Participates in a Cabinet Meeting_ May 27_ 2026 2026-05-27 16_18.txt",
+      "name": "President Trump Participates in a Cabinet Meeting, May 27, 2026 2026-05-27 16:18",
+      "youtube_url": "https://www.youtube.com/watch?v=ln-FnwDYE4Y",
+      "upload_date": "20260522",
+      "event_tag": {
+        "id": "9c6c3c83-b04f-4feb-8b35-644dd84ae84b",
+        "transcript_id": "49c3f170-f4e6-44bc-a400-013d210589ec",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-27T15:26:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:10:22.874145Z",
+        "updated_at": "2026-06-10T16:10:22.874145Z"
+      }
+    },
+    {
+      "transcript_id": "7bee4436-558b-4c41-805a-7c24497f8261",
+      "filename": "20260521_President Trump Participates in an Announcement with the Administrator of the EP.txt",
+      "name": "President Trump Participates in an Announcement with the Administrator of the EPA 2026-05-21 16:18",
+      "youtube_url": "https://www.youtube.com/watch?v=XU5-cs4Esio",
+      "upload_date": "20260521",
+      "event_tag": {
+        "id": "227f9809-036a-405a-bd95-c2ea0b689fe4",
+        "transcript_id": "7bee4436-558b-4c41-805a-7c24497f8261",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-21T15:29:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:33:23.207700Z",
+        "updated_at": "2026-06-10T16:33:23.207700Z"
+      }
+    },
+    {
+      "transcript_id": "6c01a69a-afab-4502-9dfb-7ad25aeb1c5b",
+      "filename": "20260519_President Trump and the First Lady Deliver Remarks at the Congressional Picnic.txt",
+      "name": "President Trump and the First Lady Deliver Remarks at the Congressional Picnic",
+      "youtube_url": "https://www.youtube.com/watch?v=INrcejMkFog",
+      "upload_date": "20260519",
+      "event_tag": {
+        "id": "1f573fc5-17b5-4706-add3-7dcfae71ffce",
+        "transcript_id": "6c01a69a-afab-4502-9dfb-7ad25aeb1c5b",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-19T23:20:11Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:33:22.309304Z",
+        "updated_at": "2026-06-10T16:33:22.309304Z"
+      }
+    },
+    {
+      "transcript_id": "4ba882d9-a98b-4f70-82e8-50e5e6b074e4",
+      "filename": "20260519_President Trump Delivers a Commencement Address to the United States Coast Guard.txt",
+      "name": "President Trump Delivers a Commencement Address to the United States Coast Guard Academy 2026-05-20 16:18",
+      "youtube_url": "https://www.youtube.com/watch?v=FRe6Sl9yLSY",
+      "upload_date": "20260519",
+      "event_tag": {
+        "id": "e9417ac2-81a4-429a-827f-e1e0dab13538",
+        "transcript_id": "4ba882d9-a98b-4f70-82e8-50e5e6b074e4",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-20T15:00:07Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:34:06.298328Z",
+        "updated_at": "2026-05-25T12:34:06.298328Z"
+      }
+    },
+    {
+      "transcript_id": "171e220d-6eee-4d5a-8490-304116c80ea6",
+      "filename": "20260518_President Trump Participates in a Healthcare Affordability Event_ May 18_ 2026.txt",
+      "name": "President Trump Participates in a Healthcare Affordability Event, May 18, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=qCf6OPSGvac",
+      "upload_date": "20260518",
+      "event_tag": {
+        "id": "7a4fad72-1484-437b-95d4-ce84599d8db4",
+        "transcript_id": "171e220d-6eee-4d5a-8490-304116c80ea6",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-18T20:19:12Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:32:16.426958Z",
+        "updated_at": "2026-05-25T12:32:16.426958Z"
+      }
+    },
+    {
+      "transcript_id": "2661545e-c6ec-4896-9d26-22c597cbb598",
+      "filename": "20260514_President Trump Participates in a Greeting with the President of the People_s Re.txt",
+      "name": "President Trump Participates in a Greeting with the President of the People's Republic of China 2026-05-14 02:18",
+      "youtube_url": "https://www.youtube.com/watch?v=fEv7B8-taYM",
+      "upload_date": "20260514",
+      "event_tag": {
+        "id": "e3cdb98f-129c-4ad8-8a15-8659f7d65ec0",
+        "transcript_id": "2661545e-c6ec-4896-9d26-22c597cbb598",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-14T01:50:01Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:36:08.016333Z",
+        "updated_at": "2026-06-10T16:36:08.016333Z"
+      }
+    },
+    {
+      "transcript_id": "c38821f4-31fb-4a61-b215-0fc446e2c642",
+      "filename": "20260514_President Trump Participates in a Bilateral Meeting with the President of China.txt",
+      "name": "President Trump Participates in a Bilateral Meeting with the President of China",
+      "youtube_url": "https://www.youtube.com/watch?v=wcuztPVlb08",
+      "upload_date": "20260514",
+      "event_tag": {
+        "id": "025be55e-66aa-48c0-9ed8-358f20160a78",
+        "transcript_id": "c38821f4-31fb-4a61-b215-0fc446e2c642",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-14T02:25:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:31:21.242652Z",
+        "updated_at": "2026-05-25T12:31:21.242652Z"
+      }
+    },
+    {
+      "transcript_id": "42910879-b7b2-4234-8c4a-9a32cc13ac15",
+      "filename": "20260511_President Trump Participates in a Maternal Healthcare Event 2026-05-11 15_47.txt",
+      "name": "President Trump Participates in a Maternal Healthcare Event 2026-05-11 15:47",
+      "youtube_url": "https://www.youtube.com/watch?v=t_EA2nOvi3A",
+      "upload_date": "20260511",
+      "event_tag": {
+        "id": "65334cc1-7052-425f-af83-64ef4b91bcc3",
+        "transcript_id": "42910879-b7b2-4234-8c4a-9a32cc13ac15",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office",
+        "event_time": "2026-05-11T14:59:51Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:31:32.750783Z",
+        "updated_at": "2026-06-10T16:31:32.750783Z"
+      }
+    },
+    {
+      "transcript_id": "987f543b-ea8b-4268-b31a-eb654d44f4b4",
+      "filename": "20260508_President Trump Delivers Remarks_ May 8_ 2026.txt",
+      "name": "President Trump Delivers Remarks, May 8, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=IByVie2qY30",
+      "upload_date": "20260508",
+      "event_tag": {
+        "id": "af64c09b-930d-456d-b000-6f432596087e",
+        "transcript_id": "987f543b-ea8b-4268-b31a-eb654d44f4b4",
+        "event_type": "prepared_remarks",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Rose Garden of the White House",
+        "event_time": "2026-05-08T15:49:06Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:49:36.219535Z",
+        "updated_at": "2026-05-24T12:49:36.219535Z"
+      }
+    },
+    {
+      "transcript_id": "f669acfa-d600-46fc-8bb7-a4d2b9d85311",
+      "filename": "20260507_President Trump Participates in a Bilateral Meeting_ May 7_ 2026 2026-05-07 15_4.txt",
+      "name": "President Trump Participates in a Bilateral Meeting, May 7, 2026 2026-05-07 15:47",
+      "youtube_url": "https://www.youtube.com/watch?v=kJfK1cdRQac",
+      "upload_date": "20260507",
+      "event_tag": {
+        "id": "4aaca916-9ffe-49c6-8971-799ad1660ec9",
+        "transcript_id": "f669acfa-d600-46fc-8bb7-a4d2b9d85311",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-07T15:18:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:36:39.127302Z",
+        "updated_at": "2026-06-10T16:36:39.127302Z"
+      }
+    },
+    {
+      "transcript_id": "1e1d7a7a-c8a0-4b30-bfb5-74b7f20e1d61",
+      "filename": "20260506_President Trump and the First Lady Participate in a Military Mother_s Day Event.txt",
+      "name": "President Trump and the First Lady Participate in a Military Mother's Day Event",
+      "youtube_url": "https://www.youtube.com/watch?v=22HQKGoAnoA",
+      "upload_date": "20260506",
+      "event_tag": {
+        "id": "3aceb1ee-686d-45bd-9a2b-8eee09c1ec52",
+        "transcript_id": "1e1d7a7a-c8a0-4b30-bfb5-74b7f20e1d61",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "East Room of the White House",
+        "event_time": "2026-05-06T16:23:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:31:31.994389Z",
+        "updated_at": "2026-06-10T16:31:31.994389Z"
+      }
+    },
+    {
+      "transcript_id": "0ed86897-32d1-4d83-8daf-7573fecc6293",
+      "filename": "20260506_President Trump Delivers Remarks_ May 6_ 2026.txt",
+      "name": "President Trump Delivers Remarks, May 6, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=uenmSj0z7Uo",
+      "upload_date": "20260506",
+      "event_tag": {
+        "id": "c77e1ec2-9300-4498-9827-3b18f10400fb",
+        "transcript_id": "0ed86897-32d1-4d83-8daf-7573fecc6293",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-05-06T18:38:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T14:36:10.828672Z",
+        "updated_at": "2026-05-24T14:36:10.828672Z"
+      }
+    },
+    {
+      "transcript_id": "1527a2b1-62cd-4151-a039-1635b224b314",
+      "filename": "20260504_President Trump Participates in a Small Business Summit.txt",
+      "name": "President Trump Participates in a Small Business Summit",
+      "youtube_url": "https://www.youtube.com/watch?v=nEDoEBVlHJE",
+      "upload_date": "20260504",
+      "event_tag": {
+        "id": "7c738ac5-8070-4b44-bde0-6133cdd564a7",
+        "transcript_id": "1527a2b1-62cd-4151-a039-1635b224b314",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-05-04T19:17:51Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:33:00.030154Z",
+        "updated_at": "2026-06-10T16:33:00.030154Z"
+      }
+    },
+    {
+      "transcript_id": "9ff1d963-c7ce-4f20-b476-f69f1969ae79",
+      "filename": "20260504_President Trump Signs a Proclamation_ May 5_ 2026 2026-05-05 15_47.txt",
+      "name": "President Trump Signs a Proclamation, May 5, 2026 2026-05-05 15:47",
+      "youtube_url": "https://www.youtube.com/watch?v=TMfuHNgXdd4",
+      "upload_date": "20260504",
+      "event_tag": {
+        "id": "fae398de-7059-46f6-a0b5-ee0f674f0673",
+        "transcript_id": "9ff1d963-c7ce-4f20-b476-f69f1969ae79",
+        "event_type": "signing_ceremony",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-05-05T14:41:17Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:49:23.595941Z",
+        "updated_at": "2026-05-24T12:49:23.595941Z"
+      }
+    },
+    {
+      "transcript_id": "e5ab1f0a-a977-4655-8c7c-f991a2f00477",
+      "filename": "20260502_President Trump Participates in The Forum Club of the Palm Beaches Dinner.txt",
+      "name": "President Trump Participates in The Forum Club of the Palm Beaches Dinner",
+      "youtube_url": "https://www.youtube.com/watch?v=e43eMTACfdM",
+      "upload_date": "20260502",
+      "event_tag": {
+        "id": "5124c359-c754-4ea7-9f19-44a6e7cdb090",
+        "transcript_id": "e5ab1f0a-a977-4655-8c7c-f991a2f00477",
+        "event_type": "other",
+        "city": "West Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Dreyfoos Hall at the Raymond F. Kravis Center for the Performing Arts",
+        "event_time": "2026-05-01T23:40:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T14:35:59.153713Z",
+        "updated_at": "2026-05-24T14:35:59.153713Z"
+      }
+    },
+    {
+      "transcript_id": "7133b349-d41c-49ea-bde1-f94bfca7b685",
+      "filename": "20260430_President Trump Participates in an Executive Order Signing_ April 30th_ 2026.txt",
+      "name": "President Trump Participates in an Executive Order Signing, April 30th, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=jDw21pUBBMU",
+      "upload_date": "20260430",
+      "event_tag": {
+        "id": "9512c1af-0290-4e4e-baea-23e2c8454628",
+        "transcript_id": "7133b349-d41c-49ea-bde1-f94bfca7b685",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office of the White House",
+        "event_time": "2026-04-30T18:41:06Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:21:32.241743Z",
+        "updated_at": "2026-06-10T16:21:32.241743Z"
+      }
+    },
+    {
+      "transcript_id": "0d8e7363-6d74-4c3d-a049-517d0cb5b662",
+      "filename": "20260429_President Trump Participates in a Greeting with Artemis II Astronauts.txt",
+      "name": "President Trump Participates in a Greeting with Artemis II Astronauts",
+      "youtube_url": "https://www.youtube.com/watch?v=4hLYFGv9ktM",
+      "upload_date": "20260429",
+      "event_tag": {
+        "id": "5a934d82-131f-4def-8a8c-046ee0235e08",
+        "transcript_id": "0d8e7363-6d74-4c3d-a049-517d0cb5b662",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-04-29T17:51:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:30:26.781678Z",
+        "updated_at": "2026-05-25T12:30:26.781678Z"
+      }
+    },
+    {
+      "transcript_id": "1ca103e4-cc1d-41b7-b8c2-61967a30286d",
+      "filename": "20260428_President Trump and the First Lady Participate in a Greeting with the King and Q.txt",
+      "name": "President Trump and the First Lady Participate in a Greeting with the King and Queen of the UK",
+      "youtube_url": "https://www.youtube.com/watch?v=KaQLqlqPbrw",
+      "upload_date": "20260428",
+      "event_tag": {
+        "id": "410d805f-0d3a-428c-a496-565d488ea6fd",
+        "transcript_id": "1ca103e4-cc1d-41b7-b8c2-61967a30286d",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "South Portico of the White House",
+        "event_time": "2026-04-28T14:31:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T14:35:44.518617Z",
+        "updated_at": "2026-05-24T14:35:44.518617Z"
+      }
+    },
+    {
+      "transcript_id": "0b156049-875c-458d-bdd5-d1ed315e49fa",
+      "filename": "20260426_President Trump Delivers Remarks_ Apr. 25_ 2026.txt",
+      "name": "President Trump Delivers Remarks, Apr. 25, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=ZHN8xcAJUsc",
+      "upload_date": "20260426",
+      "event_tag": {
+        "id": "1b994459-424f-457b-8c73-2adafe62014d",
+        "transcript_id": "0b156049-875c-458d-bdd5-d1ed315e49fa",
+        "event_type": "prepared_remarks",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-04-26T02:14:11Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:48:58.621360Z",
+        "updated_at": "2026-05-24T12:48:58.621360Z"
+      }
+    },
+    {
+      "transcript_id": "76520ec2-1b12-4e4f-9e68-8ffccbcd1963",
+      "filename": "20260421_President Trump Delivers Remarks to NCAA Collegiate National Champions.txt",
+      "name": "President Trump Delivers Remarks to NCAA Collegiate National Champions",
+      "youtube_url": "https://www.youtube.com/watch?v=HWsKuI1yyl8",
+      "upload_date": "20260421",
+      "event_tag": {
+        "id": "7395718c-57fe-459a-be7c-8f080a881c5d",
+        "transcript_id": "76520ec2-1b12-4e4f-9e68-8ffccbcd1963",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-04-21T20:34:37Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:21:57.391374Z",
+        "updated_at": "2026-05-24T13:21:57.391374Z"
+      }
+    },
+    {
+      "transcript_id": "3e597ea0-a71d-48d7-9961-1ccfd10d0ab6",
+      "filename": "20260406_President Trump Holds a Press Conference_ Apr. 6_ 2026.txt",
+      "name": "President Trump Holds a Press Conference, Apr. 6, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=xFO-SY9ykdA",
+      "upload_date": "20260406",
+      "event_tag": {
+        "id": "f96afd4f-1aac-4219-8017-b256e6b97abb",
+        "transcript_id": "3e597ea0-a71d-48d7-9961-1ccfd10d0ab6",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-04-06T16:58:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:32:27.989554Z",
+        "updated_at": "2026-06-10T16:32:27.989554Z"
+      }
+    },
+    {
+      "transcript_id": "f249aa59-ae64-42e4-bf7f-23738c99efc3",
+      "filename": "20260402_President Trump Delivers an Address to the Nation_ Apr. 1_ 2026.txt",
+      "name": "President Trump Delivers an Address to the Nation, Apr. 1, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=OzhLRPZfOMQ",
+      "upload_date": "20260402",
+      "event_tag": {
+        "id": "d23d9580-c9c9-49f6-bcca-2454a062d4d9",
+        "transcript_id": "f249aa59-ae64-42e4-bf7f-23738c99efc3",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Cross Hall of the White House",
+        "event_time": "2026-04-02T00:52:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:28:35.959720Z",
+        "updated_at": "2026-05-25T12:28:35.959720Z"
+      }
+    },
+    {
+      "transcript_id": "9d8d4b28-069a-41f7-b73f-b2e6f6c1028c",
+      "filename": "20260331_President Trump Signs an Executive Order_ Mar. 31_ 2026.txt",
+      "name": "President Trump Signs an Executive Order, Mar. 31, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=ELT3855m3qA",
+      "upload_date": "20260331",
+      "event_tag": {
+        "id": "a0eee45f-0973-4b64-8ac1-4d086ff4d70c",
+        "transcript_id": "9d8d4b28-069a-41f7-b73f-b2e6f6c1028c",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-03-31T20:55:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:29:32.416459Z",
+        "updated_at": "2026-05-25T12:29:32.416459Z"
+      }
+    },
+    {
+      "transcript_id": "df6d9c53-444d-44ab-9258-d201303eac88",
+      "filename": "20260327_President Trump Delivers Remarks to Farmers.txt",
+      "name": "President Trump Delivers Remarks to Farmers",
+      "youtube_url": "https://www.youtube.com/watch?v=IyKAzbxybog",
+      "upload_date": "20260327",
+      "event_tag": {
+        "id": "9298cd48-792e-4c0a-9ce0-3e3069ebc4ff",
+        "transcript_id": "df6d9c53-444d-44ab-9258-d201303eac88",
+        "event_type": "prepared_remarks",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "South Lawn of the White House",
+        "event_time": "2026-03-27T16:32:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:22:26.075813Z",
+        "updated_at": "2026-06-10T16:22:26.075813Z"
+      }
+    },
+    {
+      "transcript_id": "18d07d54-7e09-49e7-878b-62082f50845a",
+      "filename": "20260326_President Trump Participates in a Cabinet Meeting_ Mar. 26_ 2026.txt",
+      "name": "President Trump Participates in a Cabinet Meeting, Mar. 26, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=Sse9HAmQtD0",
+      "upload_date": "20260326",
+      "event_tag": {
+        "id": "1c2eb081-f9da-4c25-9a99-0c9689fa6448",
+        "transcript_id": "18d07d54-7e09-49e7-878b-62082f50845a",
+        "event_type": "cabinet_meeting",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-26T14:33:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:48:46.572859Z",
+        "updated_at": "2026-05-24T12:48:46.572859Z"
+      }
+    },
+    {
+      "transcript_id": "fdde9e8a-0aed-4a35-9a87-7aeb78918c1d",
+      "filename": "20260326_LIVE_ President Trump delivers remarks at the NRCC Annual Fundraising Dinner _ N.txt",
+      "name": "LIVE: President Trump delivers remarks at the NRCC Annual Fundraising Dinner | NBC News",
+      "youtube_url": "https://www.youtube.com/watch?v=2O5BLb5K_vg",
+      "upload_date": "20260326",
+      "event_tag": {
+        "id": "4a682c34-5fe7-4240-af5d-ef9141f4ea90",
+        "transcript_id": "fdde9e8a-0aed-4a35-9a87-7aeb78918c1d",
+        "event_type": "prepared_remarks",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Union Station",
+        "event_time": "2026-03-25T23:36:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:21:33.778288Z",
+        "updated_at": "2026-06-10T16:21:33.778288Z"
+      }
+    },
+    {
+      "transcript_id": "d1aba741-1246-4342-b035-b3bef6c89434",
+      "filename": "20260326_President Trump Delivers Remarks at the Greek Independence Day Celebration.txt",
+      "name": "President Trump Delivers Remarks at the Greek Independence Day Celebration",
+      "youtube_url": "https://www.youtube.com/watch?v=gEtJFYPaq3k",
+      "upload_date": "20260326",
+      "event_tag": {
+        "id": "4d74cb16-2f26-42d0-9660-b9b1c2643f9a",
+        "transcript_id": "d1aba741-1246-4342-b035-b3bef6c89434",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-03-26T20:15:01Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:32:27.371848Z",
+        "updated_at": "2026-06-10T16:32:27.371848Z"
+      }
+    },
+    {
+      "transcript_id": "db1af6a8-cc54-47f0-9a36-6e11998c0bce",
+      "filename": "20260324_President Trump Participates in a Swearing-In Ceremony for the Secretary of Home.txt",
+      "name": "President Trump Participates in a Swearing-In Ceremony for the Secretary of Homeland Security",
+      "youtube_url": "https://www.youtube.com/watch?v=3yizEztX9Kc",
+      "upload_date": "20260324",
+      "event_tag": {
+        "id": "30473643-804c-46cb-868f-b815db836739",
+        "transcript_id": "db1af6a8-cc54-47f0-9a36-6e11998c0bce",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office of the White House",
+        "event_time": "2026-03-24T17:56:36Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T14:36:34.265653Z",
+        "updated_at": "2026-05-24T14:36:34.265653Z"
+      }
+    },
+    {
+      "transcript_id": "03c67376-8695-42ac-8259-ca100c1e3648",
+      "filename": "20260323_President Trump Participates in the Memphis Safe Task Force Roundtable.txt",
+      "name": "President Trump Participates in the Memphis Safe Task Force Roundtable",
+      "youtube_url": "https://www.youtube.com/watch?v=jwwjmWKMWjM",
+      "upload_date": "20260323",
+      "event_tag": {
+        "id": "38520fe8-8d3d-4050-ae6e-8c7ebae0b116",
+        "transcript_id": "03c67376-8695-42ac-8259-ca100c1e3648",
+        "event_type": "other",
+        "city": "Memphis",
+        "state": "Tennessee",
+        "country": "US",
+        "venue": null,
+        "event_time": "2026-03-23T16:32:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:30:36.591834Z",
+        "updated_at": "2026-06-10T16:30:36.591834Z"
+      }
+    },
+    {
+      "transcript_id": "94f9306c-3973-467e-802c-bc8d2d6cc8f5",
+      "filename": "20260320_President Trump Participates in the Commander in Chief Trophy Presentation.txt",
+      "name": "President Trump Participates in the Commander in Chief Trophy Presentation",
+      "youtube_url": "https://www.youtube.com/watch?v=u-OC21Mk_WY",
+      "upload_date": "20260320",
+      "event_tag": {
+        "id": "8ca01786-b904-4328-b88c-ae9061b42b55",
+        "transcript_id": "94f9306c-3973-467e-802c-bc8d2d6cc8f5",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-20T14:26:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:29:44.357819Z",
+        "updated_at": "2026-06-10T16:29:44.357819Z"
+      }
+    },
+    {
+      "transcript_id": "0759e5e5-a21b-4f9c-8c17-6cb40e8e7cf1",
+      "filename": "20260319_President Trump Participates in a Bilateral Meeting_ Mar. 19_ 2026.txt",
+      "name": "President Trump Participates in a Bilateral Meeting, Mar. 19, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=1jgFkp02qFM",
+      "upload_date": "20260319",
+      "event_tag": {
+        "id": "511190ec-6f03-4012-8882-f9ba063899d7",
+        "transcript_id": "0759e5e5-a21b-4f9c-8c17-6cb40e8e7cf1",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-19T15:31:02Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:21:12.115114Z",
+        "updated_at": "2026-05-24T13:21:12.115114Z"
+      }
+    },
+    {
+      "transcript_id": "450ae683-d61e-4a12-b9f2-cbf5b08d5974",
+      "filename": "20260319_President Trump Participates in a Dinner with the Prime Minister of Japan.txt",
+      "name": "President Trump Participates in a Dinner with the Prime Minister of Japan",
+      "youtube_url": "https://www.youtube.com/watch?v=vKACFmuNFyY",
+      "upload_date": "20260319",
+      "event_tag": {
+        "id": "3fb2041e-b77d-4fb0-9d3b-3a060bf5618a",
+        "transcript_id": "450ae683-d61e-4a12-b9f2-cbf5b08d5974",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-19T23:00:12Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:21:00.183637Z",
+        "updated_at": "2026-05-24T13:21:00.183637Z"
+      }
+    },
+    {
+      "transcript_id": "3ab073d3-68ef-4f9a-8224-2b8165213e53",
+      "filename": "20260317_Helping American Citizens Achieve the Dream of Homeownership.txt",
+      "name": "Helping American Citizens Achieve the Dream of Homeownership",
+      "youtube_url": "https://www.youtube.com/watch?v=NUZDxhafIVs",
+      "upload_date": "20260317",
+      "event_tag": {
+        "id": "68d0513e-5e0e-48c5-ae50-f1f30999a1a2",
+        "transcript_id": "3ab073d3-68ef-4f9a-8224-2b8165213e53",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-17T13:55:50Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:49:12.775028Z",
+        "updated_at": "2026-05-24T12:49:12.775028Z"
+      }
+    },
+    {
+      "transcript_id": "d776a63c-4a59-4223-b630-a3c2b5777589",
+      "filename": "20260317_President Trump Participates in the Friends of Ireland Luncheon.txt",
+      "name": "President Trump Participates in the Friends of Ireland Luncheon",
+      "youtube_url": "https://www.youtube.com/watch?v=O1jIO7w-qnE",
+      "upload_date": "20260317",
+      "event_tag": {
+        "id": "5b297b64-5892-4948-aead-d99985fe402a",
+        "transcript_id": "d776a63c-4a59-4223-b630-a3c2b5777589",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "United States Capitol",
+        "event_time": "2026-03-17T19:15:17Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:18:05.567152Z",
+        "updated_at": "2026-05-24T13:18:05.567152Z"
+      }
+    },
+    {
+      "transcript_id": "0247b9a8-758f-49d6-a2a5-38dcd2275b9d",
+      "filename": "20260317_President Trump Participates in the Shamrock Bowl Presentation.txt",
+      "name": "President Trump Participates in the Shamrock Bowl Presentation",
+      "youtube_url": "https://www.youtube.com/watch?v=gpf0AxeofZM",
+      "upload_date": "20260317",
+      "event_tag": {
+        "id": "3c969efc-3ae8-444c-8d1e-ed6f514cb86c",
+        "transcript_id": "0247b9a8-758f-49d6-a2a5-38dcd2275b9d",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-17T21:29:17Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:21:25.412621Z",
+        "updated_at": "2026-05-24T13:21:25.412621Z"
+      }
+    },
+    {
+      "transcript_id": "abf61a50-f6c8-4a57-8528-4a385214443a",
+      "filename": "20260317_President Trump Participates in a Bilateral Meeting_ Mar. 17_ 2026.txt",
+      "name": "President Trump Participates in a Bilateral Meeting, Mar. 17, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=HbTMgtskUNo",
+      "upload_date": "20260317",
+      "event_tag": {
+        "id": "75285b8a-c2a1-42f8-ad23-7ea8f1507910",
+        "transcript_id": "abf61a50-f6c8-4a57-8528-4a385214443a",
+        "event_type": "bilateral_meeting",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-17T15:40:51Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:49:49.238666Z",
+        "updated_at": "2026-05-24T12:49:49.238666Z"
+      }
+    },
+    {
+      "transcript_id": "291e93eb-b83f-4704-849b-287375e79e87",
+      "filename": "20260316_President Trump and Vice President JD Vance Participate in Signing Time_ Mar. 16.txt",
+      "name": "President Trump and Vice President JD Vance Participate in Signing Time, Mar. 16, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=S9MXdLYgYkE",
+      "upload_date": "20260316",
+      "event_tag": {
+        "id": "61b14628-30e1-470a-a955-eb04184c003c",
+        "transcript_id": "291e93eb-b83f-4704-849b-287375e79e87",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-16T19:56:44Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T14:36:22.294211Z",
+        "updated_at": "2026-05-24T14:36:22.294211Z"
+      }
+    },
+    {
+      "transcript_id": "6240e396-b94d-45e5-9ead-0214312a67ee",
+      "filename": "20260316_President Trump Participates in a Lunch with the Trump Kennedy Center Board Memb.txt",
+      "name": "President Trump Participates in a Lunch with the Trump Kennedy Center Board Members",
+      "youtube_url": "https://www.youtube.com/watch?v=LseQ1ecp-ZM",
+      "upload_date": "20260316",
+      "event_tag": {
+        "id": "11302741-785f-4dac-8fdc-b16175d038a9",
+        "transcript_id": "6240e396-b94d-45e5-9ead-0214312a67ee",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "State Dining Room of the White House",
+        "event_time": "2026-03-16T15:51:06Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:21:36.957955Z",
+        "updated_at": "2026-05-24T13:21:36.957955Z"
+      }
+    },
+    {
+      "transcript_id": "81e98930-0579-4344-8514-67edce1f01bd",
+      "filename": "20260314_President Trump Gaggles with Press at Joint Base Andrews_ Mar. 13_ 2026.txt",
+      "name": "President Trump Gaggles with Press at Joint Base Andrews, Mar. 13, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=cHYx52pyHxQ",
+      "upload_date": "20260314",
+      "event_tag": {
+        "id": "7247f222-831a-4d06-b6db-69ab73d62306",
+        "transcript_id": "81e98930-0579-4344-8514-67edce1f01bd",
+        "event_type": "other",
+        "city": "Joint Base Andrews",
+        "state": "Maryland",
+        "country": "US",
+        "venue": "Joint Base Andrews",
+        "event_time": "2026-03-14T00:09:50Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:48:31.105019Z",
+        "updated_at": "2026-05-24T12:48:31.105019Z"
+      }
+    },
+    {
+      "transcript_id": "b9a1beb3-d7bb-45eb-969a-b4de4524e98c",
+      "filename": "20260312_President Trump Participates in a Site Visit at Thermo Fisher Scientific.txt",
+      "name": "President Trump Participates in a Site Visit at Thermo Fisher Scientific",
+      "youtube_url": "https://www.youtube.com/watch?v=O9OpQ_g3HQA",
+      "upload_date": "20260312",
+      "event_tag": {
+        "id": "0a836180-4430-4a18-95c5-6367a52eda82",
+        "transcript_id": "b9a1beb3-d7bb-45eb-969a-b4de4524e98c",
+        "event_type": "other",
+        "city": "Cincinnati",
+        "state": "Ohio",
+        "country": "US",
+        "venue": "Thermo Fisher Scientific facility",
+        "event_time": "2026-03-12T01:27:10Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:29:43.345669Z",
+        "updated_at": "2026-06-10T16:29:43.345669Z"
+      }
+    },
+    {
+      "transcript_id": "2f172cf4-a46c-4413-b936-25bed5f08408",
+      "filename": "20260312_President Trump and the First Lady Participate in a Women_s History Month Event.txt",
+      "name": "President Trump and the First Lady Participate in a Women's History Month Event",
+      "youtube_url": "https://www.youtube.com/watch?v=4tT2lp_k1w8",
+      "upload_date": "20260312",
+      "event_tag": {
+        "id": "57a4d2cf-899f-43dd-a035-dfebd6766eb5",
+        "transcript_id": "2f172cf4-a46c-4413-b936-25bed5f08408",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-12T20:09:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:22:28.282458Z",
+        "updated_at": "2026-06-10T16:22:28.282458Z"
+      }
+    },
+    {
+      "transcript_id": "5d16dad6-23c2-4b80-ac44-746169ca4d2f",
+      "filename": "20260312_President Trump Delivers Remarks_ Mar. 11_ 2026.txt",
+      "name": "President Trump Delivers Remarks, Mar. 11, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=IL_zc2QeZ80",
+      "upload_date": "20260312",
+      "event_tag": {
+        "id": "84be0e37-3671-4b7c-99d8-2675878f0acc",
+        "transcript_id": "5d16dad6-23c2-4b80-ac44-746169ca4d2f",
+        "event_type": "other",
+        "city": "Hebron",
+        "state": "Kentucky",
+        "country": "US",
+        "venue": "Verst Logistics",
+        "event_time": "2026-03-12T00:18:18Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:29:42.706826Z",
+        "updated_at": "2026-06-10T16:29:42.706826Z"
+      }
+    },
+    {
+      "transcript_id": "ccba8912-e190-4a79-aaa0-e410ea051591",
+      "filename": "20260311_President Trump Gaggles with Press Before Departing the White House_ Mar. 11_ 20.txt",
+      "name": "President Trump Gaggles with Press Before Departing the White House, Mar. 11, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=WBYABd-Ny-g",
+      "upload_date": "20260311",
+      "event_tag": {
+        "id": "e007371f-70cc-48e2-b4a6-7b0c29107605",
+        "transcript_id": "ccba8912-e190-4a79-aaa0-e410ea051591",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-03-11T18:10:17Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:20:49.036096Z",
+        "updated_at": "2026-05-24T13:20:49.036096Z"
+      }
+    },
+    {
+      "transcript_id": "fa2fac57-4392-4be7-9fbc-febd78c8a585",
+      "filename": "20260309_President Trump Delivers Remarks to the Republican Members Issues Conference.txt",
+      "name": "President Trump Delivers Remarks to the Republican Members Issues Conference",
+      "youtube_url": "https://www.youtube.com/watch?v=W9bkyOTCrEg",
+      "upload_date": "20260309",
+      "event_tag": {
+        "id": "67801522-52ca-4cbb-b72c-485b0d0aaa4c",
+        "transcript_id": "fa2fac57-4392-4be7-9fbc-febd78c8a585",
+        "event_type": "prepared_remarks",
+        "city": "Doral",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Trump National Doral Miami",
+        "event_time": "2026-03-09T20:25:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:20:12.118381Z",
+        "updated_at": "2026-05-24T13:20:12.118381Z"
+      }
+    },
+    {
+      "transcript_id": "7e5b82be-66c4-4e42-ac21-c268e6a2ae77",
+      "filename": "20260307_President Trump Gaggles with Press on Air Force One En Route Miami_ FL_ Mar. 7_ .txt",
+      "name": "President Trump Gaggles with Press on Air Force One En Route Miami, FL, Mar. 7, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=iVxqUe9SEgw",
+      "upload_date": "20260307",
+      "event_tag": {
+        "id": "682c6364-a719-41dc-8457-0608e5e0dd30",
+        "transcript_id": "7e5b82be-66c4-4e42-ac21-c268e6a2ae77",
+        "event_type": "other",
+        "city": "Miami",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Air Force One",
+        "event_time": "2026-03-07T22:06:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:19:13.606445Z",
+        "updated_at": "2026-05-24T13:19:13.606445Z"
+      }
+    },
+    {
+      "transcript_id": "0d102cfb-6816-4aeb-bc70-9b808abeaf4d",
+      "filename": "20260307_President Trump Delivers Remarks to the Shield of Americas Summit.txt",
+      "name": "President Trump Delivers Remarks to the Shield of Americas Summit",
+      "youtube_url": "https://www.youtube.com/watch?v=m9PVdkmCcrk",
+      "upload_date": "20260307",
+      "event_tag": {
+        "id": "fced89c9-f948-4c1e-8693-c0d2aa8025b1",
+        "transcript_id": "0d102cfb-6816-4aeb-bc70-9b808abeaf4d",
+        "event_type": "summit",
+        "city": "Miami",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Trump National Doral",
+        "event_time": "2026-03-07T14:21:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:19:02.736553Z",
+        "updated_at": "2026-05-24T13:19:02.736553Z"
+      }
+    },
+    {
+      "transcript_id": "0726372d-05fc-4dc2-b0ca-21a3aed0f50d",
+      "filename": "20260306_President Trump Participates in a Saving College Sports Roundtable.txt",
+      "name": "President Trump Participates in a Saving College Sports Roundtable",
+      "youtube_url": "https://www.youtube.com/watch?v=NvY1m8Le1zk",
+      "upload_date": "20260306",
+      "event_tag": {
+        "id": "f6c456e2-9c4a-4c2a-a1cc-5c3605a4f8f9",
+        "transcript_id": "0726372d-05fc-4dc2-b0ca-21a3aed0f50d",
+        "event_type": "roundtable",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "East Room of the White House",
+        "event_time": "2026-03-06T21:14:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:19:46.279953Z",
+        "updated_at": "2026-05-24T13:19:46.279953Z"
+      }
+    },
+    {
+      "transcript_id": "dd95bfc8-fc7c-4bf9-ba0b-f3139c9fecc6",
+      "filename": "20260305_President Trump Participates in the Visit of the 2025 Major League Soccer Champi.txt",
+      "name": "President Trump Participates in the Visit of the 2025 Major League Soccer Champions - Inter Miami CF",
+      "youtube_url": "https://www.youtube.com/watch?v=BZjjAf7l3gA",
+      "upload_date": "20260305",
+      "event_tag": {
+        "id": "64ba9944-ce96-42b3-8e43-a93c1e4d136f",
+        "transcript_id": "dd95bfc8-fc7c-4bf9-ba0b-f3139c9fecc6",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "East Room of the White House",
+        "event_time": "2026-03-05T22:58:13Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:19:22.761256Z",
+        "updated_at": "2026-05-24T13:19:22.761256Z"
+      }
+    },
+    {
+      "transcript_id": "967c06a5-26a7-4a1e-a7d0-1fb774ad710e",
+      "filename": "20260304_President Trump Participates in a Roundtable on Ratepayer Protection Pledge.txt",
+      "name": "President Trump Participates in a Roundtable on Ratepayer Protection Pledge",
+      "youtube_url": "https://www.youtube.com/watch?v=W50sSr87n4Q",
+      "upload_date": "20260304",
+      "event_tag": {
+        "id": "62946135-61f3-4717-ba20-c3cac0df9454",
+        "transcript_id": "967c06a5-26a7-4a1e-a7d0-1fb774ad710e",
+        "event_type": "roundtable",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Indian Treaty Room, Eisenhower Executive Office Building",
+        "event_time": "2026-03-04T20:10:48Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:19:33.756325Z",
+        "updated_at": "2026-05-24T13:19:33.756325Z"
+      }
+    },
+    {
+      "transcript_id": "c653d04c-d6b0-4a6f-a0e1-7f62b550b6f0",
+      "filename": "20260303_President Trump Participates in a Bilateral Meeting_ Mar. 3_ 2026.txt",
+      "name": "President Trump Participates in a Bilateral Meeting, Mar. 3, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=ocFJL5jRLXM",
+      "upload_date": "20260303",
+      "event_tag": {
+        "id": "1fa36a35-3c5f-4f06-be50-f47dd78b51cb",
+        "transcript_id": "c653d04c-d6b0-4a6f-a0e1-7f62b550b6f0",
+        "event_type": "bilateral_meeting",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office of the White House",
+        "event_time": "2026-03-03T16:24:01Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:27:53.253449Z",
+        "updated_at": "2026-06-10T16:27:53.253449Z"
+      }
+    },
+    {
+      "transcript_id": "4dbb21f8-66ce-454a-8c40-018c8da83a27",
+      "filename": "20260301_Operation Epic Fury Update_ President Donald J. Trump.txt",
+      "name": "Operation Epic Fury Update, President Donald J. Trump",
+      "youtube_url": "https://www.youtube.com/watch?v=AcJC9jOJvk4",
+      "upload_date": "20260301",
+      "event_tag": {
+        "id": "55892e5b-399a-43e2-b3a7-a47c6eb5681c",
+        "transcript_id": "4dbb21f8-66ce-454a-8c40-018c8da83a27",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Cross Hall of the White House",
+        "event_time": "2026-04-02T01:00:00Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:27:53.893630Z",
+        "updated_at": "2026-06-10T16:27:53.893630Z"
+      }
+    },
+    {
+      "transcript_id": "a4c43c8c-65d6-41e2-911a-25907669e1a8",
+      "filename": "20260227_President Trump Delivers Remarks on Energy_ Feb. 27_ 2026.txt",
+      "name": "President Trump Delivers Remarks on Energy, Feb. 27, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=rr2RA4JAntQ",
+      "upload_date": "20260227",
+      "event_tag": {
+        "id": "1673b153-3f5f-4618-b9c2-6698139dbe5e",
+        "transcript_id": "a4c43c8c-65d6-41e2-911a-25907669e1a8",
+        "event_type": "prepared_remarks",
+        "city": "Corpus Christi",
+        "state": "Texas",
+        "country": "US",
+        "venue": "Port of Corpus Christi",
+        "event_time": "2026-02-27T21:32:53Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:22:59.446106Z",
+        "updated_at": "2026-06-10T16:22:59.446106Z"
+      }
+    },
+    {
+      "transcript_id": "2bad70f2-a1fb-4a97-8285-cd699fb3ff5b",
+      "filename": "20260225_President Donald J. Trump_s 2026 State of the Union Address.txt",
+      "name": "President Donald J. Trump\u2019s 2026 State of the Union Address",
+      "youtube_url": "https://www.youtube.com/watch?v=eWrZQBgpY7I",
+      "upload_date": "20260225",
+      "event_tag": {
+        "id": "6bebc408-6d40-4144-b25c-7115d42baf3d",
+        "transcript_id": "2bad70f2-a1fb-4a97-8285-cd699fb3ff5b",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Chamber of the United States House of Representatives",
+        "event_time": "2026-02-25T01:58:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:28:46.229043Z",
+        "updated_at": "2026-06-10T16:28:46.229043Z"
+      }
+    },
+    {
+      "transcript_id": "3c4b2722-92a7-4675-9423-aa62c9b2e9d5",
+      "filename": "20260223_President Trump Participates in Angel Families Remembrance Ceremony.txt",
+      "name": "President Trump Participates in Angel Families Remembrance Ceremony",
+      "youtube_url": "https://www.youtube.com/watch?v=Ll2R6vKFd_c",
+      "upload_date": "20260223",
+      "event_tag": {
+        "id": "a849705c-a1c2-47ca-96bb-541d5b26543c",
+        "transcript_id": "3c4b2722-92a7-4675-9423-aa62c9b2e9d5",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "East Room of the White House",
+        "event_time": "2026-02-23T15:12:06Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:50:04.078815Z",
+        "updated_at": "2026-05-24T12:50:04.078815Z"
+      }
+    },
+    {
+      "transcript_id": "cf77006d-b14d-436f-add6-12f3f49cd69b",
+      "filename": "20260220_President Trump Delivers Remarks_ Feb. 20_ 2026.txt",
+      "name": "President Trump Delivers Remarks, Feb. 20, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=Hr4ql_ejTns",
+      "upload_date": "20260220",
+      "event_tag": {
+        "id": "6d24b76b-a5f6-44c8-b938-438944e1c1b7",
+        "transcript_id": "cf77006d-b14d-436f-add6-12f3f49cd69b",
+        "event_type": "prepared_remarks",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-02-20T17:53:11Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:23:20.339114Z",
+        "updated_at": "2026-06-10T16:23:20.339114Z"
+      }
+    },
+    {
+      "transcript_id": "00aa9546-8069-4b8d-a55f-6e1b0e0ca91a",
+      "filename": "20260220_President Trump Participates in a Working Breakfast with Governors.txt",
+      "name": "President Trump Participates in a Working Breakfast with Governors",
+      "youtube_url": "https://www.youtube.com/watch?v=A60a0kjALQs",
+      "upload_date": "20260220",
+      "event_tag": {
+        "id": "8fc08dda-c3a5-486b-a434-f298c88a72d9",
+        "transcript_id": "00aa9546-8069-4b8d-a55f-6e1b0e0ca91a",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "State Dining Room at the White House",
+        "event_time": "2026-02-20T14:22:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:21:49.233250Z",
+        "updated_at": "2026-05-24T13:21:49.233250Z"
+      }
+    },
+    {
+      "transcript_id": "f2f05cd4-707d-48f6-ab5a-d2bdec6a8108",
+      "filename": "20260219_President Trump Participates in the Board of Peace Event.txt",
+      "name": "President Trump Participates in the Board of Peace Event",
+      "youtube_url": "https://www.youtube.com/watch?v=vaPfxaSIc0w",
+      "upload_date": "20260219",
+      "event_tag": {
+        "id": "dbeb26db-81a6-47ac-bc1d-b8355f97f772",
+        "transcript_id": "f2f05cd4-707d-48f6-ab5a-d2bdec6a8108",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-02-19T14:01:40Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:37:45.277335Z",
+        "updated_at": "2026-05-25T12:37:45.277335Z"
+      }
+    },
+    {
+      "transcript_id": "f08f649b-7c7f-4625-b349-01d3d065520c",
+      "filename": "20260219_President Trump Delivers Remarks on the Economy_ Feb. 19_ 2026.txt",
+      "name": "President Trump Delivers Remarks on the Economy, Feb. 19, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=dSvsEvBq84o",
+      "upload_date": "20260219",
+      "event_tag": {
+        "id": "e17838d3-f21f-4493-9057-e46e1bbff2e2",
+        "transcript_id": "f08f649b-7c7f-4625-b349-01d3d065520c",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-02-19T21:17:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:34:15.910107Z",
+        "updated_at": "2026-06-10T16:34:15.910107Z"
+      }
+    },
+    {
+      "transcript_id": "57d6203e-4cbe-405a-a18d-fb58779b3c64",
+      "filename": "20260218_President Trump Participates in a Black History Month Reception.txt",
+      "name": "President Trump Participates in a Black History Month Reception",
+      "youtube_url": "https://www.youtube.com/watch?v=NS1xNWqJazY",
+      "upload_date": "20260218",
+      "event_tag": {
+        "id": "17ba551c-c887-4fd7-8131-ca80641e1129",
+        "transcript_id": "57d6203e-4cbe-405a-a18d-fb58779b3c64",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-02-18T20:06:55Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:34:14.985367Z",
+        "updated_at": "2026-06-10T16:34:14.985367Z"
+      }
+    },
+    {
+      "transcript_id": "a9a3eac7-d062-43c0-b8dd-f74d501b3b92",
+      "filename": "20260213_President Trump Delivers Remarks to Fort Bragg Military Families.txt",
+      "name": "President Trump Delivers Remarks to Fort Bragg Military Families",
+      "youtube_url": "https://www.youtube.com/watch?v=vVorrMd6lz0",
+      "upload_date": "20260213",
+      "event_tag": {
+        "id": "0fe5fe50-b709-4181-840c-0c627898b81e",
+        "transcript_id": "a9a3eac7-d062-43c0-b8dd-f74d501b3b92",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-02-13T18:28:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:35:01.289863Z",
+        "updated_at": "2026-05-25T12:35:01.289863Z"
+      }
+    },
+    {
+      "transcript_id": "d213fc02-5217-4758-83c5-b6d6d556db7d",
+      "filename": "20260212_President Trump Makes an Announcement with the Administrator of the EPA.txt",
+      "name": "President Trump Makes an Announcement with the Administrator of the EPA",
+      "youtube_url": "https://www.youtube.com/watch?v=JnkR8MbPKaE",
+      "upload_date": "20260212",
+      "event_tag": {
+        "id": "40f141b9-ad45-4171-9bb8-9cff7e5af0c3",
+        "transcript_id": "d213fc02-5217-4758-83c5-b6d6d556db7d",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-02-12T18:20:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:35:55.947990Z",
+        "updated_at": "2026-05-25T12:35:55.947990Z"
+      }
+    },
+    {
+      "transcript_id": "4647bbbf-afa4-46a2-9318-bee4c6a7c601",
+      "filename": "20260211_President Trump Participates in the Champion of Coal Event.txt",
+      "name": "President Trump Participates in the Champion of Coal Event",
+      "youtube_url": "https://www.youtube.com/watch?v=jBfm-1j30eE",
+      "upload_date": "20260211",
+      "event_tag": {
+        "id": "2ee432f0-63e7-429b-9baf-a161dd805bc6",
+        "transcript_id": "4647bbbf-afa4-46a2-9318-bee4c6a7c601",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2026-02-11T21:26:52Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:34:49.550763Z",
+        "updated_at": "2026-06-10T16:34:49.550763Z"
+      }
+    },
+    {
+      "transcript_id": "4b886d72-68ad-4dfe-a2bb-1caf03bcae58",
+      "filename": "20260207_President Trump Gaggles with Press on Air Force One En Route Palm Beach_ FL_ Feb.txt",
+      "name": "President Trump Gaggles with Press on Air Force One En Route Palm Beach, FL, Feb. 6, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=UUf_KtCoMvg",
+      "upload_date": "20260207",
+      "event_tag": {
+        "id": "542f93c6-366e-4c10-ba35-67091c4ded7e",
+        "transcript_id": "4b886d72-68ad-4dfe-a2bb-1caf03bcae58",
+        "event_type": "other",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Air Force One",
+        "event_time": "2026-02-07T00:24:17Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:23:22.512044Z",
+        "updated_at": "2026-06-10T16:23:22.512044Z"
+      }
+    },
+    {
+      "transcript_id": "4e6837be-6ac8-4ff2-8d27-34584aacad29",
+      "filename": "20260206_President Trump Makes an Announcement_ Feb. 5_ 2026.txt",
+      "name": "President Trump Makes an Announcement, Feb. 5, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=LYrCH0vwxSI",
+      "upload_date": "20260206",
+      "event_tag": {
+        "id": "f4b95799-8ae1-48d3-b1dc-9d2693994804",
+        "transcript_id": "4e6837be-6ac8-4ff2-8d27-34584aacad29",
+        "event_type": "announcement",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-02-05T23:55:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:23:21.145241Z",
+        "updated_at": "2026-06-10T16:23:21.145241Z"
+      }
+    },
+    {
+      "transcript_id": "06608ddc-542f-4262-a22c-3a739ea7e468",
+      "filename": "20260205_President Trump Attends the National Prayer Breakfast.txt",
+      "name": "President Trump Attends the National Prayer Breakfast",
+      "youtube_url": "https://www.youtube.com/watch?v=FE4LMtd1Sgc",
+      "upload_date": "20260205",
+      "event_tag": {
+        "id": "2cf52108-7f7a-48d0-86cb-8400e9482667",
+        "transcript_id": "06608ddc-542f-4262-a22c-3a739ea7e468",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "U.S. Capitol",
+        "event_time": "2026-02-05T13:26:51Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:51:00.576455Z",
+        "updated_at": "2026-05-24T12:51:00.576455Z"
+      }
+    },
+    {
+      "transcript_id": "7dccc372-6412-40f8-9098-3a50b94cb363",
+      "filename": "20260203_President Trump Participates in a Bill Signing_ Feb. 3_ 2026.txt",
+      "name": "President Trump Participates in a Bill Signing, Feb. 3, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=Gk6dQV40kfg",
+      "upload_date": "20260203",
+      "event_tag": {
+        "id": "3520b32b-5816-43c9-b1f8-5c419730a0c0",
+        "transcript_id": "7dccc372-6412-40f8-9098-3a50b94cb363",
+        "event_type": "signing_ceremony",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office of the White House",
+        "event_time": "2026-02-03T21:20:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:23:54.059749Z",
+        "updated_at": "2026-06-10T16:23:54.059749Z"
+      }
+    },
+    {
+      "transcript_id": "cbbf0c05-57bc-472a-b164-341f269da6dc",
+      "filename": "20260202_President Trump Participates in Signing Time_ Feb. 2_ 2026.txt",
+      "name": "President Trump Participates in Signing Time, Feb. 2, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=Y_vKqEbZw9s",
+      "upload_date": "20260202",
+      "event_tag": {
+        "id": "a667d47d-b937-449c-8e7e-b829afa4f345",
+        "transcript_id": "cbbf0c05-57bc-472a-b164-341f269da6dc",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office of the White House",
+        "event_time": "2026-02-02T21:12:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:50:31.134803Z",
+        "updated_at": "2026-05-24T12:50:31.134803Z"
+      }
+    },
+    {
+      "transcript_id": "22f71630-b377-4358-b6b4-0074dc43fd2f",
+      "filename": "20260201_President Trump Gaggles with Press on Air Force One En Route Palm Beach_ FL_ Jan.txt",
+      "name": "President Trump Gaggles with Press on Air Force One En Route Palm Beach, FL, Jan. 31, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=DcF7eCW4yOM",
+      "upload_date": "20260201",
+      "event_tag": {
+        "id": "60ff8d61-059a-4059-a76c-000f5f10ca97",
+        "transcript_id": "22f71630-b377-4358-b6b4-0074dc43fd2f",
+        "event_type": "other",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Air Force One",
+        "event_time": "2026-02-01T02:07:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:50:18.353254Z",
+        "updated_at": "2026-05-24T12:50:18.353254Z"
+      }
+    },
+    {
+      "transcript_id": "82b03f44-2b64-47cf-b3e6-2c9ed962c936",
+      "filename": "20260130_President Trump Signs Executive Orders_ Jan. 30_ 2026.txt",
+      "name": "President Trump Signs Executive Orders, Jan. 30, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=E9y3yfTAUaE",
+      "upload_date": "20260130",
+      "event_tag": {
+        "id": "5680c7c6-9d36-4648-bf58-7e471ba3a128",
+        "transcript_id": "82b03f44-2b64-47cf-b3e6-2c9ed962c936",
+        "event_type": "signing_ceremony",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-01-30T16:31:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:24:16.436332Z",
+        "updated_at": "2026-06-10T16:24:16.436332Z"
+      }
+    },
+    {
+      "transcript_id": "17546e68-d112-4efa-b8b9-7632071f484d",
+      "filename": "20260129_President Trump Makes an Announcement_ Jan. 29_ 2026.txt",
+      "name": "President Trump Makes an Announcement, Jan. 29, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=OE2NtBhozT4",
+      "upload_date": "20260129",
+      "event_tag": {
+        "id": "3392fad9-4cfd-4a6f-aab7-a20351f4eb22",
+        "transcript_id": "17546e68-d112-4efa-b8b9-7632071f484d",
+        "event_type": "announcement",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-01-29T22:25:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:23:21.897424Z",
+        "updated_at": "2026-06-10T16:23:21.897424Z"
+      }
+    },
+    {
+      "transcript_id": "7c435a20-a221-428c-82f4-a3f22cd3fe26",
+      "filename": "20260129_President Trump Participates in a Cabinet Meeting_ Jan. 29_ 2026.txt",
+      "name": "President Trump Participates in a Cabinet Meeting, Jan. 29, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=lT62rXuOAh4",
+      "upload_date": "20260129",
+      "event_tag": {
+        "id": "817fc10c-c8d1-4f80-b4d4-67036052d95b",
+        "transcript_id": "7c435a20-a221-428c-82f4-a3f22cd3fe26",
+        "event_type": "cabinet_meeting",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Cabinet Room of the White House",
+        "event_time": "2026-01-29T16:33:07Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:50:40.198767Z",
+        "updated_at": "2026-05-24T12:50:40.198767Z"
+      }
+    },
+    {
+      "transcript_id": "d510a10d-071b-4da2-8c4a-80b862232a64",
+      "filename": "20260128_President Trump Delivers Remarks on Trump Accounts.txt",
+      "name": "President Trump Delivers Remarks on Trump Accounts",
+      "youtube_url": "https://www.youtube.com/watch?v=ebH-gklOcl8",
+      "upload_date": "20260128",
+      "event_tag": {
+        "id": "0b173cb4-3d45-4ec7-b1da-b3b2d9e4ac20",
+        "transcript_id": "d510a10d-071b-4da2-8c4a-80b862232a64",
+        "event_type": "prepared_remarks",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Andrew W. Mellon Auditorium",
+        "event_time": "2026-01-28T15:55:51Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:24:17.029340Z",
+        "updated_at": "2026-06-10T16:24:17.029340Z"
+      }
+    },
+    {
+      "transcript_id": "044656dd-d8cb-4b80-8d47-0c6396e0e61d",
+      "filename": "20260127_President Trump Delivers Remarks_ Jan. 27_ 2026.txt",
+      "name": "President Trump Delivers Remarks, Jan. 27, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=T4bdgu-6YpY",
+      "upload_date": "20260127",
+      "event_tag": {
+        "id": "06418e79-7ade-40d5-8f3d-cc8b25a75821",
+        "transcript_id": "044656dd-d8cb-4b80-8d47-0c6396e0e61d",
+        "event_type": "prepared_remarks",
+        "city": "Clive",
+        "state": "Iowa",
+        "country": "US",
+        "venue": "Horizon Events Center",
+        "event_time": "2026-01-27T22:20:42Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:50:49.403171Z",
+        "updated_at": "2026-05-24T12:50:49.403171Z"
+      }
+    },
+    {
+      "transcript_id": "8b3fc8d2-1ef1-4981-a6a1-046aa75021cf",
+      "filename": "20260122_President Trump Participates in the Board of Peace Charter Announcement.txt",
+      "name": "President Trump Participates in the Board of Peace Charter Announcement",
+      "youtube_url": "https://www.youtube.com/watch?v=S0uSK9MaCdA",
+      "upload_date": "20260122",
+      "event_tag": {
+        "id": "83c91d0f-115e-40eb-9ff0-3884407178a2",
+        "transcript_id": "8b3fc8d2-1ef1-4981-a6a1-046aa75021cf",
+        "event_type": "announcement",
+        "city": "Davos",
+        "state": null,
+        "country": "Switzerland",
+        "venue": "World Economic Forum",
+        "event_time": "2026-01-22T09:21:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:25:09.888920Z",
+        "updated_at": "2026-06-10T16:25:09.888920Z"
+      }
+    },
+    {
+      "transcript_id": "2a973724-5a30-4495-8b06-53dd6a1e9f48",
+      "filename": "20260121_President Trump Participates in a Reception with Business Leaders.txt",
+      "name": "President Trump Participates in a Reception with Business Leaders",
+      "youtube_url": "https://www.youtube.com/watch?v=FnhWsFMAqO4",
+      "upload_date": "20260121",
+      "event_tag": {
+        "id": "f43b04d7-d02e-47a6-8619-41ff77a7e80a",
+        "transcript_id": "2a973724-5a30-4495-8b06-53dd6a1e9f48",
+        "event_type": "reception",
+        "city": "Davos",
+        "state": null,
+        "country": "Switzerland",
+        "venue": "World Economic Forum",
+        "event_time": "2026-01-21T17:32:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:24:15.842443Z",
+        "updated_at": "2026-06-10T16:24:15.842443Z"
+      }
+    },
+    {
+      "transcript_id": "ccad4c99-e432-4196-82f8-e3665bdbecf5",
+      "filename": "20260116_President Trump Participates in The Great_ Historic Investment in Rural Health R.txt",
+      "name": "President Trump Participates in The Great, Historic Investment in Rural Health Roundtable",
+      "youtube_url": "https://www.youtube.com/watch?v=roPFrhEclsc",
+      "upload_date": "20260116",
+      "event_tag": {
+        "id": "8bb0493f-83e8-4123-bd4a-ab9f4e89979e",
+        "transcript_id": "ccad4c99-e432-4196-82f8-e3665bdbecf5",
+        "event_type": "roundtable",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "East Room of the White House",
+        "event_time": "2026-01-16T15:02:01Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:25:42.232303Z",
+        "updated_at": "2026-06-10T16:25:42.232303Z"
+      }
+    },
+    {
+      "transcript_id": "a247610f-1e04-4476-ba9b-835abf9ec2b2",
+      "filename": "20260116_President Trump Participates in the Southern Boulevard Dedication Ceremony.txt",
+      "name": "President Trump Participates in the Southern Boulevard Dedication Ceremony",
+      "youtube_url": "https://www.youtube.com/watch?v=7qSdL-fVlfY",
+      "upload_date": "20260116",
+      "event_tag": {
+        "id": "f5cb5e0a-51ee-45d2-8c82-815142dbd912",
+        "transcript_id": "a247610f-1e04-4476-ba9b-835abf9ec2b2",
+        "event_type": "other",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Southern Boulevard",
+        "event_time": "2026-01-16T20:38:07Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:25:09.006455Z",
+        "updated_at": "2026-06-10T16:25:09.006455Z"
+      }
+    },
+    {
+      "transcript_id": "ccf9846b-8f2c-4da3-8c0d-f162e2d1604d",
+      "filename": "20260115_President Trump Participates in a Visit of the 2025 Stanley Cup Champions The Fl.txt",
+      "name": "President Trump Participates in a Visit of the 2025 Stanley Cup Champions The Florida Panthers",
+      "youtube_url": "https://www.youtube.com/watch?v=bauj7YDTNVk",
+      "upload_date": "20260115",
+      "event_tag": {
+        "id": "417f7a72-a9eb-44ef-91f8-489bb9337629",
+        "transcript_id": "ccf9846b-8f2c-4da3-8c0d-f162e2d1604d",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "East Room of the White House",
+        "event_time": "2026-01-15T21:08:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:24:48.247202Z",
+        "updated_at": "2026-06-10T16:24:48.247202Z"
+      }
+    },
+    {
+      "transcript_id": "566b7890-d340-4125-95a0-a3f5e64ee356",
+      "filename": "20260114_President Trump Participates in a Signing Ceremony_ Jan. 14_ 2026.txt",
+      "name": "President Trump Participates in a Signing Ceremony, Jan. 14, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=ydE7Gkl6MmI",
+      "upload_date": "20260114",
+      "event_tag": {
+        "id": "738eb0b0-ba45-4159-9b74-4ac513c513e1",
+        "transcript_id": "566b7890-d340-4125-95a0-a3f5e64ee356",
+        "event_type": "signing_ceremony",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office of the White House",
+        "event_time": "2026-01-14T19:57:02Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T12:51:14.392601Z",
+        "updated_at": "2026-05-24T12:51:14.392601Z"
+      }
+    },
+    {
+      "transcript_id": "b82efbb1-9da6-4ce6-97fe-498b32e9aa06",
+      "filename": "20260113_President Trump Delivers Remarks to the Detroit Economic Club.txt",
+      "name": "President Trump Delivers Remarks to the Detroit Economic Club",
+      "youtube_url": "https://www.youtube.com/watch?v=lGTJgtL_QYw",
+      "upload_date": "20260113",
+      "event_tag": {
+        "id": "782c6dc0-348d-4f54-9fa1-4cd1fe0319a4",
+        "transcript_id": "b82efbb1-9da6-4ce6-97fe-498b32e9aa06",
+        "event_type": "prepared_remarks",
+        "city": "Detroit",
+        "state": "Michigan",
+        "country": "US",
+        "venue": "MotorCity Casino Sound Board theatre",
+        "event_time": "2026-01-13T18:46:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:17:53.703458Z",
+        "updated_at": "2026-05-24T13:17:53.703458Z"
+      }
+    },
+    {
+      "transcript_id": "5ddf270a-86c6-4c5c-af8f-2a8da96e3c6d",
+      "filename": "20260109_President Trump Participates in a Meeting with Oil and Gas Executives.txt",
+      "name": "President Trump Participates in a Meeting with Oil and Gas Executives",
+      "youtube_url": "https://www.youtube.com/watch?v=iaE8lw8_x30",
+      "upload_date": "20260109",
+      "event_tag": {
+        "id": "ed54b4d6-a0b6-44ec-8791-f9c32e004a27",
+        "transcript_id": "5ddf270a-86c6-4c5c-af8f-2a8da96e3c6d",
+        "event_type": "other",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-01-09T19:52:02Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:26:03.281507Z",
+        "updated_at": "2026-06-10T16:26:03.281507Z"
+      }
+    },
+    {
+      "transcript_id": "f5e997bd-add2-48f2-84d1-d44ce2a10338",
+      "filename": "20260106_President Trump Delivers Remarks at the House GOP Member Retreat.txt",
+      "name": "President Trump Delivers Remarks at the House GOP Member Retreat",
+      "youtube_url": "https://www.youtube.com/watch?v=N6tzCCyfwFM",
+      "upload_date": "20260106",
+      "event_tag": {
+        "id": "e894329b-e17c-4111-b1b3-0512cd0ea3bf",
+        "transcript_id": "f5e997bd-add2-48f2-84d1-d44ce2a10338",
+        "event_type": "prepared_remarks",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Trump-Kennedy Center",
+        "event_time": "2026-01-06T15:02:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:26:36.233200Z",
+        "updated_at": "2026-06-10T16:26:36.233200Z"
+      }
+    },
+    {
+      "transcript_id": "04f6ac4b-a1ba-4917-9a6e-6e1c8cb6991b",
+      "filename": "20260103_President Trump Holds a Press Conference_ Jan. 3_ 2026.txt",
+      "name": "President Trump Holds a Press Conference, Jan. 3, 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=SsdkClL2_bg",
+      "upload_date": "20260103",
+      "event_tag": {
+        "id": "883511de-79a9-42df-bba5-e13d597c6ce0",
+        "transcript_id": "04f6ac4b-a1ba-4917-9a6e-6e1c8cb6991b",
+        "event_type": "press_conference",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": null,
+        "event_time": "2026-01-03T15:51:22Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:26:04.836065Z",
+        "updated_at": "2026-06-10T16:26:04.836065Z"
+      }
+    },
+    {
+      "transcript_id": "07693371-7291-4bea-9992-848eab708aa4",
+      "filename": "20251229_President Trump and the Prime Minister of Israel Deliver Remarks.txt",
+      "name": "President Trump and the Prime Minister of Israel Deliver Remarks",
+      "youtube_url": "https://www.youtube.com/watch?v=CJq1ijIQu1w",
+      "upload_date": "20251229",
+      "event_tag": {
+        "id": "08f7e9cf-09d4-4ab2-bbef-397438d020cf",
+        "transcript_id": "07693371-7291-4bea-9992-848eab708aa4",
+        "event_type": "prepared_remarks",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Mar-a-Lago",
+        "event_time": "2025-12-29T20:43:51Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:26:06.737567Z",
+        "updated_at": "2026-06-10T16:26:06.737567Z"
+      }
+    },
+    {
+      "transcript_id": "697d89df-46b9-4397-9599-e512fd5bfc00",
+      "filename": "20251229_President Trump Participates in a Bilateral Meeting with the Prime Minister of I.txt",
+      "name": "President Trump Participates in a Bilateral Meeting with the Prime Minister of Israel",
+      "youtube_url": "https://www.youtube.com/watch?v=J7ju73zJHK4",
+      "upload_date": "20251229",
+      "event_tag": {
+        "id": "089233c1-95dd-45c6-b1bd-f44870415821",
+        "transcript_id": "697d89df-46b9-4397-9599-e512fd5bfc00",
+        "event_type": "bilateral_meeting",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Mar-a-Lago",
+        "event_time": "2025-12-29T18:16:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:28:47.267432Z",
+        "updated_at": "2026-06-10T16:28:47.267432Z"
+      }
+    },
+    {
+      "transcript_id": "cfb2a0e7-bef2-46fa-b1a3-62d70e46c1a4",
+      "filename": "20251228_President Trump Delivers Remarks in a Bilateral Meeting with the President of Uk.txt",
+      "name": "President Trump Delivers Remarks in a Bilateral Meeting with the President of Ukraine",
+      "youtube_url": "https://www.youtube.com/watch?v=w-rK1_CmG5A",
+      "upload_date": "20251228",
+      "event_tag": {
+        "id": "0ba85b18-3f32-414b-b8a3-fd61995aa28a",
+        "transcript_id": "cfb2a0e7-bef2-46fa-b1a3-62d70e46c1a4",
+        "event_type": "bilateral_meeting",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Oval Office",
+        "event_time": "2025-12-28T21:03:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:18:50.129381Z",
+        "updated_at": "2026-05-24T13:18:50.129381Z"
+      }
+    },
+    {
+      "transcript_id": "ecf2bdea-12ac-41aa-94e7-c91f1759141b",
+      "filename": "20251228_President Trump Participates in a Bilateral Meeting with the President of Ukrain.txt",
+      "name": "President Trump Participates in a Bilateral Meeting with the President of Ukraine",
+      "youtube_url": "https://www.youtube.com/watch?v=lhqNO6c0iuI",
+      "upload_date": "20251228",
+      "event_tag": {
+        "id": "61b86bfa-783d-418e-ba20-0251667a8cb7",
+        "transcript_id": "ecf2bdea-12ac-41aa-94e7-c91f1759141b",
+        "event_type": "bilateral_meeting",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Oval Office, The White House",
+        "event_time": "2025-12-28T18:24:22Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:28:48.474995Z",
+        "updated_at": "2026-06-10T16:28:48.474995Z"
+      }
+    },
+    {
+      "transcript_id": "db1ea33e-41b4-4f93-8e96-76037a025989",
+      "filename": "20251224_President Trump Participates in NORAD Santa Calls.txt",
+      "name": "President Trump Participates in NORAD Santa Calls",
+      "youtube_url": "https://www.youtube.com/watch?v=Cjioih3LWng",
+      "upload_date": "20251224",
+      "event_tag": {
+        "id": "39607265-a4cf-4f24-b786-ff6484233615",
+        "transcript_id": "db1ea33e-41b4-4f93-8e96-76037a025989",
+        "event_type": "other",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Mar-a-Lago",
+        "event_time": "2025-12-24T21:38:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:26:57.595277Z",
+        "updated_at": "2026-06-10T16:26:57.595277Z"
+      }
+    },
+    {
+      "transcript_id": "00e93def-87f5-4ec4-bfbb-d4e12a939d94",
+      "filename": "20251222_President Trump Makes an Announcement with the Secretary of War and the Secretar.txt",
+      "name": "President Trump Makes an Announcement with the Secretary of War and the Secretary of the Navy",
+      "youtube_url": "https://www.youtube.com/watch?v=_53yJh2uuIc",
+      "upload_date": "20251222",
+      "event_tag": {
+        "id": "2a123474-2341-408f-a1a5-ee0ecac5fc52",
+        "transcript_id": "00e93def-87f5-4ec4-bfbb-d4e12a939d94",
+        "event_type": "announcement",
+        "city": "Palm Beach",
+        "state": "Florida",
+        "country": "US",
+        "venue": "Mar-a-Lago",
+        "event_time": "2025-12-22T21:49:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:18:16.404833Z",
+        "updated_at": "2026-05-24T13:18:16.404833Z"
+      }
+    },
+    {
+      "transcript_id": "25ea5b2f-95e4-48eb-b2d9-c8bbe2dbe858",
+      "filename": "20251220_President Trump Delivers Remarks on the Economy_ Dec. 19_ 2025.txt",
+      "name": "President Trump Delivers Remarks on the Economy, Dec. 19, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=FKU63HY1KJQ",
+      "upload_date": "20251220",
+      "event_tag": {
+        "id": "e38a5012-e046-4a77-9e00-f1cd83a3a281",
+        "transcript_id": "25ea5b2f-95e4-48eb-b2d9-c8bbe2dbe858",
+        "event_type": "prepared_remarks",
+        "city": "Rocky Mount",
+        "state": "North Carolina",
+        "country": "US",
+        "venue": null,
+        "event_time": "2025-12-20T01:47:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:18:31.888271Z",
+        "updated_at": "2026-05-24T13:18:31.888271Z"
+      }
+    },
+    {
+      "transcript_id": "62581e14-fb31-4298-8b1d-f4fb9ffafadc",
+      "filename": "20251219_President Trump Makes an Announcement_ Dec. 19_ 2025.txt",
+      "name": "President Trump Makes an Announcement, Dec. 19, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=16OUgQjUQQs",
+      "upload_date": "20251219",
+      "event_tag": {
+        "id": "07ac6326-2d6d-48dd-b4db-15ccdb5d652f",
+        "transcript_id": "62581e14-fb31-4298-8b1d-f4fb9ffafadc",
+        "event_type": "announcement",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "Roosevelt Room of the White House",
+        "event_time": "2025-12-19T18:58:38Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:26:58.452263Z",
+        "updated_at": "2026-06-10T16:26:58.452263Z"
+      }
+    },
+    {
+      "transcript_id": "976b5880-d7f4-4bf2-a3bd-b72159774572",
+      "filename": "20251218_President Trump Signs an Executive Order_ Dec. 18_ 2025.txt",
+      "name": "President Trump Signs an Executive Order, Dec. 18, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=DTVbPs1RoKo",
+      "upload_date": "20251218",
+      "event_tag": {
+        "id": "4316441b-15c3-4735-8d15-0a9ee6835b11",
+        "transcript_id": "976b5880-d7f4-4bf2-a3bd-b72159774572",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-18T18:42:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:36:50.331950Z",
+        "updated_at": "2026-05-25T12:36:50.331950Z"
+      }
+    },
+    {
+      "transcript_id": "e41fd2a9-2edb-43c6-ad0f-1c63c4a54200",
+      "filename": "20251218_President Trump Delivers an Address to the Nation_ Dec. 17_ 2025.txt",
+      "name": "President Trump Delivers an Address to the Nation, Dec. 17, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=DpLvGmPetds",
+      "upload_date": "20251218",
+      "event_tag": {
+        "id": "5c849da6-ef6e-47b3-830e-5428a3d63220",
+        "transcript_id": "e41fd2a9-2edb-43c6-ad0f-1c63c4a54200",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-18T01:52:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:35:10.681561Z",
+        "updated_at": "2026-06-10T16:35:10.681561Z"
+      }
+    },
+    {
+      "transcript_id": "d04e6a14-00a1-434a-858d-ac916109ffa9",
+      "filename": "20251217_President Trump Participates in a Hanukkah Reception.txt",
+      "name": "President Trump Participates in a Hanukkah Reception",
+      "youtube_url": "https://www.youtube.com/watch?v=u3jkA1cHPKc",
+      "upload_date": "20251217",
+      "event_tag": {
+        "id": "66b3f2c0-0982-40e0-9674-4c8fe1a96b7a",
+        "transcript_id": "d04e6a14-00a1-434a-858d-ac916109ffa9",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-17T01:21:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:35:12.328012Z",
+        "updated_at": "2026-06-10T16:35:12.328012Z"
+      }
+    },
+    {
+      "transcript_id": "eab75ff0-16fc-4b2d-8ef3-e41a5fbbc8db",
+      "filename": "20251212_President Trump Delivers Remarks at the Congressional Ball.txt",
+      "name": "President Trump Delivers Remarks at the Congressional Ball",
+      "youtube_url": "https://www.youtube.com/watch?v=trU0vxQ-syo",
+      "upload_date": "20251212",
+      "event_tag": {
+        "id": "1791f78a-cbd6-43a2-a8fb-bb13fa0e5f0a",
+        "transcript_id": "eab75ff0-16fc-4b2d-8ef3-e41a5fbbc8db",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-12T01:06:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:38:39.813804Z",
+        "updated_at": "2026-05-25T12:38:39.813804Z"
+      }
+    },
+    {
+      "transcript_id": "271f7837-02c5-4e3a-890e-0995277123f9",
+      "filename": "20251212_President Trump Participates in a Bill Signing Ceremony_ Dec. 12_ 2025.txt",
+      "name": "President Trump Participates in a Bill Signing Ceremony, Dec. 12, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=7W5RHSSYrd0",
+      "upload_date": "20251212",
+      "event_tag": {
+        "id": "28afadca-883a-4924-9ee7-212165824f58",
+        "transcript_id": "271f7837-02c5-4e3a-890e-0995277123f9",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-12T22:20:32Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:39:33.971825Z",
+        "updated_at": "2026-05-25T12:39:33.971825Z"
+      }
+    },
+    {
+      "transcript_id": "9271aec7-a1c2-4e3f-b1c9-8576654c23e2",
+      "filename": "20251210_President Trump Participates in a Roundtable_ Dec. 10_ 2025.txt",
+      "name": "President Trump Participates in a Roundtable, Dec. 10, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=PzsmWY4ETK8",
+      "upload_date": "20251210",
+      "event_tag": {
+        "id": "b1f1679c-5096-44c8-a05a-11e019b0d4b6",
+        "transcript_id": "9271aec7-a1c2-4e3f-b1c9-8576654c23e2",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-10T19:48:17Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:36:06.384129Z",
+        "updated_at": "2026-06-10T16:36:06.384129Z"
+      }
+    },
+    {
+      "transcript_id": "1e74a437-8861-4cb1-aa80-9ee9a9cd4ee0",
+      "filename": "20251208_President Trump Participates in a Roundtable.txt",
+      "name": "President Trump Participates in a Roundtable",
+      "youtube_url": "https://www.youtube.com/watch?v=rlwh8i70q-c",
+      "upload_date": "20251208",
+      "event_tag": {
+        "id": "4767e6ad-905c-4f90-b139-d540f8c611ef",
+        "transcript_id": "1e74a437-8861-4cb1-aa80-9ee9a9cd4ee0",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-08T19:22:52Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:40:28.262712Z",
+        "updated_at": "2026-05-25T12:40:28.262712Z"
+      }
+    },
+    {
+      "transcript_id": "c9860462-70a4-4b56-bce7-7172dd085a9f",
+      "filename": "20251207_President Trump Attends the State Department Kennedy Center Honors Medal Present.txt",
+      "name": "President Trump Attends the State Department Kennedy Center Honors Medal Presentation Dinner",
+      "youtube_url": "https://www.youtube.com/watch?v=WPgHy7hpr1I",
+      "upload_date": "20251207",
+      "event_tag": {
+        "id": "2ceda247-850e-4c9f-9ae8-1ee6d97bcc40",
+        "transcript_id": "c9860462-70a4-4b56-bce7-7172dd085a9f",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-07T00:54:01Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:41:22.685323Z",
+        "updated_at": "2026-05-25T12:41:22.685323Z"
+      }
+    },
+    {
+      "transcript_id": "b040363b-568a-44a6-b1b5-e64ce178371a",
+      "filename": "20251207_President Trump and the First Lady Arrive at the Kennedy Center Honors.txt",
+      "name": "President Trump and the First Lady Arrive at the Kennedy Center Honors",
+      "youtube_url": "https://www.youtube.com/watch?v=WwBzHksi9QE",
+      "upload_date": "20251207",
+      "event_tag": {
+        "id": "ab23031e-6418-4cd9-b4d2-ce009cd37b66",
+        "transcript_id": "b040363b-568a-44a6-b1b5-e64ce178371a",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-07T23:17:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:43:13.753515Z",
+        "updated_at": "2026-05-25T12:43:13.753515Z"
+      }
+    },
+    {
+      "transcript_id": "79bdbbed-3ab1-4e8e-8a86-2ecf20ed9c4d",
+      "filename": "20251206_President Trump Participates in a Kennedy Center Honors Medal Presentation.txt",
+      "name": "President Trump Participates in a Kennedy Center Honors Medal Presentation",
+      "youtube_url": "https://www.youtube.com/watch?v=MoEAlhUTVnE",
+      "upload_date": "20251206",
+      "event_tag": {
+        "id": "8c178cb3-bcfb-474f-83db-3a41fb3cda2e",
+        "transcript_id": "79bdbbed-3ab1-4e8e-8a86-2ecf20ed9c4d",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-06T22:11:01Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:44:08.004964Z",
+        "updated_at": "2026-05-25T12:44:08.004964Z"
+      }
+    },
+    {
+      "transcript_id": "e6a66ddd-f3d1-4fc9-bf5f-a65419b919d2",
+      "filename": "20251204_President Trump Participates in a Signing Ceremony with the Presidents of Rwanda.txt",
+      "name": "President Trump Participates in a Signing Ceremony with the Presidents of Rwanda and Congo",
+      "youtube_url": "https://www.youtube.com/watch?v=s2nPSurnD8o",
+      "upload_date": "20251204",
+      "event_tag": {
+        "id": "3ada5657-b58b-48be-830d-c51be0a13597",
+        "transcript_id": "e6a66ddd-f3d1-4fc9-bf5f-a65419b919d2",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-04T17:55:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:45:56.800934Z",
+        "updated_at": "2026-05-25T12:45:56.800934Z"
+      }
+    },
+    {
+      "transcript_id": "2e7c951c-2536-45ac-b1bb-dec2ef8a92bc",
+      "filename": "20251204_President Trump and The First Lady Participate in the National Christmas Tree Li.txt",
+      "name": "President Trump and The First Lady Participate in the National Christmas Tree Lighting",
+      "youtube_url": "https://www.youtube.com/watch?v=rPeJpgmKq4w",
+      "upload_date": "20251204",
+      "event_tag": {
+        "id": "061cea4b-4ee7-49c2-a96a-bd330afa2fa8",
+        "transcript_id": "2e7c951c-2536-45ac-b1bb-dec2ef8a92bc",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-04T23:16:47Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:45:02.694728Z",
+        "updated_at": "2026-05-25T12:45:02.694728Z"
+      }
+    },
+    {
+      "transcript_id": "d3ca02cf-cbe4-465a-a350-2475b1bc4cf5",
+      "filename": "20251203_President Trump Makes an Announcement_ Dec. 3_ 2025.txt",
+      "name": "President Trump Makes an Announcement, Dec. 3, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=2Ey5TwGj7Cc",
+      "upload_date": "20251203",
+      "event_tag": {
+        "id": "37519eaa-2ea6-4af5-b70a-8f43828debf1",
+        "transcript_id": "d3ca02cf-cbe4-465a-a350-2475b1bc4cf5",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-03T20:19:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:46:51.161276Z",
+        "updated_at": "2026-05-25T12:46:51.161276Z"
+      }
+    },
+    {
+      "transcript_id": "c80cedfa-349f-4589-8812-4667904fdb66",
+      "filename": "20251202_President Trump Hosts a Cabinet Meeting_ Dec. 2_ 2025.txt",
+      "name": "President Trump Hosts a Cabinet Meeting, Dec. 2, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=pZSd7jn9CSc",
+      "upload_date": "20251202",
+      "event_tag": {
+        "id": "f80d51d1-62f4-4620-9309-2e5f48201092",
+        "transcript_id": "c80cedfa-349f-4589-8812-4667904fdb66",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-02T16:46:52Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:50:32.587233Z",
+        "updated_at": "2026-05-25T12:50:32.587233Z"
+      }
+    },
+    {
+      "transcript_id": "280c2780-8ef3-4c7f-ac58-a9f4d016cbfd",
+      "filename": "20251202_President Trump Makes an Announcement_ Dec. 2_ 2025.txt",
+      "name": "President Trump Makes an Announcement, Dec. 2, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=aGby18D7SOg",
+      "upload_date": "20251202",
+      "event_tag": {
+        "id": "29a90f31-a433-4462-b703-4a12e9ffc6d5",
+        "transcript_id": "280c2780-8ef3-4c7f-ac58-a9f4d016cbfd",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-12-02T19:49:27Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:47:45.857482Z",
+        "updated_at": "2026-05-25T12:47:45.857482Z"
+      }
+    },
+    {
+      "transcript_id": "736de114-a02b-4475-8c4d-60b22e6ab137",
+      "filename": "20251128_President Trump Participates in a Call with Service Members.txt",
+      "name": "President Trump Participates in a Call with Service Members",
+      "youtube_url": "https://www.youtube.com/watch?v=rKVM9pn0RZY",
+      "upload_date": "20251128",
+      "event_tag": {
+        "id": "cfa8229d-fa07-473c-804a-ffedda9174e7",
+        "transcript_id": "736de114-a02b-4475-8c4d-60b22e6ab137",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-27T23:14:12Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:48:40.868875Z",
+        "updated_at": "2026-05-25T12:48:40.868875Z"
+      }
+    },
+    {
+      "transcript_id": "bc4e37b2-0dfd-4b82-9c0a-3a4a96bf1bd3",
+      "filename": "20251127_President Trump Delivers Remarks_ Nov. 26_ 2025.txt",
+      "name": "President Trump Delivers Remarks, Nov. 26, 2025",
+      "youtube_url": "https://www.youtube.com/watch?v=dvcjIxvrCD4",
+      "upload_date": "20251127",
+      "event_tag": {
+        "id": "52b6f3b4-286b-42af-a2c6-c350c16031c4",
+        "transcript_id": "bc4e37b2-0dfd-4b82-9c0a-3a4a96bf1bd3",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-27T02:05:47Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:37:53.654557Z",
+        "updated_at": "2026-06-10T16:37:53.654557Z"
+      }
+    },
+    {
+      "transcript_id": "73fa275f-0992-4a33-9bd9-4c5e5591d008",
+      "filename": "20251125_President Trump and The First Lady Participate in the Thanksgiving Turkey Pardon.txt",
+      "name": "President Trump and The First Lady Participate in the Thanksgiving Turkey Pardoning",
+      "youtube_url": "https://www.youtube.com/watch?v=ByUIHf7H4G4",
+      "upload_date": "20251125",
+      "event_tag": {
+        "id": "3bcf7928-6f95-458d-8913-ad49b205573b",
+        "transcript_id": "73fa275f-0992-4a33-9bd9-4c5e5591d008",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-25T16:57:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:37:54.464907Z",
+        "updated_at": "2026-06-10T16:37:54.464907Z"
+      }
+    },
+    {
+      "transcript_id": "b0277297-98a6-42cb-82d2-9647c93428eb",
+      "filename": "20251119_President Trump and the First Lady Participate in a Dinner with the Crown Prince.txt",
+      "name": "President Trump and the First Lady Participate in a Dinner with the Crown Prince of Saudi Arabia",
+      "youtube_url": "https://www.youtube.com/watch?v=n0CpuSf99bI",
+      "upload_date": "20251119",
+      "event_tag": {
+        "id": "0643424c-906a-4871-9ae1-0db84430d077",
+        "transcript_id": "b0277297-98a6-42cb-82d2-9647c93428eb",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-19T00:36:36Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:49:37.545922Z",
+        "updated_at": "2026-05-25T12:49:37.545922Z"
+      }
+    },
+    {
+      "transcript_id": "4e88b624-fc4c-41b1-8e22-9f6643f95398",
+      "filename": "20251118_President Trump Participates in a Bilateral Meeting with the Crown Prince of Sau.txt",
+      "name": "President Trump Participates in a Bilateral Meeting with the Crown Prince of Saudi Arabia",
+      "youtube_url": "https://www.youtube.com/watch?v=72xAuoqax-Y",
+      "upload_date": "20251118",
+      "event_tag": {
+        "id": "62c9d2a8-5606-49a0-a60d-16abfe571202",
+        "transcript_id": "4e88b624-fc4c-41b1-8e22-9f6643f95398",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-18T16:35:42Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:51:27.180727Z",
+        "updated_at": "2026-05-25T12:51:27.180727Z"
+      }
+    },
+    {
+      "transcript_id": "ba5479c1-dddb-427f-bdeb-3d845a4bb3f7",
+      "filename": "20251117_President Trump Meets with the White House Task Force on the FIFA World Cup 2026.txt",
+      "name": "President Trump Meets with the White House Task Force on the FIFA World Cup 2026",
+      "youtube_url": "https://www.youtube.com/watch?v=50-8fwZdnCQ",
+      "upload_date": "20251117",
+      "event_tag": {
+        "id": "891fbee7-a374-4fd1-8707-42714459a678",
+        "transcript_id": "ba5479c1-dddb-427f-bdeb-3d845a4bb3f7",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-17T19:39:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:52:22.645504Z",
+        "updated_at": "2026-05-25T12:52:22.645504Z"
+      }
+    },
+    {
+      "transcript_id": "0a0ff398-51d3-44bc-b7a6-e6c73a13590a",
+      "filename": "20251113_President Trump Signs Senate Amendment to H.R. 5371.txt",
+      "name": "President Trump Signs Senate Amendment to H.R. 5371",
+      "youtube_url": "https://www.youtube.com/watch?v=yY76b8-fM-Q",
+      "upload_date": "20251113",
+      "event_tag": {
+        "id": "4e0250b2-2254-4b91-9c22-8790e64b8ce2",
+        "transcript_id": "0a0ff398-51d3-44bc-b7a6-e6c73a13590a",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-13T03:05:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:53:19.314454Z",
+        "updated_at": "2026-05-25T12:53:19.314454Z"
+      }
+    },
+    {
+      "transcript_id": "4fd7a4ee-08f7-4c56-87c4-434842095827",
+      "filename": "20251113_President Trump and the First Lady Participate in an Executive Order Signing.txt",
+      "name": "President Trump and the First Lady Participate in an Executive Order Signing",
+      "youtube_url": "https://www.youtube.com/watch?v=wMMI59BmzuA",
+      "upload_date": "20251113",
+      "event_tag": {
+        "id": "297ad833-71bd-4251-ad0f-f9332891cec7",
+        "transcript_id": "4fd7a4ee-08f7-4c56-87c4-434842095827",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-13T19:03:01Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:38:49.784349Z",
+        "updated_at": "2026-06-10T16:38:49.784349Z"
+      }
+    },
+    {
+      "transcript_id": "f6e939de-5208-486e-beb6-58390ab6d919",
+      "filename": "20251111_President Trump and Vice President JD Vance Deliver Remarks.txt",
+      "name": "President Trump and Vice President JD Vance Deliver Remarks",
+      "youtube_url": "https://www.youtube.com/watch?v=9TgZM1Ri1hQ",
+      "upload_date": "20251111",
+      "event_tag": {
+        "id": "142e14c0-893e-4860-b1a7-4cce21b16a58",
+        "transcript_id": "f6e939de-5208-486e-beb6-58390ab6d919",
+        "event_type": "prepared_remarks",
+        "city": "Arlington",
+        "state": "Virginia",
+        "country": "US",
+        "venue": "Arlington National Cemetery",
+        "event_time": "2025-11-11T16:23:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:27:52.516085Z",
+        "updated_at": "2026-06-10T16:27:52.516085Z"
+      }
+    },
+    {
+      "transcript_id": "664fde4d-8a1d-4f4d-a1e2-9e367125cfe9",
+      "filename": "20251110_President Trump Participates in a Swearing-in Ceremony for the Ambassador to the.txt",
+      "name": "President Trump Participates in a Swearing-in Ceremony for the Ambassador to the Republic of India",
+      "youtube_url": "https://www.youtube.com/watch?v=gd4xJwjyW6w",
+      "upload_date": "20251110",
+      "event_tag": {
+        "id": "49670408-45c6-4dd2-bf25-bf7f51d5abdc",
+        "transcript_id": "664fde4d-8a1d-4f4d-a1e2-9e367125cfe9",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-10T20:37:41Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:54:14.446889Z",
+        "updated_at": "2026-05-25T12:54:14.446889Z"
+      }
+    },
+    {
+      "transcript_id": "a7205c89-d96c-4ae8-9f45-f1c0a3a099da",
+      "filename": "20251107_President Trump Participates in a Bilateral Lunch with the Prime Minister of Hun.txt",
+      "name": "President Trump Participates in a Bilateral Lunch with the Prime Minister of Hungary",
+      "youtube_url": "https://www.youtube.com/watch?v=7_DqpIeFAxg",
+      "upload_date": "20251107",
+      "event_tag": {
+        "id": "041181dd-05fc-4967-a87b-f31170b537e5",
+        "transcript_id": "a7205c89-d96c-4ae8-9f45-f1c0a3a099da",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-07T17:33:11Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:55:08.705666Z",
+        "updated_at": "2026-05-25T12:55:08.705666Z"
+      }
+    },
+    {
+      "transcript_id": "436d6a7f-ab85-497d-add2-028fcd550d99",
+      "filename": "20251107_President Trump Participates in a Dinner with Central Asian Countries.txt",
+      "name": "President Trump Participates in a Dinner with Central Asian Countries",
+      "youtube_url": "https://www.youtube.com/watch?v=xr8czDU76Fs",
+      "upload_date": "20251107",
+      "event_tag": {
+        "id": "beb43b16-b8a8-4107-93e4-8a59f23fa70c",
+        "transcript_id": "436d6a7f-ab85-497d-add2-028fcd550d99",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-07T00:06:26Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:56:03.520703Z",
+        "updated_at": "2026-05-25T12:56:03.520703Z"
+      }
+    },
+    {
+      "transcript_id": "aa7085d1-1cd5-41b8-8610-6d08fe61ecc8",
+      "filename": "20251105_President Trump Delivers Remarks at the America Business Forum Miami.txt",
+      "name": "President Trump Delivers Remarks at the America Business Forum Miami",
+      "youtube_url": "https://www.youtube.com/watch?v=6xVpv3kfvv8",
+      "upload_date": "20251105",
+      "event_tag": {
+        "id": "72d98043-e859-45bc-9433-0555b56b4764",
+        "transcript_id": "aa7085d1-1cd5-41b8-8610-6d08fe61ecc8",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-11-05T18:16:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:40:38.755255Z",
+        "updated_at": "2026-06-10T16:40:38.755255Z"
+      }
+    },
+    {
+      "transcript_id": "6a648ee8-43dd-4893-97a6-6ddb5b51c0da",
+      "filename": "20251030_President Trump and the First Lady Participate in Halloween at The White House.txt",
+      "name": "President Trump and the First Lady Participate in Halloween at The White House",
+      "youtube_url": "https://www.youtube.com/watch?v=--RrhTSk2L8",
+      "upload_date": "20251030",
+      "event_tag": {
+        "id": "fd315f0d-83db-4311-8ba3-19de0dd4e0af",
+        "transcript_id": "6a648ee8-43dd-4893-97a6-6ddb5b51c0da",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-30T21:26:52Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:57:00.144137Z",
+        "updated_at": "2026-05-25T12:57:00.144137Z"
+      }
+    },
+    {
+      "transcript_id": "4e6b1b3a-9087-4b7c-93d1-aa732c929bbf",
+      "filename": "20251029_President Trump Participates in a High Honor Presentation.txt",
+      "name": "President Trump Participates in a High Honor Presentation",
+      "youtube_url": "https://www.youtube.com/watch?v=fDc8HDSMO9Y",
+      "upload_date": "20251029",
+      "event_tag": {
+        "id": "4b2c2c93-d04f-4fef-a6d6-9386907b4440",
+        "transcript_id": "4e6b1b3a-9087-4b7c-93d1-aa732c929bbf",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-29T05:08:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:59:42.935282Z",
+        "updated_at": "2026-05-25T12:59:42.935282Z"
+      }
+    },
+    {
+      "transcript_id": "19bc5d38-3ea1-4e83-8d00-096acfea7602",
+      "filename": "20251029_President Trump Arrives at Busan_ South Korea.txt",
+      "name": "President Trump Arrives at Busan, South Korea",
+      "youtube_url": "https://www.youtube.com/watch?v=0l6yIs0uqwI",
+      "upload_date": "20251029",
+      "event_tag": {
+        "id": "6addb70a-7b33-405e-973f-35b00bf0c729",
+        "transcript_id": "19bc5d38-3ea1-4e83-8d00-096acfea7602",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-29T02:45:07Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T13:00:37.466848Z",
+        "updated_at": "2026-05-25T13:00:37.466848Z"
+      }
+    },
+    {
+      "transcript_id": "a82edd4a-7f69-4ea3-80a7-fb0cac614822",
+      "filename": "20251029_President Trump Delivers Keynote Remarks at APEC CEOs Luncheon.txt",
+      "name": "President Trump Delivers Keynote Remarks at APEC CEOs Luncheon",
+      "youtube_url": "https://www.youtube.com/watch?v=eDOKTKbcJC4",
+      "upload_date": "20251029",
+      "event_tag": {
+        "id": "1469915f-3684-4412-9a7a-8f9230fe5a7d",
+        "transcript_id": "a82edd4a-7f69-4ea3-80a7-fb0cac614822",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-29T03:55:12Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:40:13.547730Z",
+        "updated_at": "2026-06-10T16:40:13.547730Z"
+      }
+    },
+    {
+      "transcript_id": "56545ad2-06ee-466a-9ab4-333ba437b581",
+      "filename": "20251029_President Trump Participates in Bilateral Meeting with the President of the Repu.txt",
+      "name": "President Trump Participates in Bilateral Meeting with the President of the Republic of Korea",
+      "youtube_url": "https://www.youtube.com/watch?v=QOWixWCxakk",
+      "upload_date": "20251029",
+      "event_tag": {
+        "id": "11785632-5208-4a58-8a99-cbb9f2142e73",
+        "transcript_id": "56545ad2-06ee-466a-9ab4-333ba437b581",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-29T05:40:31Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:58:48.914386Z",
+        "updated_at": "2026-05-25T12:58:48.914386Z"
+      }
+    },
+    {
+      "transcript_id": "b1a15ebd-513b-4ada-ad5b-5efd91e28c06",
+      "filename": "20251029_President Trump Participates in a Dinner Hosted by the President of the Republic.txt",
+      "name": "President Trump Participates in a Dinner Hosted by the President of the Republic of Korea",
+      "youtube_url": "https://www.youtube.com/watch?v=lkg-ssqjHhE",
+      "upload_date": "20251029",
+      "event_tag": {
+        "id": "a11772ef-379f-427a-b608-f63c3ae88355",
+        "transcript_id": "b1a15ebd-513b-4ada-ad5b-5efd91e28c06",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-29T09:27:17Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:57:54.261809Z",
+        "updated_at": "2026-05-25T12:57:54.261809Z"
+      }
+    },
+    {
+      "transcript_id": "c5bc260a-b1c6-49a2-b471-40e4fa61aea8",
+      "filename": "20251028_President Trump Participates in a Troop Visit and Remarks on the USS George Wash.txt",
+      "name": "President Trump Participates in a Troop Visit and Remarks on the USS George Washington",
+      "youtube_url": "https://www.youtube.com/watch?v=ajBshzWIVtg",
+      "upload_date": "20251028",
+      "event_tag": {
+        "id": "1f42115b-51e7-44cb-b59d-dee192f5b7b3",
+        "transcript_id": "c5bc260a-b1c6-49a2-b471-40e4fa61aea8",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-28T06:21:36Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:40:42.071188Z",
+        "updated_at": "2026-06-10T16:40:42.071188Z"
+      }
+    },
+    {
+      "transcript_id": "bb35e1f4-702c-4e52-948a-5c58c543120d",
+      "filename": "20251026_President Trump Participates in a Trade Deal Signing with the Prime Minister of .txt",
+      "name": "President Trump Participates in a Trade Deal Signing with the Prime Minister of Malaysia",
+      "youtube_url": "https://www.youtube.com/watch?v=WFR6eZVBHBA",
+      "upload_date": "20251026",
+      "event_tag": {
+        "id": "5b659e05-e17f-4614-9ccc-3b935b800c1a",
+        "transcript_id": "bb35e1f4-702c-4e52-948a-5c58c543120d",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-26T05:39:46Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-06-10T16:40:40.050051Z",
+        "updated_at": "2026-06-10T16:40:40.050051Z"
+      }
+    },
+    {
+      "transcript_id": "0d736434-7fc9-4dc7-ac9d-fe9e7484b25e",
+      "filename": "20251026_President Trump Participates in a Signing with the Prime Ministers of Cambodia a.txt",
+      "name": "President Trump Participates in a Signing with the Prime Ministers of Cambodia and Thailand",
+      "youtube_url": "https://www.youtube.com/watch?v=lP--3SqzCnQ",
+      "upload_date": "20251026",
+      "event_tag": {
+        "id": "42c7b51b-ad92-4b68-a5e7-4091b4406be4",
+        "transcript_id": "0d736434-7fc9-4dc7-ac9d-fe9e7484b25e",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-26T04:24:21Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T13:02:26.500258Z",
+        "updated_at": "2026-05-25T13:02:26.500258Z"
+      }
+    },
+    {
+      "transcript_id": "55997e02-abc4-4e04-b80d-c65f6ebc10cd",
+      "filename": "20251026_President Trump Participates in a Working Session with U.S. - ASEAN Leaders.txt",
+      "name": "President Trump Participates in a Working Session with U.S. - ASEAN Leaders",
+      "youtube_url": "https://www.youtube.com/watch?v=zKVC2Ty2uBE",
+      "upload_date": "20251026",
+      "event_tag": {
+        "id": "e5689385-0221-477a-b634-1234e0ddaf4a",
+        "transcript_id": "55997e02-abc4-4e04-b80d-c65f6ebc10cd",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-26T06:15:56Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T13:01:32.198469Z",
+        "updated_at": "2026-05-25T13:01:32.198469Z"
+      }
+    },
+    {
+      "transcript_id": "bb5384a7-f5bf-4c7b-9c8b-6c850bbfd0f1",
+      "filename": "20251022_President Trump Participates in a Meeting with the Secretary General of NATO.txt",
+      "name": "President Trump Participates in a Meeting with the Secretary General of NATO",
+      "youtube_url": "https://www.youtube.com/watch?v=0moOxFjwdn4",
+      "upload_date": "20251022",
+      "event_tag": {
+        "id": "07bc2fc2-ca75-4b12-81b9-a70c93010f52",
+        "transcript_id": "bb5384a7-f5bf-4c7b-9c8b-6c850bbfd0f1",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-22T20:52:37Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T13:03:20.523680Z",
+        "updated_at": "2026-05-25T13:03:20.523680Z"
+      }
+    },
+    {
+      "transcript_id": "6a2cf2cf-c1c1-47ea-8d22-a3bfb6592051",
+      "filename": "20251021_President Trump Participates in a Diwali Celebration.txt",
+      "name": "President Trump Participates in a Diwali Celebration",
+      "youtube_url": "https://www.youtube.com/watch?v=KlcKb8shI3c",
+      "upload_date": "20251021",
+      "event_tag": {
+        "id": "6e4d322c-93dd-4f74-beeb-a92b50d4a2d2",
+        "transcript_id": "6a2cf2cf-c1c1-47ea-8d22-a3bfb6592051",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-10-21T20:29:47Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T13:04:15.127719Z",
+        "updated_at": "2026-05-25T13:04:15.127719Z"
+      }
+    },
+    {
+      "transcript_id": "fcce22ec-4cfe-48a7-8dce-bfaf696b337f",
+      "filename": "20250409_Trump speech at NRCC dinner _ FULL.txt",
+      "name": "Trump speech at NRCC dinner | FULL",
+      "youtube_url": "https://www.youtube.com/watch?v=bPi6UgWCC3Y",
+      "upload_date": "20250409",
+      "event_tag": {
+        "id": "93eb20a8-2375-4b83-827b-3ce5b2c6fa87",
+        "transcript_id": "fcce22ec-4cfe-48a7-8dce-bfaf696b337f",
+        "event_type": "other",
+        "city": null,
+        "state": null,
+        "country": null,
+        "venue": null,
+        "event_time": "2025-04-09T01:42:33Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-25T12:42:18.457741Z",
+        "updated_at": "2026-05-25T12:42:18.457741Z"
+      }
+    },
+    {
+      "transcript_id": "c19cedfd-67c9-47db-8111-f56d8c3233bf",
+      "filename": "c19cedfd-67c9-47db-8111-f56d8c3233bf.txt",
+      "name": null,
+      "youtube_url": "https://www.youtube.com/watch?v=LYrCH0vwxSI",
+      "upload_date": null,
+      "event_tag": {
+        "id": "7dd47673-3d2a-47f5-aa9d-55407fd04dda",
+        "transcript_id": "c19cedfd-67c9-47db-8111-f56d8c3233bf",
+        "event_type": "announcement",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "US",
+        "venue": "The White House",
+        "event_time": "2026-02-05T23:55:16Z",
+        "classification_source": "auto_llm",
+        "created_at": "2026-05-24T13:20:26.511202Z",
+        "updated_at": "2026-05-24T13:20:26.511202Z"
+      }
+    }
+  ]
+}
