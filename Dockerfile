@@ -1,7 +1,7 @@
 # Stage 1: Build Nuxt frontend
 FROM node:22-slim AS build
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.18.2 --activate
 
 WORKDIR /app
 
