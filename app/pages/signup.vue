@@ -7,6 +7,8 @@ useSeoMeta({
   robots: 'noindex, nofollow',
 })
 
+const { login } = useAuth()
+
 const firstName = ref('')
 const lastName = ref('')
 const phone = ref('')
@@ -52,8 +54,19 @@ async function handleSignup() {
         },
       })
 
-      // Show email verification message instead of auto-login
-      emailSent.value = true
+      // With "Confirm email" disabled in Supabase Auth, signUp returns a live
+      // session and the user is already signed in. If confirmation is ever
+      // switched back on, session is null and we fall back to the check-your-
+      // email panel instead of silently landing on a signed-out home page.
+      if (data.session) {
+        // Run through login() so auth state and role are populated the same way
+        // they are on the login page — signUp alone leaves role unset. Must come
+        // after profile/init, since the role is read from the profiles row.
+        await login(email.value, password.value)
+        await navigateTo('/')
+      } else {
+        emailSent.value = true
+      }
     }
   } catch (err: any) {
     error.value = err.message || 'Signup failed'

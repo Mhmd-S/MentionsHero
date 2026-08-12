@@ -91,7 +91,7 @@ All endpoints require admin auth. Prefix: `/api/auto-transcription`.
 
 ## Multi-Instance Safety
 
-With `min_machines_running = 2` on Fly.io, both machines run the scheduler. Before each check, the service queries `auto_runs` for a recent run on the same source. If one exists within `check_interval / 2`, it skips. This prevents duplicate processing without external coordination.
+When the app runs on more than one replica (Railway horizontal scaling), every replica runs the scheduler. Before each check, the service queries `auto_runs` for a recent run on the same source. If one exists within `check_interval / 2`, it skips. This prevents duplicate processing without external coordination.
 
 ## Title Filter Examples
 

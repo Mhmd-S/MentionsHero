@@ -271,7 +271,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 - **Polymarket API**: Gamma API (`https://gamma-api.polymarket.com`), unauthenticated read-only. Events discovered via admin keyword search (`_q` param), manually added to DB. No series concept — events directly contain markets. Slug-based identification. Pricing is 0-1 decimal (multiply by 100 for display). Resolution derived from `closed` + `outcomePrices`
 - **Polymarket search terms**: Uses `groupItemTitle` (often the tracked term in multi-outcome events), falls back to `parse_market_criteria()` regex on question text. No `custom_strike.Word` equivalent
 - **Markets UI**: Tabbed layout (Kalshi | Polymarket) on `/admin/markets`. Tab state persisted via `?tab=polymarket` query param. Kalshi detail at `/admin/markets/{event_ticker}`, Polymarket detail at `/admin/markets/poly/{event_id}`
-- **Auto-transcription scheduler**: APScheduler `AsyncIOScheduler` starts via FastAPI lifespan in `main.py`. Disable with `AUTO_TRANSCRIPTION_ENABLED=false` env var. Scheduler state reconstructed from DB on restart. Multi-instance dedup prevents duplicate checks on Fly.io
+- **Auto-transcription scheduler**: APScheduler `AsyncIOScheduler` starts via FastAPI lifespan in `main.py`. Disable with `AUTO_TRANSCRIPTION_ENABLED=false` env var. Scheduler state reconstructed from DB on restart. Multi-instance dedup prevents duplicate checks when running multiple replicas
 - **Mandatory CLAUDE.md updates**: Any code change that affects project structure, conventions, API endpoints, database schema, key files, or development workflow MUST be reflected in this CLAUDE.md file
 
 ## Development

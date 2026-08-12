@@ -1,10 +1,15 @@
 """User profile API routes."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from supabase_auth.errors import AuthApiError
 
 from backend.core.auth import require_user_auth
 from backend.core.database import get_supabase
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 
@@ -38,22 +43,36 @@ async def init_profile(body: ProfileInit) -> dict:
     """
     supabase = get_supabase()
 
-    # Verify user exists in Supabase Auth
+    # Verify user exists in Supabase Auth. Only a 4xx from the Auth API means the
+    # user_id is actually bad — connection failures, bad service keys and Supabase
+    # outages must not be reported back to the user as invalid input.
     try:
         supabase.auth.admin.get_user_by_id(body.user_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid user")
+    except AuthApiError as exc:
+        status = getattr(exc, "status", None) or 400
+        if 400 <= status < 500:
+            logger.warning("Profile init rejected for %s: %s", body.user_id, exc)
+            raise HTTPException(status_code=400, detail="Invalid user") from exc
+        logger.exception("Auth lookup failed during profile init for %s", body.user_id)
+        raise HTTPException(status_code=503, detail="Auth service unavailable") from exc
+    except Exception as exc:
+        logger.exception("Auth lookup failed during profile init for %s", body.user_id)
+        raise HTTPException(status_code=503, detail="Auth service unavailable") from exc
 
-    supabase.table("profiles").upsert(
-        {
-            "id": body.user_id,
-            "role": "client",
-            "first_name": body.first_name,
-            "last_name": body.last_name,
-            "phone": body.phone,
-        },
-        on_conflict="id",
-    ).execute()
+    try:
+        supabase.table("profiles").upsert(
+            {
+                "id": body.user_id,
+                "role": "client",
+                "first_name": body.first_name,
+                "last_name": body.last_name,
+                "phone": body.phone,
+            },
+            on_conflict="id",
+        ).execute()
+    except Exception as exc:
+        logger.exception("Profile upsert failed for %s", body.user_id)
+        raise HTTPException(status_code=503, detail="Could not create profile") from exc
 
     return {"status": "ok"}
 
