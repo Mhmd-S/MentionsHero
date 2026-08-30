@@ -45,6 +45,28 @@ if [ "$READY" -eq 0 ]; then
   echo "FastAPI did not answer /health within 30s — starting Nuxt anyway"
 fi
 
+# Nuxt reads its Supabase config from `runtimeConfig.public.supabase.{url,key}`,
+# which Nuxt only overrides from the env names derived from that path:
+# NUXT_PUBLIC_SUPABASE_URL / NUXT_PUBLIC_SUPABASE_KEY. The platform supplies
+# SUPABASE_URL / SUPABASE_KEY (what FastAPI reads), and the image has no .env
+# (.dockerignore excludes it) and no build ARGs, so nothing is baked in at build
+# time either. Without this mapping every server-rendered page returns
+# "Your project's URL and Key are required to create a Supabase client!" while the
+# static routes (/rss.xml, /sitemap.xml, /_nuxt_icon) keep returning 200 — a total
+# outage that never reproduces locally, because a local build always has .env.
+#
+# This must happen before node starts: Nuxt applies env overrides while building its
+# runtime config, and that config is frozen by the time any Nitro plugin could run.
+export NUXT_PUBLIC_SUPABASE_URL="${NUXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}"
+export NUXT_PUBLIC_SUPABASE_KEY="${NUXT_PUBLIC_SUPABASE_KEY:-${SUPABASE_KEY:-}}"
+
+if [ -z "$NUXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NUXT_PUBLIC_SUPABASE_KEY" ]; then
+  echo "FATAL: SUPABASE_URL/SUPABASE_KEY are not set — every Nuxt page would 500."
+  echo "       Set them on the service and redeploy."
+  kill "$FASTAPI_PID" 2>/dev/null
+  exit 1
+fi
+
 # Start Nuxt in background so we can supervise both
 node .output/server/index.mjs &
 NUXT_PID=$!
