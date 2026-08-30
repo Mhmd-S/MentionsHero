@@ -8,6 +8,42 @@
 
 set -u
 
+# Load .env when present, so this script works locally as well as in the container.
+# FastAPI reads .env itself (pydantic-settings env_file), and so does `nuxt dev`, but
+# a plain `sh` does not — which made the guard below fire on a local run even though
+# .env was correctly populated. The image has no .env (.dockerignore excludes it), so
+# in production this loop is a no-op and the platform's real environment is used.
+#
+# Values already present in the environment win: the platform must always be able to
+# override a stale local file. Parsed line by line rather than `.`-sourced, so a value
+# containing spaces or shell metacharacters cannot be executed.
+if [ -f .env ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue ;;
+      *=*) ;;
+      *) continue ;;
+    esac
+    key=${line%%=*}
+    val=${line#*=}
+
+    # Only accept well-formed shell identifiers.
+    case "$key" in
+      *[!A-Za-z0-9_]*|'' ) continue ;;
+      [0-9]* ) continue ;;
+    esac
+
+    # Strip one layer of matching quotes.
+    case "$val" in
+      \"*\") val=${val#\"}; val=${val%\"} ;;
+      \'*\') val=${val#\'}; val=${val%\'} ;;
+    esac
+
+    eval "existing=\${$key:-}"
+    [ -n "$existing" ] || export "$key=$val"
+  done < .env
+fi
+
 FASTAPI_PID=""
 NUXT_PID=""
 
@@ -60,11 +96,16 @@ fi
 export NUXT_PUBLIC_SUPABASE_URL="${NUXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}"
 export NUXT_PUBLIC_SUPABASE_KEY="${NUXT_PUBLIC_SUPABASE_KEY:-${SUPABASE_KEY:-}}"
 
+# Warn, never exit. Killing the container here turns a partial outage (pages 500,
+# API still serving) into a restart loop in which nothing works at all and the logs
+# fill with the same message — which is exactly what happened on the first deploy of
+# this guard. Nuxt boots either way; the operator gets one clear line to act on.
 if [ -z "$NUXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NUXT_PUBLIC_SUPABASE_KEY" ]; then
-  echo "FATAL: SUPABASE_URL/SUPABASE_KEY are not set — every Nuxt page would 500."
-  echo "       Set them on the service and redeploy."
-  kill "$FASTAPI_PID" 2>/dev/null
-  exit 1
+  echo "WARNING: SUPABASE_URL and/or SUPABASE_KEY are not set on this service."
+  echo "         Server-rendered pages will fail with 'Your project's URL and Key"
+  echo "         are required to create a Supabase client!'. SUPABASE_KEY must be the"
+  echo "         anon / publishable key (SUPABASE_SERVICE_KEY is a different value)."
+  echo "         Starting Nuxt anyway so /api/** and static routes keep serving."
 fi
 
 # Start Nuxt in background so we can supervise both
