@@ -1,11 +1,18 @@
 """Application configuration using pydantic-settings."""
 
 import json
+import logging
+import re
 from functools import lru_cache
 from typing import Annotated
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# https://<project-ref>.supabase.co — Supabase project URLs have no path or port.
+_SUPABASE_URL_RE = re.compile(r"https://[a-z0-9-]+\.supabase\.(?:co|in|red)", re.I)
 
 
 class Settings(BaseSettings):
@@ -54,6 +61,54 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+
+    @field_validator("supabase_url", mode="after")
+    @classmethod
+    def normalise_supabase_url(cls, v: str) -> str:
+        """Repair a SUPABASE_URL that has extra characters glued onto it.
+
+        A deployment once had ~77 stray characters appended to the project URL with no
+        separator. Nothing validated it, so the app started happily and then failed at
+        the DNS layer on the first query with
+
+            'idna' codec can't encode characters in position 30-108: label too long
+
+        — an error that names neither the setting nor the service, on a request stack
+        far away from the cause. Every /api/** route 500'd while /health stayed green,
+        because /health is the one endpoint that never touches the database.
+
+        Rather than raise (which would kill the container and put it in a restart
+        loop), recover the canonical URL and log loudly enough to be actioned.
+        """
+        raw = (v or "").strip().strip('"').strip("'")
+        if not raw:
+            return raw
+
+        match = _SUPABASE_URL_RE.match(raw)
+        if match and match.group(0) == raw:
+            return raw
+
+        if match:
+            logger.error(
+                "SUPABASE_URL has %d unexpected trailing characters and would fail DNS "
+                "resolution; using %r. Fix the variable on the service.",
+                len(raw) - len(match.group(0)),
+                match.group(0),
+            )
+            return match.group(0)
+
+        # Not a recognisable Supabase URL. Say which label is the problem without
+        # echoing the value, which may be a secret pasted into the wrong variable.
+        host = raw.split("://", 1)[-1].split("/", 1)[0]
+        long_labels = [len(part) for part in host.split(".") if len(part) > 63]
+        detail = f"; DNS label(s) of length {long_labels} exceed the 63-char limit" if long_labels else ""
+        logger.error(
+            "SUPABASE_URL is not a valid Supabase project URL (length %d)%s. "
+            "Expected https://<project-ref>.supabase.co",
+            len(raw),
+            detail,
+        )
+        return raw
 
     @field_validator("cors_origins", mode="before")
     @classmethod
