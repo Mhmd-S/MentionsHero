@@ -30,6 +30,21 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     active: route.path.startsWith('/blog')
   }
 ])
+
+// Site-wide structured data — inherited by every page using this layout
+useSchemaOrg([
+  defineOrganization({
+    name: 'MentionsHero',
+    url: 'https://mentionshero.com',
+    logo: 'https://mentionshero.com/favicon.svg',
+    description: 'Search and analyze press briefing transcripts. Track what public figures say, linked to Kalshi mentions prediction markets.',
+  }),
+  defineWebSite({
+    name: 'MentionsHero',
+    url: 'https://mentionshero.com',
+    description: 'Search and analyze press briefing transcripts linked to Kalshi mentions prediction markets.',
+  }),
+])
 </script>
 
 <template>

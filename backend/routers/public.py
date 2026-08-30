@@ -1,5 +1,7 @@
 """Public-facing API routes (no admin auth required)."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Any
 
@@ -10,23 +12,51 @@ from backend.utils.transcript_filter import (
     calculate_speaker_frequencies,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/public", tags=["public"])
 
 
 @router.get("/sitemap-urls")
 async def sitemap_urls() -> list[dict[str, Any]]:
-    """Return sitemap-formatted URLs for all persona pages."""
+    """Return sitemap-formatted URLs for all persona pages and markets pages."""
     personas = await public_service.get_public_personas()
-    return [
-        {
-            "loc": f"/personas/{p['slug']}",
-            "lastmod": p.get("updated_at"),
-            "changefreq": "weekly",
-            "priority": 0.8,
-        }
-        for p in personas
-        if p.get("slug")
-    ]
+    urls: list[dict[str, Any]] = []
+
+    # Persona pages. Most personas have no slug yet, and the frontend links them
+    # by id (`slug || id`), so fall back to the id rather than dropping the page.
+    for p in personas:
+        ident = p.get("slug") or p.get("id")
+        if ident:
+            urls.append({
+                "loc": f"/personas/{ident}",
+                "lastmod": p.get("updated_at"),
+                "changefreq": "weekly",
+                "priority": 0.8,
+            })
+
+    # Markets pages — personas that have analyzed markets (same slug/id fallback).
+    # Degrade gracefully: the markets tables are optional for a deployment, and a
+    # failure here must not take the persona URLs down with it.
+    try:
+        markets_listing = await public_service.get_public_markets_listing()
+    except Exception:
+        logger.exception("sitemap: skipping markets URLs, markets listing failed")
+        markets_listing = []
+
+    seen: set[str] = set()
+    for pm in markets_listing:
+        ident = pm["persona"].get("slug") or pm["persona"].get("id")
+        if ident and ident not in seen:
+            seen.add(ident)
+            urls.append({
+                "loc": f"/markets/{ident}",
+                "lastmod": None,
+                "changefreq": "weekly",
+                "priority": 0.7,
+            })
+
+    return urls
 
 
 @router.get("/personas")

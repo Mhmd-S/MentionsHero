@@ -21,6 +21,7 @@ useSeoMeta({
 
 defineOgImage({
   component: 'OgImageBlog',
+  alt: () => post.value?.title || 'MentionsHero Blog',
   props: {
     title: () => post.value?.title || '',
     description: () => post.value?.description || '',
@@ -32,11 +33,14 @@ useSchemaOrg([
   defineArticle({
     headline: () => post.value?.title || '',
     description: () => post.value?.description || '',
+    ...(post.value?.image ? { image: post.value.image } : {}),
     datePublished: () => post.value?.date || '',
     author: {
       name: 'MentionsHero',
       url: 'https://mentionshero.com',
     },
+    keywords: () => post.value?.tags || [],
+    articleSection: 'Blog',
   }),
   defineBreadcrumb({
     itemListElement: [

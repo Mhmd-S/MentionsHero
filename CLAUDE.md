@@ -119,6 +119,10 @@ utils/
 supabase/
   migrations/                 # SQL migration files
 
+server/                         # Nitro server routes (root-level, outside app/)
+  routes/
+    rss.xml.ts                  # Blog RSS 2.0 feed at /rss.xml
+
 content/                        # @nuxt/content markdown files
   blog/                         # Blog posts (markdown with frontmatter)
 
@@ -139,7 +143,7 @@ Each feature has detailed documentation in `docs/`. Read the relevant file befor
 | Personas | `docs/personas.md` | Speaker identity management with aliases, Kalshi links |
 | Markets (Kalshi) | `docs/markets.md` | Mentions markets: Series → Events → Markets, custom_strike.Word, analysis |
 | Sidebar & Directory | `docs/sidebar.md` | FileTree component, folder hierarchy, drag-and-drop |
-| SEO & Blog | `docs/seo.md` | OG images, structured data, sitemap, @nuxt/content blog |
+| SEO & Blog | `docs/seo.md` | OG images, canonicals, structured data, sitemap, RSS feed, @nuxt/content blog |
 | Auto-Transcription | `docs/auto-transcription.md` | Periodic YouTube channel/playlist monitoring & auto-transcription |
 
 ## Mandatory: Update Documentation on Feature Changes
@@ -272,6 +276,8 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 - **Polymarket search terms**: Uses `groupItemTitle` (often the tracked term in multi-outcome events), falls back to `parse_market_criteria()` regex on question text. No `custom_strike.Word` equivalent
 - **Markets UI**: Tabbed layout (Kalshi | Polymarket) on `/admin/markets`. Tab state persisted via `?tab=polymarket` query param. Kalshi detail at `/admin/markets/{event_ticker}`, Polymarket detail at `/admin/markets/poly/{event_id}`
 - **Auto-transcription scheduler**: APScheduler `AsyncIOScheduler` starts via FastAPI lifespan in `main.py`. Disable with `AUTO_TRANSCRIPTION_ENABLED=false` env var. Scheduler state reconstructed from DB on restart. Multi-instance dedup prevents duplicate checks when running multiple replicas
+- **SEO tags**: `canonical` is NOT a valid `useSeoMeta()` key — `nuxt-seo-utils` auto-injects `<link rel="canonical">` on every page; override with `useHead()` only where a route resolves under two URLs (persona/markets slug-or-id). `defineOgImage()` already emits `twitter:card`/`twitter:image`; set alt once via its `alt` option, not `ogImageAlt`. `Organization`/`WebSite` schema live in `app/layouts/default.vue` — never redefine per page. See `docs/seo.md`
+- **Persona slugs are mostly empty**: most `personas` rows have a NULL `slug`, and the UI links them as `slug || id`. Anything enumerating persona URLs (sitemap, canonicals) must use the same fallback or it will silently drop nearly every persona
 - **Mandatory CLAUDE.md updates**: Any code change that affects project structure, conventions, API endpoints, database schema, key files, or development workflow MUST be reflected in this CLAUDE.md file
 
 ## Development

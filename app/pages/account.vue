@@ -61,6 +61,13 @@ function formatDate(dateString: string | null) {
     year: 'numeric',
   })
 }
+
+// SEO meta tags (private page - keep out of search results)
+useSeoMeta({
+  title: 'Account',
+  description: 'Manage your MentionsHero profile and premium subscription.',
+  robots: 'noindex, nofollow',
+})
 </script>
 
 <template>

@@ -7,8 +7,12 @@ useSeoMeta({
   description: 'Get unlimited access to all premium press briefing transcripts. Free and premium plans available.',
   ogTitle: 'Pricing | MentionsHero',
   ogDescription: 'Get unlimited access to all premium press briefing transcripts.',
-  twitterCard: 'summary',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Pricing | MentionsHero',
+  twitterDescription: 'Get unlimited access to all premium press briefing transcripts.',
 })
+
+defineOgImage({ component: 'OgImageDefault', alt: 'Pricing | MentionsHero' })
 
 useSchemaOrg([
   defineBreadcrumb({

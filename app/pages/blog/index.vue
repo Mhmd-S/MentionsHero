@@ -8,9 +8,12 @@ useSeoMeta({
   description: 'Guides, analysis, and insights on press briefing transcripts, prediction markets, and public figure mentions.',
   ogTitle: 'Blog | MentionsHero',
   ogDescription: 'Guides, analysis, and insights on press briefing transcripts and prediction markets.',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Blog | MentionsHero',
+  twitterDescription: 'Guides, analysis, and insights on press briefing transcripts and prediction markets.',
 })
 
-defineOgImage({ component: 'OgImageDefault' })
+defineOgImage({ component: 'OgImageDefault', alt: 'MentionsHero Blog — transcripts and prediction markets' })
 
 useSchemaOrg([
   defineBreadcrumb({

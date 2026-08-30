@@ -87,10 +87,13 @@ useSeoMeta({
   description: 'Track prediction markets linked to transcript mentions. See how often public figures mention key terms and how it relates to Kalshi & Polymarket prices.',
   ogTitle: 'MentionsHero — Prediction Markets Analysis',
   ogDescription: 'Track prediction markets linked to transcript mentions. See mention frequency, trends, and market prices.',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'MentionsHero — Prediction Markets Analysis',
+  twitterDescription: 'Track prediction markets linked to transcript mentions. See mention frequency, trends, and market prices.',
   robots: 'index, follow',
 })
 
-defineOgImage({ component: 'OgImageDefault' })
+defineOgImage({ component: 'OgImageDefault', alt: 'MentionsHero — Prediction Markets Analysis' })
 
 onMounted(() => {
   if (session.value) fetchSubscription()
@@ -107,6 +110,59 @@ useSchemaOrg([
       { name: 'Markets' },
     ],
   }),
+  {
+    '@type': 'FAQPage',
+    'mainEntity': [
+      {
+        '@type': 'Question',
+        'name': 'What is a mentions prediction market?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'A mentions prediction market is a binary contract on whether a public figure will say a specific word or phrase during a given event or time period — for example, whether the President says "tariffs" at an upcoming press conference. Traders buy Yes or No shares, and the contract resolves once the event happens and the transcript is available.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'Which prediction markets does MentionsHero cover?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'MentionsHero tracks two venues: Kalshi and Polymarket. Kalshi events come from its "Mentions" category, where each market carries the tracked word or phrase. Polymarket events are added by our editors from the Polymarket Gamma API. On this page, Kalshi and Polymarket events are listed in separate sections and grouped by the persona they relate to.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'How does MentionsHero count mentions?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'We transcribe press briefings, interviews, podcasts, and other public appearances with speaker diarization, then attribute each line to a persona through that persona\'s known speaker names and aliases. For every market we extract the tracked term, then count case-insensitive whole-word matches in that persona\'s transcripts. We report the total mentions, how many briefings contained the term, the share of briefings that did, and a rising, falling, or stable trend.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'Where do the search terms for each market come from?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'The terms come from the market itself, not from us. For Kalshi we use the market\'s custom strike word, and compound strikes such as "Shutdown / Shut Down" are split into separate terms. For Polymarket we use the market\'s group item title, falling back to the quoted phrase in the question text. That keeps our counts aligned with what the contract actually resolves on.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'Does a high historical mention rate mean the market is mispriced?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'Not on its own. Historical mention rates describe past appearances and say nothing certain about the next one — venue, topic, and news cycle matter a great deal. MentionsHero shows the evidence, including mention counts, briefing coverage, trend, and the transcript context around each mention, so you can form your own view. It is research, not trading advice.',
+        },
+      },
+      {
+        '@type': 'Question',
+        'name': 'What can I see for free, and what needs a subscription?',
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': 'Anyone can browse the tracked events, the market questions, the current prices, and how each market resolved. The analysis layer — mention counts, briefings ratio, percentages, trends, and transcript context — requires a premium subscription.',
+        },
+      },
+    ],
+  },
 ])
 </script>
 

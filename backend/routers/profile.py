@@ -1,6 +1,7 @@
 """User profile API routes."""
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,6 +13,14 @@ from backend.core.database import get_supabase
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
+
+
+def _is_duplicate_key(exc: Exception) -> bool:
+    """True when a PostgREST error is a unique-violation (the profile already exists)."""
+    code = getattr(exc, "code", None)
+    if code == "23505":
+        return True
+    return "23505" in str(exc) or "duplicate key" in str(exc).lower()
 
 
 class ProfileResponse(BaseModel):
@@ -43,6 +52,15 @@ async def init_profile(body: ProfileInit) -> dict:
     """
     supabase = get_supabase()
 
+    # A malformed id is bad input, not an outage. The Supabase client raises a plain
+    # ValueError ("... is not a valid uuid") before it ever makes a request, which the
+    # broad handler below would otherwise report as a 503.
+    try:
+        uuid.UUID(body.user_id)
+    except (ValueError, AttributeError, TypeError) as exc:
+        logger.warning("Profile init rejected, malformed user_id: %r", body.user_id)
+        raise HTTPException(status_code=400, detail="Invalid user") from exc
+
     # Verify user exists in Supabase Auth. Only a 4xx from the Auth API means the
     # user_id is actually bad — connection failures, bad service keys and Supabase
     # outages must not be reported back to the user as invalid input.
@@ -59,20 +77,27 @@ async def init_profile(body: ProfileInit) -> dict:
         logger.exception("Auth lookup failed during profile init for %s", body.user_id)
         raise HTTPException(status_code=503, detail="Auth service unavailable") from exc
 
+    # Insert first, then fall back to updating just the name fields. An upsert here
+    # would rewrite `role` on every call, silently demoting an existing admin to
+    # "client" — the role must only ever be set when the row is first created.
+    details = {
+        "first_name": body.first_name,
+        "last_name": body.last_name,
+        "phone": body.phone,
+    }
     try:
-        supabase.table("profiles").upsert(
-            {
-                "id": body.user_id,
-                "role": "client",
-                "first_name": body.first_name,
-                "last_name": body.last_name,
-                "phone": body.phone,
-            },
-            on_conflict="id",
+        supabase.table("profiles").insert(
+            {"id": body.user_id, "role": "client", **details}
         ).execute()
-    except Exception as exc:
-        logger.exception("Profile upsert failed for %s", body.user_id)
-        raise HTTPException(status_code=503, detail="Could not create profile") from exc
+    except Exception as insert_exc:
+        if not _is_duplicate_key(insert_exc):
+            logger.exception("Profile insert failed for %s", body.user_id)
+            raise HTTPException(status_code=503, detail="Could not create profile") from insert_exc
+        try:
+            supabase.table("profiles").update(details).eq("id", body.user_id).execute()
+        except Exception as update_exc:
+            logger.exception("Profile update failed for %s", body.user_id)
+            raise HTTPException(status_code=503, detail="Could not create profile") from update_exc
 
     return {"status": "ok"}
 

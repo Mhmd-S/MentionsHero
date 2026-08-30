@@ -126,19 +126,34 @@ useSeoMeta({
   description: () => persona.value ? `Prediction markets and transcript mentions analysis for ${persona.value.name}.` : '',
   ogTitle: () => persona.value ? `${persona.value.name} — Markets | MentionsHero` : 'Markets',
   ogDescription: () => persona.value ? `Track prediction markets linked to ${persona.value.name}'s transcript mentions.` : '',
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => persona.value ? `${persona.value.name} — Markets | MentionsHero` : 'Markets',
+  twitterDescription: () => persona.value ? `Track prediction markets linked to ${persona.value.name}'s transcript mentions.` : '',
   robots: 'index, follow',
 })
 
-if (persona.value?.image_url) {
-  defineOgImage({
-    component: 'OgImagePersona',
-    props: {
-      name: () => persona.value?.name || '',
-      description: () => `Prediction markets analysis`,
-      imageUrl: () => persona.value?.image_url || '',
+// /markets/{id} also resolves (the backend falls back to id lookup), so point the
+// canonical at the slug URL instead of letting the auto-canonical self-reference the id.
+useHead({
+  link: [
+    {
+      rel: 'canonical',
+      href: () => `https://mentionshero.com/markets/${persona.value?.slug || slug}`,
     },
-  })
-}
+  ],
+})
+
+defineOgImage({
+  component: persona.value?.image_url ? 'OgImagePersona' : 'OgImageDefault',
+  alt: () => persona.value?.name || 'Markets',
+  props: persona.value?.image_url
+    ? {
+        name: persona.value.name,
+        description: 'Prediction markets analysis',
+        imageUrl: persona.value.image_url,
+      }
+    : undefined,
+})
 
 useSchemaOrg([
   defineWebPage({

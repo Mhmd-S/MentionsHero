@@ -17,6 +17,7 @@ const password = ref('')
 const error = ref<string | null>(null)
 const loading = ref(false)
 const emailSent = ref(false)
+const profileWarning = ref(false)
 
 async function handleSignup() {
   error.value = null
@@ -43,16 +44,25 @@ async function handleSignup() {
     }
 
     if (data.user) {
-      // Create profile via backend API (service key bypasses RLS)
-      await $fetch('/api/profile/init', {
-        method: 'POST',
-        body: {
-          user_id: data.user.id,
-          first_name: firstName.value,
-          last_name: lastName.value,
-          phone: phone.value,
-        },
-      })
+      // Create profile via backend API (service key bypasses RLS).
+      // The auth account already exists at this point, so a failure here must not
+      // abort signup — that would strand the user with an account they cannot
+      // recreate ("email already registered") and no session. The profile row is
+      // recoverable later from /account, so warn and continue instead.
+      try {
+        await $fetch('/api/profile/init', {
+          method: 'POST',
+          body: {
+            user_id: data.user.id,
+            first_name: firstName.value,
+            last_name: lastName.value,
+            phone: phone.value,
+          },
+        })
+      } catch (initErr) {
+        console.error('Profile init failed; continuing with signup', initErr)
+        profileWarning.value = true
+      }
 
       // With "Confirm email" disabled in Supabase Auth, signUp returns a live
       // session and the user is already signed in. If confirmation is ever
@@ -68,8 +78,8 @@ async function handleSignup() {
         emailSent.value = true
       }
     }
-  } catch (err: any) {
-    error.value = err.message || 'Signup failed'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Signup failed'
   } finally {
     loading.value = false
   }
@@ -94,6 +104,13 @@ async function handleSignup() {
         <p class="text-sm text-muted">
           We sent a verification link to <strong>{{ email }}</strong>. Please click the link to verify your account.
         </p>
+        <UAlert
+          v-if="profileWarning"
+          color="warning"
+          variant="subtle"
+          title="We couldn't save your details"
+          description="Your account was created. Add your name and phone from the Account page after signing in."
+        />
         <UButton variant="outline" block @click="navigateTo('/login')">
           Go to Sign In
         </UButton>

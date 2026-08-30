@@ -48,9 +48,29 @@ useSeoMeta({
   },
   ogTitle: () => transcript.value?.name || 'Transcript',
   ogDescription: () => 'Press briefing transcript on MentionsHero',
-  twitterCard: 'summary',
   robots: 'noindex, nofollow',
 })
+
+defineOgImage({ component: 'OgImageDefault', alt: () => transcript.value?.name || 'Transcript' })
+
+// Structured data (page stays noindex - added for consistency)
+useSchemaOrg([
+  defineWebPage({
+    name: () => transcript.value?.name || 'Transcript',
+  }),
+  defineBreadcrumb({
+    itemListElement: [
+      { name: 'Home', item: '/' },
+      {
+        name: () => transcript.value?.persona?.name || 'Transcripts',
+        item: () => transcript.value?.persona?.slug
+          ? `/personas/${transcript.value.persona.slug}`
+          : '/',
+      },
+      { name: () => transcript.value?.name || 'Transcript' },
+    ],
+  }),
+])
 
 const transcript = ref<TranscriptDetail | null>(null)
 const loading = ref(true)

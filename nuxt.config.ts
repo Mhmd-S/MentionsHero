@@ -18,6 +18,7 @@ export default defineNuxtConfig({
       titleTemplate: '%s | MentionsHero',
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'alternate', type: 'application/rss+xml', title: 'MentionsHero Blog', href: '/rss.xml' },
       ],
     },
   },
@@ -55,6 +56,7 @@ export default defineNuxtConfig({
       { loc: '/', changefreq: 'daily', priority: 1.0 },
       { loc: '/pricing', changefreq: 'monthly', priority: 0.6 },
       { loc: '/blog', changefreq: 'weekly', priority: 0.7 },
+      { loc: '/markets', changefreq: 'daily', priority: 0.9 },
     ],
   },
 

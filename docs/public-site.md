@@ -18,6 +18,21 @@ Uses Supabase auth with role-based access via `profiles` table:
 
 **Profile fields**: `first_name`, `last_name`, `phone` are collected at signup and stored in `profiles` table via `POST /api/profile/init` (backend service key bypasses RLS). Also sent as `user_metadata` in Supabase auth for redundancy. Users can view and edit these fields on the `/account` page via `GET /api/profile` and `PUT /api/profile`.
 
+**`/api/profile/init` invariants** (all three are load-bearing — do not "simplify" them back):
+- It **inserts, then falls back to updating only the name fields** on a `23505` duplicate key.
+  It must never `upsert` with `role`: the endpoint is unauthenticated, so an upsert that writes
+  `role: 'client'` lets anyone who knows an admin's user id demote that admin. `role` is only
+  ever set when the row is first created.
+- A malformed `user_id` is rejected as **400**, not 503. The Supabase client raises a plain
+  `ValueError` ("... is not a valid uuid") *before* making a request, which an over-broad
+  `except Exception` would otherwise report as an outage.
+- 503 is reserved for genuine failures (auth API 5xx, connection errors, write failures).
+
+**Signup is resilient to `/init` failing.** By the time it is called the Supabase auth account
+already exists, so aborting signup would strand the user with an account they cannot recreate
+("email already registered") and no session. `signup.vue` catches the failure, warns, and
+continues; the missing details can be filled in later from `/account`.
+
 **Backend auth dependencies** (`backend/core/auth.py`):
 - `require_admin` — admin-only endpoints (all existing `/api/*` routers)
 - `require_user_auth` — any authenticated user (Stripe checkout, account)

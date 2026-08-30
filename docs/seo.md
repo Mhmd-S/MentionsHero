@@ -22,27 +22,84 @@ OG images are auto-generated using `nuxt-og-image` (bundled with `@nuxtjs/seo`).
 | `OgImagePersona.vue` | Persona detail pages | `name`, `description`, `imageUrl` |
 | `OgImageBlog.vue` | Blog post pages | `title`, `description`, `date` |
 
-Usage in pages: `defineOgImage({ component: 'OgImagePersona', props: { ... } })`
+Usage in pages: `defineOgImage({ component: 'OgImagePersona', alt: '...', props: { ... } })`
+
+**Every public page must call `defineOgImage()`** — there is no global default configured, so a
+page without it emits no `og:image` at all.
+
+`nuxt-og-image` emits the Twitter image tags for free: a `defineOgImage()` call also outputs
+`twitter:card` (`summary_large_image`), `twitter:image`, `twitter:image:src`, and the
+`og:image:width/height` + `twitter:image:width/height` pairs. Do **not** hand-write `twitterImage`.
+
+Image alt text is set once, via the `alt` option on `defineOgImage()` — it produces both
+`og:image:alt` and `twitter:image:alt`. Do not use `ogImageAlt` in `useSeoMeta()`; it only covers
+the OG half and duplicates the tag.
 
 Debug at: `/__og-image__/` in development.
+
+## Canonical URLs
+
+`nuxt-seo-utils` (bundled in `@nuxtjs/seo`) **already injects `<link rel="canonical">` on every
+page**, built from `site.url` + the current route path, at `tagPriority: 'low'`. You normally do
+not add one.
+
+`canonical` is **not** a valid `useSeoMeta()` key. Passing it there silently produces a useless
+`<meta name="canonical">` tag instead of a link tag. To override, use `useHead()`:
+
+```ts
+useHead({ link: [{ rel: 'canonical', href: () => `${SITE}/personas/${slug}` }] })
+```
+
+Two pages need that override, because the backend resolves a persona by slug *or* by id
+(`get_persona_by_slug` falls back to an id lookup) and the frontend links with `slug || id`:
+
+| Page | Why |
+|------|-----|
+| `personas/[slug].vue` | `/personas/{id}` would otherwise self-canonicalise to the id URL |
+| `markets/[slug].vue` | same id fallback via `get_public_persona_markets` |
 
 ## Sitemap
 
 Configured in `nuxt.config.ts`:
-- **Dynamic**: Persona URLs fetched from `/api/public/sitemap-urls`
-- **Static**: `/`, `/pricing`, `/blog`
+- **Dynamic**: Persona *and* markets URLs fetched from `/api/public/sitemap-urls`
+- **Static**: `/`, `/pricing`, `/blog`, `/markets`
 - **Auto**: Blog posts added by `@nuxt/content` integration
 - **Excluded**: `/admin/**`, `/login`, `/signup`, `/account`
 
+The `/api/public/sitemap-urls` endpoint (`backend/routers/public.py`):
+- Emits `/personas/{slug or id}` and `/markets/{slug or id}`. **Most personas have no slug**, so
+  the id fallback is what keeps them in the sitemap — filtering on slug alone drops nearly all of them.
+- Wraps the markets half in `try/except`: the markets tables are optional for a deployment, and a
+  failure there must not take the persona URLs down with it.
+
 ## Structured Data (Schema.org)
 
-| Page | Schema Types |
+`Organization` + `WebSite` are defined once in `app/layouts/default.vue`, so every public page
+inherits them. Do not redefine them per page.
+
+| Page | Page-level Schema Types |
 |------|-------------|
-| Homepage | WebSite, WebPage, Organization |
-| Persona detail | Person, Breadcrumb |
+| Homepage | WebPage |
+| Persona detail | Person (page-scoped `@id`), Breadcrumb |
+| Markets listing | WebPage, Breadcrumb, FAQPage |
+| Markets detail | WebPage, Breadcrumb |
 | Pricing | Breadcrumb, FAQPage |
 | Blog listing | Breadcrumb |
-| Blog post | Article, Breadcrumb |
+| Blog post | Article (headline, description, image, keywords, articleSection), Breadcrumb |
+| Transcript detail | WebPage, Breadcrumb |
+
+### Gotcha: `definePerson` steals the site identity
+
+`defineOrganization()` and `definePerson()` both default to the same `#identity` node id. On
+persona pages an unscoped `definePerson()` therefore **evicts the site Organization** and declares
+the persona to be the site's identity. `personas/[slug].vue` passes an explicit page-scoped
+`'@id'` (`.../personas/{slug}#person`) to avoid this.
+
+### Not a bug: two `Organization` nodes
+
+`defineOrganization({ logo })` intentionally emits a second, minimal `Organization` at
+`#organization` (plus an `ImageObject` at `#logo`) alongside `#identity`. This is by design in
+`@unhead/schema-org` so parent nodes can reference a clean Organization. Leave it alone.
 
 ## Robots.txt
 
@@ -72,10 +129,26 @@ Blog posts are markdown files in `content/blog/`. Collection defined in `content
 - `app/pages/blog/index.vue` — Blog listing
 - `app/pages/blog/[...slug].vue` — Individual post
 
+### RSS feed
+
+`server/routes/rss.xml.ts` serves an RSS 2.0 feed at `/rss.xml` (newest 50 posts). It queries the
+`blog` collection with the **server-side** Content v3 API (`queryCollection(event, 'blog')` from
+`@nuxt/content/server` — note the `event` first argument, unlike the client composable), XML-escapes
+every interpolated value, and takes its base URL from the site config.
+
+Discovery is via a site-wide `<link rel="alternate" type="application/rss+xml">` in
+`nuxt.config.ts` → `app.head.link`.
+
 ## Per-Page SEO Checklist
 
 Every public page should have:
-- `useSeoMeta()` with title, description, ogTitle, ogDescription
-- `defineOgImage()` with appropriate template
-- `useSchemaOrg()` with relevant structured data + breadcrumbs
-- Non-public pages: `robots: 'noindex, nofollow'`
+- `useSeoMeta()` with title, description, ogTitle, ogDescription, twitterTitle, twitterDescription
+- `defineOgImage()` with the appropriate template **and an `alt`** (never omit — no global default exists)
+- `useSchemaOrg()` with relevant page-level structured data + breadcrumbs
+  (not Organization/WebSite — those live in the layout)
+- Non-public pages (`/account`, `/transcripts/[id]`): `robots: 'noindex, nofollow'`
+
+Do **not** add:
+- `canonical` to `useSeoMeta()` — invalid key; canonical is auto-injected (see above)
+- `ogImageAlt` — use `defineOgImage({ alt })` instead
+- `twitterImage` — emitted automatically by `defineOgImage()`

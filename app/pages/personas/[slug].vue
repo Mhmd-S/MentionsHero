@@ -176,15 +176,26 @@ useSeoMeta({
   description: () => persona.value?.meta_description || persona.value?.description || '',
   ogTitle: () => persona.value?.meta_title || persona.value?.name || 'Transcripts',
   ogDescription: () => persona.value?.meta_description || persona.value?.description || '',
-  ogType: 'profile',
-  twitterCard: 'summary',
+  twitterCard: 'summary_large_image',
   twitterTitle: () => persona.value?.meta_title || persona.value?.name || 'Transcripts',
   twitterDescription: () => persona.value?.meta_description || persona.value?.description || '',
   robots: 'index, follow',
 })
 
+// /personas/{id} also resolves (backend falls back to id lookup), so point the
+// canonical at the slug URL instead of letting the auto-canonical self-reference the id.
+useHead({
+  link: [
+    {
+      rel: 'canonical',
+      href: () => `https://mentionshero.com/personas/${persona.value?.slug || slug}`,
+    },
+  ],
+})
+
 defineOgImage({
   component: 'OgImagePersona',
+  alt: () => persona.value?.name || 'Transcripts',
   props: {
     name: () => persona.value?.name || '',
     description: () => persona.value?.description || '',
@@ -194,7 +205,11 @@ defineOgImage({
 
 // Structured data
 useSchemaOrg([
+  // Give the persona a page-scoped @id. definePerson defaults to the site
+  // identity slot (#identity), which would make the persona the site's identity
+  // and evict the MentionsHero Organization defined in the default layout.
   definePerson({
+    '@id': () => `https://mentionshero.com/personas/${persona.value?.slug || slug}#person`,
     name: () => persona.value?.name || '',
     description: () => persona.value?.description || '',
     image: () => persona.value?.image_url || '',
