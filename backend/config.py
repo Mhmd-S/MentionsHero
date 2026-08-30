@@ -1,9 +1,11 @@
 """Application configuration using pydantic-settings."""
 
+import json
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -40,15 +42,27 @@ class Settings(BaseSettings):
     # Frontend URL — set FRONTEND_URL env var in production
     frontend_url: str = "http://localhost:3000"
 
-    # CORS — set CORS_ORIGINS env var as comma-separated list in production
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # CORS — set CORS_ORIGINS env var in production, either as a comma-separated
+    # list or a JSON array. NoDecode is required: without it pydantic-settings
+    # json.loads() the raw env var before the validator below runs, so a
+    # comma-separated value raises SettingsError at import and the app never boots.
+    cors_origins: Annotated[list[str], NoDecode] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: object) -> list[str]:
-        """Parse comma-separated string into list."""
+        """Parse a JSON array or a comma-separated string into a list."""
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            text = v.strip()
+            if text.startswith("["):
+                try:
+                    return [str(o).strip() for o in json.loads(text) if str(o).strip()]
+                except json.JSONDecodeError:
+                    pass
+            return [origin.strip() for origin in text.split(",") if origin.strip()]
         return v  # type: ignore[return-value]
 
 
