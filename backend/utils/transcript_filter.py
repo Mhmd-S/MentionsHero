@@ -77,10 +77,11 @@ def highlight_text(text: str, search_string: str) -> str:
         if match.start() > last_index:
             parts.append(escape_html(text[last_index:match.start()]))
         # Add highlighted match
-        parts.append(
-            f'<mark class="bg-yellow-200 dark:bg-yellow-900">'
-            f'{escape_html(match.group())}</mark>'
-        )
+        # Bare <mark>: the highlight is styled once, unlayered, in
+        # app/assets/css/main.css. Emitting Tailwind classes from the backend
+        # pinned the accent to a raw yellow that drifted from the palette and
+        # rendered light-on-light in dark mode.
+        parts.append(f'<mark>{escape_html(match.group())}</mark>')
         last_index = match.end()
 
     # If no matches found, return escaped text

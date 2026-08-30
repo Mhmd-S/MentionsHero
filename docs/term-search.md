@@ -4,7 +4,7 @@ Analyzes term frequency and provides contextual search across transcripts. Suppo
 
 ## Feature Overview
 
-The Term Search page (`/term-search`) has two main modes:
+The admin Term Search page (`/admin/term-search`) has two main modes:
 
 1. **Frequency Tab**: How often does a term appear? Returns total mentions, percentage of briefings containing it, trend (rising/falling/stable), and mentions-by-date breakdown.
 2. **Context Tab**: Where does a term appear? Returns matching snippets with surrounding context (configurable window, default 200 chars).
@@ -17,7 +17,7 @@ Additional analysis endpoints:
 ## Data Flow
 
 ```
-User enters search term on /term-search
+User enters search term on /admin/term-search
   → TermSearch.vue component
   → useAnalysis composable calls API
   → backend/routers/analysis.py
@@ -69,6 +69,35 @@ User enters search term on /term-search
 4. Return: `{ query, total_matches, transcripts_with_matches, matches[] }`
 5. Not cached (real-time)
 
+## Highlight Markup
+
+Every surface that highlights a matched term — backend or frontend — emits a **bare `<mark>` with
+no class**:
+
+| Producer | Function |
+|----------|----------|
+| `backend/utils/transcript_filter.py` | `highlight_text()` (HTML-escapes first, then wraps the match) |
+| `app/composables/useHighlight.ts` | `highlightTerm()` |
+| `app/components/TermSearch.vue` | `highlightMatch()` |
+| `app/pages/personas/[slug].vue` | `highlightContext()` |
+
+The amber wash is defined **once**, unlayered, in `app/assets/css/main.css`, so it cannot be
+outranked by a utility class riding along on the element. Do not re-add Tailwind classes to the
+`<mark>` in any of the four producers — the previous `class="bg-yellow-200 dark:bg-yellow-800"`
+drifted from the palette and rendered light-on-light in dark mode. See `docs/design-system.md`.
+
+## Public Term Search Surfaces
+
+The admin Term Search page is not the only search UI. The public site has two, both premium-gated
+and both documented elsewhere:
+
+- `GET /api/public/personas/{slug}/keyword-search` → the search panel on `app/pages/personas/[slug].vue`
+  (see `docs/personas.md`)
+- `GET /api/public/transcripts/{id}?search=` → the in-transcript search bar on
+  `app/pages/transcripts/[id].vue`, which also returns `speakerFrequencies` (see `docs/public-site.md`)
+
+Both use the same `backend/utils/nlp.py` and `transcript_filter.py` primitives as `/api/analysis/*`.
+
 ## API Endpoints
 
 | Method | Path | Description |
@@ -88,8 +117,8 @@ User enters search term on /term-search
 
 | Layer | File | Purpose |
 |-------|------|---------|
-| Page | `app/pages/term-search.vue` | Term Search page |
-| Component | `app/components/TermSearch.vue` | Core search UI (Frequency + Context tabs) |
+| Page | `app/pages/admin/term-search.vue` | Term Search page (admin layout) |
+| Component | `app/components/TermSearch.vue` | Core search UI (Frequency + Context tabs). Admin-only — still on raw Tailwind palette classes, not the public design system |
 | Component | `app/components/SpeakerSelector.vue` | Multi-select speaker picker |
 | Composable | `app/composables/useAnalysis.ts` | API calls: `getTermFrequency()`, `searchTerm()`, `getAllTerms()`, `getNgrams()` |
 | Router | `backend/routers/analysis.py` | All `/api/analysis/*` endpoints |
@@ -97,7 +126,8 @@ User enters search term on /term-search
 | Service | `backend/services/speaker_service.py` | `get_all_speakers()`, `search_speakers()` |
 | Model | `backend/models/analysis.py` | Request/response models: `TermFrequencyResponse`, `SearchResponse`, `AllTermsResponse`, `NgramsResponse` |
 | Util | `backend/utils/nlp.py` | `calculate_term_frequency()`, `calculate_all_term_frequencies()`, `extract_ngrams()`, `search_term_in_context()`, `clean_text()` |
-| Util | `backend/utils/transcript_filter.py` | `highlight_transcript()`, `calculate_speaker_frequencies()` |
+| Util | `backend/utils/transcript_filter.py` | `highlight_transcript()`, `highlight_text()`, `calculate_speaker_frequencies()` |
+| Composable | `app/composables/useHighlight.ts` | `buildPluralPattern()`, `highlightTerm()` — client-side highlighting for admin market components |
 
 ## Database Tables
 

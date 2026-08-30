@@ -1,11 +1,387 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-@theme {
-  --font-sans: 'Poppins', sans-serif;
+/* ==========================================================================
+   MentionsHero design foundation
+   --------------------------------------------------------------------------
+   The product's atom is: a quoted word -> a count -> a price.
+   Sans = prose. Mono = evidence (terms, counts, prices, timestamps, tickers).
+   Amber ("mark") means "a mention happened" and nothing else.
+   Green ("yes") / red ("no") mean market outcome or trend and nothing else.
+
+   HOW COLOUR WORKS HERE (verified against node_modules/@nuxt/ui 4.4.0):
+   1. Raw scales are declared below in `@theme static` as --color-<name>-<shade>.
+      `static` is required: without it Tailwind tree-shakes unreferenced theme
+      vars and Nuxt UI's runtime var(--color-ink-500) lookup would resolve empty.
+   2. app.config.ts aliases the six Nuxt UI colour slots to these scales.
+      Nuxt UI's runtime plugin then emits --ui-color-<alias>-<shade>.
+      Only those six aliases are valid on a component `color=""` prop, because
+      the tv() variants are generated at build time from nuxt.config's
+      ui.theme.colors (unset here => the default six).
+   3. Every scale is ALSO available as a plain Tailwind utility
+      (bg-mark-500, text-yes-600, border-ink-200 ...) because it lives in @theme.
+   ========================================================================== */
+
+@theme static {
+  /* -- Type ------------------------------------------------------------- */
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+
+  /* The whole scale. 12 / 14 / 16 / 20 / 26 / 34 / 48 — nothing between.
+     Sizes repeat on purpose so a page cannot land off the scale. */
+  --text-xs: 0.75rem;          /* 12 */
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.875rem;         /* 14 */
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem;           /* 16 — body */
+  --text-base--line-height: 1.6;
+  --text-lg: 1.25rem;          /* 20 */
+  --text-lg--line-height: 1.45;
+  --text-lg--letter-spacing: -0.01em;
+  --text-xl: 1.625rem;         /* 26 */
+  --text-xl--line-height: 1.28;
+  --text-xl--letter-spacing: -0.02em;
+  --text-2xl: 2.125rem;        /* 34 */
+  --text-2xl--line-height: 1.15;
+  --text-2xl--letter-spacing: -0.03em;
+  --text-3xl: 2.125rem;        /* 34 */
+  --text-3xl--line-height: 1.15;
+  --text-3xl--letter-spacing: -0.03em;
+  --text-4xl: 3rem;            /* 48 */
+  --text-4xl--line-height: 1.05;
+  --text-4xl--letter-spacing: -0.03em;
+  --text-5xl: 3rem;            /* 48 */
+  --text-5xl--line-height: 1.05;
+  --text-5xl--letter-spacing: -0.03em;
+  --text-6xl: 3rem;            /* 48 */
+  --text-6xl--line-height: 1.05;
+  --text-6xl--letter-spacing: -0.03em;
+
+  /* -- ink: primary actions, headings. Near-black, faint blue cast. ------ */
+  --color-ink-50:  #F4F5F7;
+  --color-ink-100: #E7E8EC;
+  --color-ink-200: #CDCFD7;
+  --color-ink-300: #A8ABB8;
+  --color-ink-400: #7E8294;
+  --color-ink-500: #565A6E;
+  --color-ink-600: #3D4152;
+  --color-ink-700: #2A2D3B;
+  --color-ink-800: #1D1F2A;
+  --color-ink-900: #16171F;
+  --color-ink-950: #12131A;
+
+  /* -- paper: the light ground. Warm by a hair. ------------------------- */
+  --color-paper-50:  #FBFBF9;
+  --color-paper-100: #F5F5F1;
+  --color-paper-200: #EAEAE4;
+  --color-paper-300: #D9D9D1;
+  --color-paper-400: #B8B8AE;
+  --color-paper-500: #93938A;
+  --color-paper-600: #74746C;
+  --color-paper-700: #5B5B55;
+  --color-paper-800: #3E3E3A;
+  --color-paper-900: #262623;
+  --color-paper-950: #161614;
+
+  /* -- night: the dark ground. ------------------------------------------ */
+  --color-night-50:  #EFF0F2;
+  --color-night-100: #DCDEE2;
+  --color-night-200: #B9BCC4;
+  --color-night-300: #8E929E;
+  --color-night-400: #666B78;
+  --color-night-500: #474C58;
+  --color-night-600: #333844;
+  --color-night-700: #23262F;
+  --color-night-800: #171A21;
+  --color-night-900: #101218;
+  --color-night-950: #0B0C10;
+
+  /* -- mark: THE accent. A mention happened. Never a warning. ----------- */
+  --color-mark-50:  #FEF9E7;
+  --color-mark-100: #FDF0C2;
+  --color-mark-200: #FBE188;
+  --color-mark-300: #F9CE45;
+  --color-mark-400: #F7BF1D;
+  --color-mark-500: #F5B301;
+  --color-mark-600: #D19501;
+  --color-mark-700: #A57401;
+  --color-mark-800: #7A5602;
+  --color-mark-900: #563C05;
+  --color-mark-950: #2F2103;
+
+  /* -- yes: market YES, resolved-yes, upward trend. Reserved. ----------- */
+  --color-yes-50:  #E8F6F0;
+  --color-yes-100: #C6E9DA;
+  --color-yes-200: #93D5BC;
+  --color-yes-300: #5CBD9B;
+  --color-yes-400: #35B287;
+  --color-yes-500: #12805C;
+  --color-yes-600: #0E6A4C;
+  --color-yes-700: #0B543D;
+  --color-yes-800: #0A4231;
+  --color-yes-900: #093528;
+  --color-yes-950: #041C15;
+
+  /* -- no: market NO, resolved-no, downward trend. Reserved. ------------ */
+  --color-no-50:  #FCEDEB;
+  --color-no-100: #F8D5D1;
+  --color-no-200: #F1ADA5;
+  --color-no-300: #E68274;
+  --color-no-400: #D65C4A;
+  --color-no-500: #C0392B;
+  --color-no-600: #A22E23;
+  --color-no-700: #82251C;
+  --color-no-800: #661E17;
+  --color-no-900: #4F1913;
+  --color-no-950: #2B0D0A;
+
+  /* -- ash: the neutral. Warm at the top (meets paper), cool at the
+        bottom (meets night). Replaces the stock `olive`. ---------------- */
+  --color-ash-50:  #F7F7F4;
+  --color-ash-100: #EEEEEA;
+  --color-ash-200: #E0E0DA;
+  --color-ash-300: #C6C6C0;
+  --color-ash-400: #9B9BA0;
+  --color-ash-500: #74747C;
+  --color-ash-600: #575862;
+  --color-ash-700: #3F404A;
+  --color-ash-800: #292B34;
+  --color-ash-900: #191B22;
+  --color-ash-950: #0F1116;
 }
 
-:root {
+/* ==========================================================================
+   Surface tokens.
+   Declared UNLAYERED on purpose: unlayered rules outrank anything inside
+   @layer, which is where @nuxt/ui ships its own defaults. This is what makes
+   the light ground `paper` instead of pure #fff and the dark ground `night`
+   instead of neutral-900.
+   Pages must use the semantic classes (bg-default / bg-elevated / bg-muted /
+   text-muted / text-dimmed / border-default ...), never a raw palette class.
+   ========================================================================== */
+
+:root,
+.light {
   --ui-radius: 0.25rem;
-  --ui-container: 1280px;
+  --ui-container: 80rem;
+
+  --ui-bg: #FBFBF9;            /* paper */
+  --ui-bg-muted: #F4F4F0;
+  --ui-bg-elevated: #EDEDE8;
+  --ui-bg-accented: #E0E0D9;
+  --ui-bg-inverted: #12131A;   /* ink */
+
+  --ui-border: #E4E4DE;
+  --ui-border-muted: #ECECE6;
+  --ui-border-accented: #D5D5CD;
+  --ui-border-inverted: #12131A;
+
+  --ui-text-dimmed: #9B9B93;
+  --ui-text-muted: #74746C;
+  --ui-text-toned: #55554F;
+  --ui-text: #33333B;
+  --ui-text-highlighted: #12131A;
+  --ui-text-inverted: #FBFBF9;
+
+  /* Primary reads as ink on paper: solid, dark, confident. This is also the
+     premium/paywall voice — premium is NEVER amber. */
+  --ui-primary: #12131A;
+
+  /* CONTRAST GUARD. Nuxt UI drives the `secondary`/`warning` aliases from
+     mark-500 (#F5B301). On paper that is ~2:1 as text and ~1.9:1 under white —
+     unreadable. On the LIGHT ground only, the alias steps down to mark-700 so
+     `text-secondary` and a solid badge stay legible.
+     The true accent is untouched: the tally, highlights and live states use the
+     scale directly (bg-mark-500 / text-mark-600 / var(--color-mark-500)).
+     Dark mode needs no guard — the alias resolves to mark-400 on night. */
+  --ui-secondary: #A57401;
+  --ui-warning: #A57401;
+}
+
+.dark {
+  --ui-bg: #0B0C10;            /* night */
+  --ui-bg-muted: #101219;
+  --ui-bg-elevated: #171922;
+  --ui-bg-accented: #232630;
+  --ui-bg-inverted: #FBFBF9;
+
+  --ui-border: #1E212A;
+  --ui-border-muted: #171922;
+  --ui-border-accented: #2C303B;
+  --ui-border-inverted: #FBFBF9;
+
+  --ui-text-dimmed: #5C6070;
+  --ui-text-muted: #8A8F9E;
+  --ui-text-toned: #A8ADBA;
+  --ui-text: #C9CDD8;
+  --ui-text-highlighted: #FBFBF9;
+  --ui-text-inverted: #0B0C10;
+
+  /* Inverted on night: paper. text-inverted resolves dark, so solid primary
+     buttons stay legible in both themes. */
+  --ui-primary: #FBFBF9;
+}
+
+/* ==========================================================================
+   The mark, unlayered.
+   Highlight markup that arrives from the API carries a legacy utility class on
+   every <mark>, and that utility IS emitted into this bundle (an admin
+   composable writes the same string). A rule inside @layer base loses to a
+   utility, so the wash is pinned here, unlayered: unlayered rules outrank every
+   layer, whatever class rides along on the element.
+   ========================================================================== */
+
+mark,
+mark[class] {
+  background-color: color-mix(in oklab, var(--color-mark-500) 32%, transparent);
+  color: inherit;
+  border-radius: 0.125rem;
+  padding-inline: 0.15em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@layer base {
+  /* Literal family names so @nuxt/fonts resolves and self-hosts them from
+     Google Fonts. Do not replace these with var() — the scanner needs names. */
+  html {
+    font-family: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  }
+
+  body {
+    font-size: 1rem;           /* 16 is the reading size. Not 14. */
+    line-height: 1.6;
+    font-synthesis-weight: none;
+  }
+
+  /* Headings carry the display voice: heavy Instrument Sans, tight tracking.
+     No third family is ever introduced. */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    color: var(--ui-text-highlighted);
+    text-wrap: balance;
+  }
+
+  /* The mark. Any <mark> in prose or v-html highlighting is on-brand. */
+  mark {
+    background-color: color-mix(in oklab, var(--color-mark-500) 32%, transparent);
+    color: inherit;
+    border-radius: 0.125rem;
+    padding-inline: 0.15em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-mark-500) 40%, transparent);
+  }
+
+  /* Numbers never jitter when they update. */
+  :where(.font-mono, code, kbd, samp, pre) {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ==========================================================================
+   Type utilities. Use these instead of inventing a size/weight pair per page.
+   ========================================================================== */
+
+/* 48 — page-defining statement. One per page at most. */
+@utility type-display {
+  font-size: 3rem;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+/* 34 — page H1 / section opener. */
+@utility type-title {
+  font-size: 2.125rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+/* 26 — section heading. */
+@utility type-heading {
+  font-size: 1.625rem;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+/* 20 — card title, subheading. */
+@utility type-subhead {
+  font-size: 1.25rem;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+/* 16 — body. */
+@utility type-body {
+  font-size: 1rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+/* 14 — secondary prose, captions under a heading. */
+@utility type-meta {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* 12 — smallest step. */
+@utility type-caption {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* 12 mono, upper, wide — the metadata label voice. Pair with text-dimmed. */
+@utility type-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* Any number that is evidence: counts, prices, percentages, tallies. */
+@utility type-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+/* Reading measure. Transcript body, blog post, long prose. */
+@utility measure {
+  max-width: 68ch;
+}
+
+@utility measure-wide {
+  max-width: 76ch;
+}
+
+/* Inline highlight for a tracked term inside running text. */
+@utility mark-hl {
+  background-color: color-mix(in oklab, var(--color-mark-500) 32%, transparent);
+  border-radius: 0.125rem;
+  padding-inline: 0.15em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Hairline rule in the transcript voice. */
+@utility rule-dotted {
+  border-bottom: 1px dotted var(--ui-border-accented);
 }

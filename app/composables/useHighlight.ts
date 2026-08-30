@@ -32,7 +32,10 @@ export function useHighlight() {
   function highlightTerm(text: string, searchTerm: string): string {
     if (!searchTerm) return text
     const regex = new RegExp(buildPluralPattern(searchTerm), 'gi')
-    return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>')
+    // Bare <mark> on purpose. The amber highlight is defined once, unlayered, in
+    // app/assets/css/main.css — the accent IS the brand, so it must not be pinned
+    // to a raw Tailwind yellow that drifts from the palette and breaks in dark mode.
+    return text.replace(regex, '<mark>$1</mark>')
   }
 
   return { buildPluralPattern, highlightTerm }

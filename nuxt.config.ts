@@ -29,19 +29,49 @@ export default defineNuxtConfig({
     }
   },
   routeRules: {
-    '/api/_nuxt_icon/**': {},
+    // Everything under /api belongs to FastAPI. Nitro MERGES route rules rather than
+    // letting a more specific key opt out, so the old `'/api/_nuxt_icon/**': {}` did
+    // not exclude the icon endpoint from this proxy — icon requests were forwarded to
+    // the backend, which 404s them. That is what produced
+    // `[Icon] failed to load icon lucide:sun|menu|hash`. The icon API is moved off
+    // the /api namespace entirely below.
     '/api/**': {
       proxy: 'http://localhost:8001/api/**'
     }
   },
   icon: {
+    // Default is /api/_nuxt_icon, which collides with the FastAPI proxy above.
+    localApiEndpoint: '/_nuxt_icon',
     clientBundle: {
       scan: true,
     },
-    serverBundle: false,
+    // Bundle the icons the server renders too. With serverBundle disabled, SSR
+    // resolved every icon over the network against the Iconify API — which is what
+    // produced `[Icon] failed to load icon` for sun/menu/hash. Every icon in the app
+    // is lucide and @iconify-json/lucide is installed, so this resolves locally.
+    serverBundle: 'local',
   },
+  // Reads SUPABASE_URL / SUPABASE_KEY from .env via the module's own fallback chain.
+  supabase: {
+    // No generated Database types in this project; skips a build-time warning.
+    types: false,
+    // The module ships a `global-auth` middleware that redirects every route not
+    // listed in `redirectOptions.exclude` to /login. This site is public by
+    // default, so an allow-list is the wrong shape: one forgotten route silently
+    // forces a login wall. app/middleware/auth.global.ts owns the guard instead.
+    redirect: false,
+    cookieOptions: {
+      // The module default is 8 hours, which signed people out mid-session.
+      maxAge: 60 * 60 * 24 * 30,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    },
+  },
+
   css: ['~/assets/css/main.css'],
-  modules: ['@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo', '@nuxtjs/device', '@nuxt/image', '@nuxt/content'],
+  // @nuxtjs/supabase first: it registers `enforce: 'pre'` plugins that must run
+  // before anything reads the session.
+  modules: ['@nuxtjs/supabase', '@nuxt/eslint', '@nuxt/hints', '@nuxt/ui', '@nuxtjs/seo', '@nuxtjs/device', '@nuxt/image', '@nuxt/content'],
   
   image: {
     quality: 80,
@@ -66,8 +96,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      supabaseUrl: process.env.SUPABASE_URL,
-      supabasePublishableKey: process.env.SUPABASE_KEY,
+      // Supabase url/key now live under `public.supabase.*`, provided by @nuxtjs/supabase.
       backendUrl: process.env.BACKEND_URL || 'http://localhost:8001',
     },
   },

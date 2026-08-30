@@ -18,9 +18,17 @@ OG images are auto-generated using `nuxt-og-image` (bundled with `@nuxtjs/seo`).
 
 | Template | Used By | Props |
 |----------|---------|-------|
-| `OgImageDefault.vue` | Homepage, blog listing | None |
-| `OgImagePersona.vue` | Persona detail pages | `name`, `description`, `imageUrl` |
-| `OgImageBlog.vue` | Blog post pages | `title`, `description`, `date` |
+| `OgImageDefault.vue` | `/`, `/pricing`, `/markets`, `/blog`, `/transcripts/[id]`, and `/markets/[slug]` when the persona has no `image_url` | None |
+| `OgImagePersona.vue` | `/personas/[slug]`, and `/markets/[slug]` when the persona has an `image_url` | `name`, `description`, `imageUrl` |
+| `OgImageBlog.vue` | `/blog/[...slug]` | `title`, `description`, `date` |
+
+`/login`, `/signup` and `/account` deliberately have no OG image — they are `noindex, nofollow`.
+
+**The OG templates are outside the design system.** They render in Satori, not the browser, so they
+carry hard-coded inline styles (currently a slate/sky palette) rather than the `ink`/`paper`/`mark`
+tokens from `app/assets/css/main.css`. If they are ever restyled to match the site, the colours must
+be written as literals in the template — a Satori render has no access to the CSS bundle. See
+`docs/design-system.md`.
 
 Usage in pages: `defineOgImage({ component: 'OgImagePersona', alt: '...', props: { ... } })`
 
@@ -87,6 +95,22 @@ inherits them. Do not redefine them per page.
 | Blog listing | Breadcrumb |
 | Blog post | Article (headline, description, image, keywords, articleSection), Breadcrumb |
 | Transcript detail | WebPage, Breadcrumb |
+| Account | none (`noindex, nofollow`) |
+| Login / Signup | none — see below |
+
+### Gotcha: `/login` and `/signup` inherit nothing
+
+Both pages set `definePageMeta({ layout: false })` — they render their own two-column shell (a night
+`bg-ink-950` panel beside the form) rather than the public header/footer. That means they do **not**
+inherit the `Organization` + `WebSite` schema defined in `app/layouts/default.vue`. This is fine:
+both are `noindex, nofollow`. But do not add another page with `layout: false` and expect the site
+schema to be there.
+
+### The error page
+
+`app/error.vue` mounts `<NuxtLayout name="default">` itself, because Nuxt renders it outside the
+normal page tree. It sets `robots: 'noindex, follow'` and a status-dependent title
+(`Page not found` / `Something went wrong`). Do not add `defineOgImage()` or schema to it.
 
 ### Gotcha: `definePerson` steals the site identity
 
@@ -126,8 +150,33 @@ Blog posts are markdown files in `content/blog/`. Collection defined in `content
 
 ### Pages
 
-- `app/pages/blog/index.vue` — Blog listing
-- `app/pages/blog/[...slug].vue` — Individual post
+Both follow `docs/design-system.md`.
+
+**`app/pages/blog/index.vue`** — `UPageHeader`, then a two-tier list:
+
+- The newest post is a **lead article**: a 12-column grid with `type-title` headline (amber
+  underline on hover via `decoration-mark-500`), a `measure-wide` description, a `type-figure` date,
+  reading time, tag `UBadge`s, and a 16:9 image on the right when the post has one
+- Every other post is a `border-b` row whose date and reading time **hang in the left margin** at
+  `lg` (a `9rem` grid column) instead of stacking under the title
+- Reading time is computed by walking `@nuxt/content`'s minimark body tree (`[tag, props,
+  ...children]`, leaves are strings) at 220 wpm — there is no reading-time field in the frontmatter
+- Dates are authored as plain `YYYY-MM-DD` and formatted with `timeZone: 'UTC'`, so they do not
+  shift a day west of UTC
+- States: `UiLoadingBlock variant="rows"` → `UAlert` with retry → `UiEmptyState`
+
+**`app/pages/blog/[...slug].vue`** — a 404 is thrown via `createError` when the path does not
+resolve, so `app/error.vue` handles it.
+
+- `UBreadcrumb`, then a grid of a `68ch` reading column plus a `14rem` margin aside holding two
+  `<UiStatRow layout="stack" semantic>` rows (Published, Reading time) and the tags
+- `<ContentRenderer>` inside a `.article-body measure` wrapper. **There is no `@tailwindcss/typography`
+  plugin in this project** — a `prose-*` class here would do nothing. Element styling comes from
+  Nuxt UI's Prose components; the page's scoped `:deep()` rules only pull heading sizes back onto
+  the type scale and give `blockquote` the mark voice (`border-inline-start: 3px solid
+  var(--color-mark-500)`). Scoped SFC styles are unlayered, so they win without `!important`
+- A prev/next footer links the sibling posts by date order; when there is only one post it falls
+  back to an "All posts" button
 
 ### RSS feed
 

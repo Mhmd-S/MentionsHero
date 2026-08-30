@@ -8,6 +8,7 @@ import stripe
 
 from backend.config import get_settings
 from backend.core.database import get_supabase
+from backend.services import profile_service
 
 logger = logging.getLogger(__name__)
 
@@ -49,28 +50,14 @@ async def create_checkout_session(
     base = settings.frontend_url.rstrip("/")
     success_url = f"{base}/account?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{base}/pricing"
-    supabase = get_supabase()
-
-    # Check if user already has a Stripe customer ID
-    profile = (
-        supabase.table("profiles")
-        .select("stripe_customer_id")
-        .eq("id", user_id)
-        .single()
-        .execute()
-    )
-
-    customer_id = profile.data.get("stripe_customer_id") if profile.data else None
+    # ensure_profile, not .single(): a user with no profile row used to make
+    # checkout 500 outright, so a broken signup also meant they could never pay.
+    customer_id = profile_service.get_stripe_customer_id(user_id)
 
     if not customer_id:
-        # Create Stripe customer
         customer = s.Customer.create(email=email, metadata={"user_id": user_id})
         customer_id = customer.id
-
-        # Save to profiles
-        supabase.table("profiles").update(
-            {"stripe_customer_id": customer_id}
-        ).eq("id", user_id).execute()
+        profile_service.set_stripe_customer_id(user_id, customer_id)
 
     session = s.checkout.Session.create(
         customer=customer_id,
@@ -196,14 +183,7 @@ async def _sync_subscription_from_stripe(
     Returns the synced subscription record, or None if no active sub found.
     """
     try:
-        profile = (
-            supabase.table("profiles")
-            .select("stripe_customer_id")
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
-        customer_id = profile.data.get("stripe_customer_id") if profile.data else None
+        customer_id = profile_service.get_stripe_customer_id(user_id)
         if not customer_id:
             return None
 
@@ -286,17 +266,8 @@ async def get_subscription_status(user_id: str) -> dict[str, Any] | None:
 async def create_portal_session(user_id: str) -> str | None:
     """Create a Stripe Customer Portal session for subscription management."""
     s = _get_stripe()
-    supabase = get_supabase()
 
-    profile = (
-        supabase.table("profiles")
-        .select("stripe_customer_id")
-        .eq("id", user_id)
-        .single()
-        .execute()
-    )
-
-    customer_id = profile.data.get("stripe_customer_id") if profile.data else None
+    customer_id = profile_service.get_stripe_customer_id(user_id)
     if not customer_id:
         return None
 

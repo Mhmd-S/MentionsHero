@@ -77,7 +77,7 @@ When analysis runs (on demand via persona selection):
    - Calculate trend (rising/falling/stable)
    - Upsert `market_term_results` record (context_matches JSONB includes `mention_count` per entry)
 
-### Sort & Filter (Event Detail Pages)
+### Sort & Filter (Admin Event Detail Pages)
 When a persona is selected, term sections can be sorted and filtered via a toolbar:
 - **Sort by**: Mentions (most/least), Percentage, Alphabetical (by term), Price
 - **Filter**: "Has mentions" (hide zero-mention terms), "Active only" (hide resolved markets), Trend (Increasing/Decreasing/Stable)
@@ -116,13 +116,56 @@ The public site exposes analyzed market data at `/markets` for all users, with a
 Events are only shown publicly when an admin explicitly enables them. Each event (Kalshi and Polymarket) has a `show_public` boolean column (default `false`). Admins toggle visibility from the event detail pages using the eye/hidden button in the event header. The public service filters events by `show_public = true` — no automatic logic based on mentions or activity.
 
 ### Pages
-- `/markets` — Listing page: events separated by source (Kalshi section, Polymarket section), grouped by persona within each section
-- `/markets/[slug]` — Persona detail: events separated into Kalshi and Polymarket sections with market cards
+
+Both public pages follow the design system in `docs/design-system.md` — venue sections are driven
+from one `SOURCES` array so Kalshi and Polymarket get identical treatment, never twin blocks of
+markup.
+
+**`/markets` (`app/pages/markets/index.vue`)** — SSR `useFetch('/api/public/markets')`.
+
+- `UPageHeader` with a `#description` slot carrying the tracked-event count as a `type-figure`
+- Filter bar: a `UInput type="search"` (matches event title **or** any top term) plus a
+  `<UiFilterToggle label="Venue">` with All / Kalshi / Polymarket and per-venue counts
+- One `<section>` per venue that still has results, each headed by a `rule-dotted` bar with the
+  venue name and an event-count `UBadge`; within a venue, events are grouped by persona
+- Each persona group has an avatar row (`UiPersonaAvatar`, name link to `/personas/{slug || id}`,
+  an "All markets" button to `/markets/{slug || id}`) above a 2-column card grid
+- Each event card links to **`/markets/{persona}#event-{event_id}`** — there is no public
+  per-event route, so the card addresses its event as an anchor on the persona page. It shows the
+  event image, title, a non-active status badge, a `type-caption` meta line (date · market count ·
+  total mentions in `text-mark-600 dark:text-mark-400`), and its top terms as `<UiTermChip>`s with
+  a `+N more` overflow
+- States: `UiLoadingBlock variant="cards"` → `UAlert` with a retry action on failure →
+  `UiEmptyState` (copy and action differ depending on whether filters are applied)
+- `<UiUpsellBanner>` at the foot for non-subscribers
+
+**`/markets/[slug]` (`app/pages/markets/[slug].vue`)** — persona fetched SSR for meta tags; the
+markets payload loads client-side.
+
+- `UBreadcrumb` (Transcripts → Markets → persona) and a `UPageHeader` whose `#headline` carries the
+  persona avatar and a `type-label`, with a "Transcripts" link in `#links`
+- Filter bar: search (matches event title, market question or search term) plus two
+  `<UiFilterToggle>`s — **Venue** (All/Kalshi/Polymarket) and **Status** (All/Active/Resolved)
+- Venue sections again, each event rendered with `id="event-{event_id}"` and `scroll-mt-24` so the
+  anchor from the listing page resolves; `scrollToHash()` re-scrolls after the client fetch lands,
+  because the browser tried to resolve the hash before the markup existed
+- Event header shows image, title, status badge, and a `type-figure` meta line with the
+  `event_ticker` and strike/end date
+- Each market is a `UCard`: a `<UiTermChip>` (term + price, coloured by `result`), a
+  "Resolved YES"/"Resolved NO" badge, the question, then the analysis `<dl>`
 
 ### Paywall
-- **Free users**: See market questions, prices, result badges. Analysis fields (mentions, trends, percentages) show a lock icon with "Subscribe to see analysis"
-- **Subscribers**: Full analysis data including mention counts, briefings ratio, trend indicator, percentage
-- Response includes `is_limited: true` for free users
+
+The gate on a market card is **field-absence**: the API omits `total_mentions` for free users, and
+`isUnlocked(market)` tests `market.total_mentions !== undefined`.
+
+- **Free users** see the term, the price, the result badge and the question. In place of the
+  analysis `<dl>` they get a lock icon and "Mention count is part of the subscription"
+- **Subscribers** get a `<dl>` of three `<UiStatRow semantic>` rows: **Mentions** (`tone="mark"`,
+  with a `<UiTallyRail>` beside the number), **Briefings** (`n/total · pct%`), and **Trend**
+  (`Rising` → `tone="yes"` + `i-lucide-trending-up`, `Falling` → `tone="no"` +
+  `i-lucide-trending-down`, otherwise `Stable` → `tone="muted"` + `i-lucide-minus`)
+- The response's `is_limited: true` drives the page-level `<UiUpsellBanner>`
 
 ### Public API Endpoints
 | Method | Path | Auth | Description |
@@ -133,9 +176,10 @@ Events are only shown publicly when an admin explicitly enables them. Each event
 ### Key Files (Public)
 | File | Purpose |
 |------|---------|
-| `app/pages/markets/index.vue` | Public markets listing |
-| `app/pages/markets/[slug].vue` | Persona markets detail |
-| `app/composables/usePublicMarkets.ts` | Public markets API calls |
+| `app/pages/markets/index.vue` | Public markets listing. Fetches `/api/public/markets` with `useFetch` (SSR) |
+| `app/pages/markets/[slug].vue` | Persona markets detail. Persona via `useFetch` (SSR), markets via `usePublicApi().publicFetch` on mount |
+| `app/components/ui/TermChip.vue`, `TallyRail.vue`, `StatRow.vue`, `FilterToggle.vue`, `UpsellBanner.vue`, `EmptyState.vue`, `LoadingBlock.vue`, `NotFoundState.vue`, `PersonaAvatar.vue` | Shared UI — see `docs/design-system.md` |
+| `app/composables/usePublicMarkets.ts` | **Unused.** Neither public markets page imports it; both call the API directly |
 | `backend/services/public_service.py` | `get_public_markets_listing()`, `get_public_persona_markets()` |
 | `backend/routers/public.py` | Public market endpoints |
 
@@ -214,9 +258,11 @@ Unlike Kalshi (auto-browsed by category), Polymarket events are discovered via a
 
 Identical pipeline to Kalshi — same NLP functions (`calculate_term_frequency`, `search_term_in_context`), same persona/transcript resolution. Display uses `MarketOverviewRow.vue` — a table-row layout with inline metrics (price, 1-day change, trend, mentions, % briefings) and expandable transcript context. Kalshi continues to use `TermSection.vue`.
 
-### UI
+### UI (admin)
 
-The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is persisted via `?tab=polymarket` query param. Detail pages are at `/admin/markets/poly/{event_id}`.
+The **admin** markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is persisted via `?tab=polymarket` query param. Detail pages are at `/admin/markets/poly/{event_id}`.
+
+The **public** pages do not use tabs — `/markets` and `/markets/[slug]` render one `<section>` per venue, generated from a single `SOURCES` loop, with a `<UiFilterToggle label="Venue">` to narrow to one. See "Public Markets Pages" above.
 
 ### API Endpoints
 
@@ -238,7 +284,7 @@ The markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is pe
 | Composable | `app/composables/usePolymarket.ts` | All Polymarket API calls |
 | Component | `app/components/MarketOverviewRow.vue` | Table-row market display with inline metrics and expandable transcript context |
 | Component | `app/components/TermSection.vue` | Per-market term analysis card display (used by Kalshi) |
-| Composable | `app/composables/useHighlight.ts` | Shared term highlighting utilities (used by both components) |
+| Composable | `app/composables/useHighlight.ts` | Shared term highlighting. Emits a **bare** `<mark>` — the amber wash is defined once, unlayered, in `app/assets/css/main.css`. Never re-add a Tailwind class here (see `docs/design-system.md`) |
 | Router | `backend/routers/polymarket.py` | All `/api/polymarket/*` endpoints |
 | Service | `backend/services/polymarket_service.py` | Polymarket API client, upsert logic, market analysis |
 | Model | `backend/models/polymarket.py` | Polymarket API models, DB record models |

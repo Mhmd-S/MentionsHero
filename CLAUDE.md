@@ -7,6 +7,7 @@ A tool for transcribing YouTube videos (primarily press briefings), analyzing te
 - **Frontend**: Nuxt 3 (Vue 3 + TypeScript) in `app/`
 - **Backend**: FastAPI (Python 3) in `backend/`
 - **Database**: Supabase (PostgreSQL)
+- **Auth**: `@nuxtjs/supabase` (cookie sessions, SSR) + local JWKS verification in FastAPI
 - **Payments**: Stripe (monthly subscription)
 - **Transcription**: Google Gemini 2.0 Flash (speaker diarization)
 - **Audio Download**: yt-dlp
@@ -53,7 +54,10 @@ app/                          # Nuxt 3 frontend
     usePolymarket.ts          # Polymarket API
     useFileTree.ts            # Folder/transcript management
     useAutoTranscription.ts   # Auto-transcription source management
-    useAuth.ts                # Authentication state
+    useAuth.ts                # Auth facade over @nuxtjs/supabase
+    useProfile.ts             # profiles row + role (role is not a JWT claim)
+  plugins/
+    session.client.ts         # Loads profile + subscription once per session
   components/                 # Reusable components
     FileTree/                 # Sidebar file tree (FileTree.vue, FileTreeFolder.vue, FileTreeItem.vue)
     TermSearch.vue            # Term search interface
@@ -104,6 +108,7 @@ backend/                      # FastAPI backend
     polymarket_service.py     # Polymarket API client, market analysis
     youtube_service.py        # YouTube metadata via yt-dlp
     public_service.py         # Public data access, subscription checks
+    profile_service.py        # Profile reads/writes, self-healing ensure_profile()
     stripe_service.py         # Stripe API integration
     auto_transcription_service.py  # Auto-transcription check logic & CRUD
   models/                     # Pydantic request/response models
@@ -122,6 +127,7 @@ supabase/
 server/                         # Nitro server routes (root-level, outside app/)
   routes/
     rss.xml.ts                  # Blog RSS 2.0 feed at /rss.xml
+    auth/confirm.get.ts         # Server-side email confirmation (verifyOtp -> session cookie)
 
 content/                        # @nuxt/content markdown files
   blog/                         # Blog posts (markdown with frontmatter)
@@ -145,6 +151,7 @@ Each feature has detailed documentation in `docs/`. Read the relevant file befor
 | Sidebar & Directory | `docs/sidebar.md` | FileTree component, folder hierarchy, drag-and-drop |
 | SEO & Blog | `docs/seo.md` | OG images, canonicals, structured data, sitemap, RSS feed, @nuxt/content blog |
 | Auto-Transcription | `docs/auto-transcription.md` | Periodic YouTube channel/playlist monitoring & auto-transcription |
+| Design System | `docs/design-system.md` | Colour scales, type utilities, the ten shared `ui/` components, icon rule |
 
 ## Mandatory: Update Documentation on Feature Changes
 
@@ -173,7 +180,7 @@ What to update:
 | Table | Purpose |
 |-------|---------|
 | `transcripts` | Full transcript text, youtube_url, name, folder_id, upload_date, is_public, is_premium |
-| `profiles` | User profiles with role (admin/client), stripe_customer_id |
+| `profiles` | User profiles with role (admin/client), stripe_customer_id. RLS on, SELECT-own-row only; rows created by the `on_auth_user_created` trigger |
 | `subscriptions` | Stripe subscription tracking (user_id, status, period) |
 | `jobs` | Job progress tracking (status, stage_progress, cancel_requested) |
 | `folders` | Hierarchical folders (self-referencing parent_id) |
@@ -254,7 +261,7 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 | `/api/auto-transcription` | `auto_transcription.py` | Admin | Auto-transcription sources, runs, manual trigger |
 | `/api/public` | `public.py` | None/Optional | Public personas, transcripts & markets browsing |
 | `/api/stripe` | `stripe_router.py` | User/None | Checkout, webhook, subscription, portal |
-| `/api/profile` | `profile.py` | User/None | Profile CRUD, signup init |
+| `/api/profile` | `profile.py` | User | Get/update the current user's profile |
 
 ## Key Conventions & Gotchas
 
@@ -262,6 +269,12 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 - **FastAPI route ordering**: Static routes (`/series/search`) MUST be defined BEFORE parameterized routes (`/series/{series_id}`) to avoid path conflicts
 - **Supabase client**: Use `from backend.core.database import supabase` — singleton client
 - **Auth**: Admin routes use `require_admin` dependency (per-router in main.py). Public routes use `optional_auth` or no auth. Stripe routes use `require_user_auth`. SSE streams accept `?token=` query param
+- **Auth is `@nuxtjs/supabase`**: it owns the client, session and SSR cookie hydration. `useSupabaseUser()` returns **JWT claims, not a `User`** — the id is `user.sub`. Never re-add a local `useSupabaseClient()`; it collides with the module's auto-import and writes no cookies
+- **`supabase.redirect: false`**: the module's `global-auth` middleware is off. `app/middleware/auth.global.ts` is the only thing that redirects — the site is public by default, so an allow-list is the wrong shape
+- **Profile rows are created by the database**, by the `on_auth_user_created` trigger, never by the browser. `profile_service.ensure_profile()` is the fallback. Never use `.single()` on `profiles` — a missing row used to 500 checkout, the portal and `/account`
+- **Email confirmation** lands on `server/routes/auth/confirm.get.ts`. Not `/confirm` (the module's default callback, which expects a client page) and not under `/api/**` (proxied to FastAPI). Requires the Supabase email template to use `{{ .TokenHash }}` — see `docs/public-site.md`
+- **Backend verifies tokens locally** against the project JWKS (ES256), cached in-process. Never reintroduce a per-request `supabase.auth.get_user(token)`. The admin role comes from the DB, never from a token claim — `user_metadata` is client-writable
+- **Subscription state is global**: `app/plugins/session.client.ts` loads it once. Pages must not gate UI on a subscription they never fetched — that is how `/pricing` offered subscribers a second subscription
 - **Admin pages**: All admin pages use `definePageMeta({ layout: 'admin' })` and live under `app/pages/admin/`
 - **Public pages**: Public pages use the default layout and live at root level in `app/pages/`
 - **Nuxt UI**: Use Nuxt UI components (UButton, UBadge, UModal, etc.), not raw HTML elements
@@ -277,10 +290,18 @@ Admin routes require admin role. Public routes are unauthenticated or use option
 - **Markets UI**: Tabbed layout (Kalshi | Polymarket) on `/admin/markets`. Tab state persisted via `?tab=polymarket` query param. Kalshi detail at `/admin/markets/{event_ticker}`, Polymarket detail at `/admin/markets/poly/{event_id}`
 - **Auto-transcription scheduler**: APScheduler `AsyncIOScheduler` starts via FastAPI lifespan in `main.py`. Disable with `AUTO_TRANSCRIPTION_ENABLED=false` env var. Scheduler state reconstructed from DB on restart. Multi-instance dedup prevents duplicate checks when running multiple replicas
 - **SEO tags**: `canonical` is NOT a valid `useSeoMeta()` key — `nuxt-seo-utils` auto-injects `<link rel="canonical">` on every page; override with `useHead()` only where a route resolves under two URLs (persona/markets slug-or-id). `defineOgImage()` already emits `twitter:card`/`twitter:image`; set alt once via its `alt` option, not `ogImageAlt`. `Organization`/`WebSite` schema live in `app/layouts/default.vue` — never redefine per page. See `docs/seo.md`
+- **Icons are lucide only**: `i-lucide-*` everywhere, including the Nuxt UI icon map in `app/app.config.ts`. `@iconify-json/lucide` is installed and `icon.serverBundle: 'local'` bundles it for SSR, so nothing is fetched at runtime. Verify a name before using it — a wrong one renders a blank box: `node -e "console.log('menu' in require('./node_modules/@iconify-json/lucide/icons.json').icons)"`
+- **`icon.localApiEndpoint` is `/_nuxt_icon`, NOT the default `/api/_nuxt_icon`**: Nitro *merges* route rules rather than letting a more specific key opt out, so `'/api/_nuxt_icon/**': {}` never excluded the icon endpoint from the `/api/**` FastAPI proxy — icon requests were proxied to the backend and 404'd, producing `[Icon] failed to load icon`. Never move it back under `/api`
+- **Design system**: colours, type scale and the shared `app/components/ui/*` components are documented in `docs/design-system.md`. Amber (`mark`) means "a mention happened" and nothing else; green/red are reserved for market outcome and trend. Never write a raw Tailwind palette class
 - **Persona slugs are mostly empty**: most `personas` rows have a NULL `slug`, and the UI links them as `slug || id`. Anything enumerating persona URLs (sitemap, canonicals) must use the same fallback or it will silently drop nearly every persona
 - **Mandatory CLAUDE.md updates**: Any code change that affects project structure, conventions, API endpoints, database schema, key files, or development workflow MUST be reflected in this CLAUDE.md file
 
 ## Development
+
+**Node 22+ is required.** `@supabase/supabase-js` needs a native `WebSocket`, which Node 20
+does not have — on Node 20 every SSR page returns a bare 500 with no logged error. The
+Dockerfile already uses Node 22; `package.json` pins `engines.node >= 22`. After switching
+Node versions run `pnpm rebuild better-sqlite3`, or @nuxt/content will fail at runtime.
 
 ```bash
 # Frontend (port 3000)
@@ -303,7 +324,11 @@ STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
 STRIPE_PRICE_ID=...
 CORS_ORIGINS=https://mentionshero.com,https://www.mentionshero.com
+SUPABASE_JWT_SECRET=...   # optional; only for projects still on the legacy HS256 secret
 ```
+
+`SUPABASE_URL` and `SUPABASE_KEY` are read by `@nuxtjs/supabase` directly — they sit in the
+module's own env fallback chain, so no `NUXT_PUBLIC_` rename is needed.
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are required — `Settings()` raises at import and the app never boots without them. `CORS_ORIGINS` accepts a comma-separated list or a JSON array; the field is annotated `NoDecode` so pydantic-settings doesn't JSON-decode it before `parse_cors_origins` runs.
 

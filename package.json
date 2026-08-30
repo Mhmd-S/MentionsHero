@@ -3,12 +3,17 @@
   "type": "module",
   "private": true,
   "packageManager": "pnpm@10.18.2",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "lint": "eslint app server",
+    "lint:fix": "eslint app server --fix"
   },
   "dependencies": {
     "@google/genai": "^1.45.0",
@@ -18,7 +23,8 @@
     "@nuxt/image": "^2.0.0",
     "@nuxt/ui": "4.4.0",
     "@nuxtjs/device": "4.0.0",
-    "@supabase/supabase-js": "^2.99.1",
+    "@nuxtjs/supabase": "2.0.10",
+    "@supabase/supabase-js": "^2.112.4",
     "better-sqlite3": "^12.8.0",
     "eslint": "^9.39.4",
     "marked": "^17.0.4",

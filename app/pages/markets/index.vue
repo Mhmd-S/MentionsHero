@@ -31,11 +31,22 @@ interface PersonaWithEvents {
   events: MarketEvent[]
 }
 
-const { data: personaMarkets, status } = await useFetch<PersonaWithEvents[]>('/api/public/markets')
+const { data: personaMarkets, status, error, refresh } = await useFetch<PersonaWithEvents[]>('/api/public/markets')
+
 const loading = computed(() => status.value === 'pending')
+const loadError = computed(() => {
+  if (!error.value) return ''
+  return (error.value as { data?: { detail?: string } })?.data?.detail || 'The markets service did not respond.'
+})
+
+/** The two venues, driven from data — the sections are one loop, not twins. */
+const SOURCES = [
+  { key: 'kalshi', label: 'Kalshi' },
+  { key: 'polymarket', label: 'Polymarket' },
+] as const
 
 const search = ref('')
-const sourceFilter = ref<'all' | 'kalshi' | 'polymarket'>('all')
+const sourceFilter = ref('all')
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase().trim()
@@ -57,21 +68,50 @@ const filtered = computed(() => {
     .filter((pm) => pm.events.length > 0)
 })
 
-const filteredKalshiByPersona = computed(() =>
-  filtered.value
-    .map((pm) => ({ ...pm, events: pm.events.filter((e) => e.source === 'kalshi') }))
-    .filter((pm) => pm.events.length > 0)
-)
-
-const filteredPolyByPersona = computed(() =>
-  filtered.value
-    .map((pm) => ({ ...pm, events: pm.events.filter((e) => e.source === 'polymarket') }))
-    .filter((pm) => pm.events.length > 0)
+const sections = computed(() =>
+  SOURCES.map((source) => {
+    const groups = filtered.value
+      .map((pm) => ({ ...pm, events: pm.events.filter((e) => e.source === source.key) }))
+      .filter((pm) => pm.events.length > 0)
+    return {
+      ...source,
+      groups,
+      eventCount: groups.reduce((sum, pm) => sum + pm.events.length, 0),
+    }
+  }).filter((section) => section.groups.length > 0)
 )
 
 const totalEvents = computed(() =>
   (personaMarkets.value || []).reduce((sum, pm) => sum + pm.events.length, 0)
 )
+
+const sourceItems = computed(() => {
+  const all = personaMarkets.value || []
+  const count = (key: string) =>
+    all.reduce((sum, pm) => sum + pm.events.filter((e) => e.source === key).length, 0)
+  return [
+    { label: 'All', value: 'all', count: totalEvents.value },
+    { label: 'Kalshi', value: 'kalshi', count: count('kalshi') },
+    { label: 'Polymarket', value: 'polymarket', count: count('polymarket') },
+  ]
+})
+
+function personaHref(persona: PersonaWithEvents['persona']) {
+  return `/markets/${persona.slug || persona.id}`
+}
+
+/**
+ * There is no public per-event route — /api/public exposes only /markets and
+ * /markets/{slug}. Each card therefore addresses its event as an anchor on the
+ * persona page, which [slug].vue renders as `id="event-{event_id}"`.
+ */
+function eventHref(persona: PersonaWithEvents['persona'], event: MarketEvent) {
+  return `${personaHref(persona)}#event-${event.event_id}`
+}
+
+function eventMentions(event: MarketEvent) {
+  return event.top_terms.reduce((sum, t) => sum + (t.mentions || 0), 0)
+}
 
 function formatDate(dateString: string | null) {
   if (!dateString) return ''
@@ -106,7 +146,7 @@ useSchemaOrg([
   }),
   defineBreadcrumb({
     itemListElement: [
-      { name: 'Home', item: '/' },
+      { name: 'Transcripts', item: '/' },
       { name: 'Markets' },
     ],
   }),
@@ -168,140 +208,198 @@ useSchemaOrg([
 
 <template>
   <div>
-    <UPageHeader title="Markets">
+    <UPageHeader
+      title="Markets"
+      :ui="{
+        title: 'text-2xl sm:text-2xl text-highlighted',
+        description: 'mt-4 measure text-base text-muted',
+        headline: 'mb-3 type-label text-xs font-medium text-dimmed flex items-center gap-2',
+      }"
+    >
       <template #description>
-        <span class="text-sm text-muted">
-          Prediction markets linked to transcript mentions
-          <span v-if="totalEvents > 0" class="text-default">&middot; {{ totalEvents }} events tracked</span>
+        <span class="text-base text-muted">
+          Every word a market prices, counted in the transcripts.
+          <span v-if="totalEvents > 0" class="type-figure text-default">{{ totalEvents }}</span>
+          <span v-if="totalEvents > 0"> events tracked across Kalshi and Polymarket.</span>
         </span>
       </template>
     </UPageHeader>
 
     <!-- Filters -->
-    <div class="flex items-center gap-3 flex-wrap my-4">
-      <UInput v-model="search" icon="i-lucide-search" placeholder="Search markets..." class="w-full sm:w-80" size="md" variant="outline" />
-      <div class="flex items-center gap-1">
-        <UButton size="xs" :variant="sourceFilter === 'all' ? 'solid' : 'ghost'" @click="sourceFilter = 'all'">All</UButton>
-        <UButton size="xs" :variant="sourceFilter === 'kalshi' ? 'solid' : 'ghost'" @click="sourceFilter = 'kalshi'">Kalshi</UButton>
-        <UButton size="xs" :variant="sourceFilter === 'polymarket' ? 'solid' : 'ghost'" @click="sourceFilter = 'polymarket'">Polymarket</UButton>
-      </div>
+    <div class="my-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <UInput
+        v-model="search"
+        type="search"
+        icon="i-lucide-search"
+        aria-label="Search markets by event title or tracked term"
+        placeholder="Search events or terms"
+        class="w-full sm:w-80"
+        size="md"
+        variant="outline"
+      />
+      <UiFilterToggle v-model="sourceFilter" label="Venue" :items="sourceItems" />
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-16">
-      <UIcon name="i-lucide-loader" class="size-6 animate-spin text-muted" />
-    </div>
+    <UiLoadingBlock v-if="loading" variant="cards" :count="6" :columns="2" label="Loading markets" />
+
+    <!-- Error -->
+    <UAlert
+      v-else-if="loadError"
+      color="error"
+      variant="subtle"
+      icon="i-lucide-circle-alert"
+      title="The markets did not load"
+      :description="loadError"
+      :actions="[{ label: 'Try again', color: 'neutral', variant: 'outline', onClick: () => refresh() }]"
+    />
 
     <!-- Empty -->
-    <div v-else-if="filtered.length === 0" class="py-16 text-center text-muted">
-      <UIcon name="i-lucide-bar-chart-3" class="size-12 mx-auto mb-4 opacity-40" />
-      <p class="text-sm">{{ search ? `No markets matching "${search}"` : 'No markets available yet' }}</p>
-    </div>
-
-    <!-- Separated source sections -->
-    <div v-else class="space-y-10">
-      <!-- Kalshi section -->
-      <div v-if="filteredKalshiByPersona.length > 0">
-        <div class="flex items-center gap-2 mb-5">
-          <h2 class="text-lg font-semibold">Kalshi</h2>
-          <UBadge color="info" variant="subtle" size="xs">{{ filteredKalshiByPersona.reduce((s, pm) => s + pm.events.length, 0) }}</UBadge>
-        </div>
-        <div class="space-y-8">
-          <div v-for="pm in filteredKalshiByPersona" :key="pm.persona.id">
-            <div class="flex items-center gap-3 mb-3">
-              <NuxtLink :to="`/personas/${pm.persona.slug || pm.persona.id}`">
-                <UAvatar v-if="pm.persona.image_url" :src="pm.persona.image_url" :alt="pm.persona.name" size="md" />
-                <UAvatar v-else :text="pm.persona.name[0]" size="md" />
-              </NuxtLink>
-              <div>
-                <NuxtLink :to="`/personas/${pm.persona.slug || pm.persona.id}`" class="font-semibold hover:text-primary transition-colors">{{ pm.persona.name }}</NuxtLink>
-                <p class="text-xs text-muted">{{ pm.events.length }} event{{ pm.events.length !== 1 ? 's' : '' }}</p>
-              </div>
-              <NuxtLink :to="`/markets/${pm.persona.slug || pm.persona.id}`" class="ml-auto">
-                <UButton variant="outline" size="xs" trailing-icon="i-lucide-arrow-right">View All</UButton>
-              </NuxtLink>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <NuxtLink v-for="event in pm.events" :key="event.event_id" :to="`/markets/${pm.persona.slug || pm.persona.id}`">
-                <UCard class="h-full hover:ring-primary/50 hover:ring-1 transition-all" :ui="{ body: 'sm:p-4' }">
-                  <div class="flex items-start gap-3">
-                    <img v-if="event.image" :src="event.image" :alt="event.title" class="size-10 rounded-md object-cover shrink-0" />
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2 mb-1">
-                        <UBadge v-if="event.status !== 'active'" color="neutral" variant="subtle" size="xs">{{ event.status }}</UBadge>
-                      </div>
-                      <p class="text-sm font-medium truncate">{{ event.title }}</p>
-                      <p v-if="event.strike_date || event.end_date" class="text-xs text-muted mt-0.5">{{ formatDate(event.strike_date || event.end_date) }}</p>
-                      <div v-if="event.top_terms.length > 0" class="flex flex-wrap gap-1.5 mt-2">
-                        <UBadge v-for="term in event.top_terms" :key="term.term" variant="subtle" color="neutral" size="xs">{{ term.term }} &middot; {{ term.price }}&cent;</UBadge>
-                        <UBadge v-if="event.market_count > event.top_terms.length" variant="outline" color="neutral" size="xs">+{{ event.market_count - event.top_terms.length }} more</UBadge>
-                      </div>
-                    </div>
-                  </div>
-                </UCard>
-              </NuxtLink>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Polymarket section -->
-      <div v-if="filteredPolyByPersona.length > 0">
-        <div class="flex items-center gap-2 mb-5">
-          <h2 class="text-lg font-semibold">Polymarket</h2>
-          <UBadge color="primary" variant="subtle" size="xs">{{ filteredPolyByPersona.reduce((s, pm) => s + pm.events.length, 0) }}</UBadge>
-        </div>
-        <div class="space-y-8">
-          <div v-for="pm in filteredPolyByPersona" :key="pm.persona.id">
-            <div class="flex items-center gap-3 mb-3">
-              <NuxtLink :to="`/personas/${pm.persona.slug || pm.persona.id}`">
-                <UAvatar v-if="pm.persona.image_url" :src="pm.persona.image_url" :alt="pm.persona.name" size="md" />
-                <UAvatar v-else :text="pm.persona.name[0]" size="md" />
-              </NuxtLink>
-              <div>
-                <NuxtLink :to="`/personas/${pm.persona.slug || pm.persona.id}`" class="font-semibold hover:text-primary transition-colors">{{ pm.persona.name }}</NuxtLink>
-                <p class="text-xs text-muted">{{ pm.events.length }} event{{ pm.events.length !== 1 ? 's' : '' }}</p>
-              </div>
-              <NuxtLink :to="`/markets/${pm.persona.slug || pm.persona.id}`" class="ml-auto">
-                <UButton variant="outline" size="xs" trailing-icon="i-lucide-arrow-right">View All</UButton>
-              </NuxtLink>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <NuxtLink v-for="event in pm.events" :key="event.event_id" :to="`/markets/${pm.persona.slug || pm.persona.id}`">
-                <UCard class="h-full hover:ring-primary/50 hover:ring-1 transition-all" :ui="{ body: 'sm:p-4' }">
-                  <div class="flex items-start gap-3">
-                    <img v-if="event.image" :src="event.image" :alt="event.title" class="size-10 rounded-md object-cover shrink-0" />
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2 mb-1">
-                        <UBadge v-if="event.status !== 'active'" color="neutral" variant="subtle" size="xs">{{ event.status }}</UBadge>
-                      </div>
-                      <p class="text-sm font-medium truncate">{{ event.title }}</p>
-                      <p v-if="event.strike_date || event.end_date" class="text-xs text-muted mt-0.5">{{ formatDate(event.strike_date || event.end_date) }}</p>
-                      <div v-if="event.top_terms.length > 0" class="flex flex-wrap gap-1.5 mt-2">
-                        <UBadge v-for="term in event.top_terms" :key="term.term" variant="subtle" color="neutral" size="xs">{{ term.term }} &middot; {{ term.price }}&cent;</UBadge>
-                        <UBadge v-if="event.market_count > event.top_terms.length" variant="outline" color="neutral" size="xs">+{{ event.market_count - event.top_terms.length }} more</UBadge>
-                      </div>
-                    </div>
-                  </div>
-                </UCard>
-              </NuxtLink>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Premium upsell (non-subscribers only) -->
-    <div v-if="!isSubscribed" class="mt-8 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-      <div class="flex-1">
-        <p class="text-sm font-medium">Unlock full market analysis</p>
-        <p class="text-sm text-muted mt-0.5">
-          Subscribe to see mention counts, trends, and detailed analysis for every prediction market.
-        </p>
-      </div>
-      <UButton to="/pricing" icon="i-lucide-crown" variant="soft" color="warning" size="sm">
-        View Pricing
+    <UiEmptyState
+      v-else-if="sections.length === 0"
+      icon="i-lucide-chart-bar"
+      :title="search ? `Nothing matches \u201c${search}\u201d` : 'No markets are tracked yet'"
+      :description="search
+        ? 'Try a shorter word, or set the venue filter back to All.'
+        : 'Once a Kalshi or Polymarket mentions event is linked to a persona, it appears here with its mention counts.'"
+    >
+      <UButton
+        v-if="search || sourceFilter !== 'all'"
+        color="primary"
+        variant="solid"
+        icon="i-lucide-rotate-cw"
+        @click="search = ''; sourceFilter = 'all'"
+      >
+        Clear the filters
       </UButton>
+      <UButton v-else to="/" color="primary" variant="solid" trailing-icon="i-lucide-arrow-right">
+        Browse transcripts
+      </UButton>
+    </UiEmptyState>
+
+    <!-- Venue sections: one loop, both venues, equal treatment -->
+    <div v-else class="space-y-12">
+      <section v-for="section in sections" :key="section.key">
+        <div class="rule-dotted mb-5 flex items-baseline gap-3 pb-2">
+          <h2 class="type-heading text-highlighted">{{ section.label }}</h2>
+          <UBadge color="neutral" variant="subtle" size="sm" class="type-figure">
+            {{ section.eventCount }}
+          </UBadge>
+          <span class="type-caption text-dimmed">{{ section.eventCount === 1 ? 'event' : 'events' }}</span>
+        </div>
+
+        <div class="space-y-8">
+          <div v-for="pm in section.groups" :key="pm.persona.id">
+            <!-- Persona row -->
+            <div class="mb-3 flex items-center gap-3">
+              <UiPersonaAvatar :name="pm.persona.name" :src="pm.persona.image_url" size="md" decorative />
+              <div class="min-w-0 flex-1">
+                <ULink
+                  :to="`/personas/${pm.persona.slug || pm.persona.id}`"
+                  class="block truncate font-semibold text-highlighted hover:text-primary"
+                >
+                  {{ pm.persona.name }}
+                </ULink>
+                <p class="type-caption text-dimmed">
+                  <span class="type-figure">{{ pm.events.length }}</span>
+                  {{ pm.events.length === 1 ? 'event' : 'events' }} on {{ section.label }}
+                </p>
+              </div>
+              <UButton
+                :to="personaHref(pm.persona)"
+                variant="outline"
+                color="neutral"
+                size="xs"
+                trailing-icon="i-lucide-arrow-right"
+                class="shrink-0"
+              >
+                All markets
+              </UButton>
+            </div>
+
+            <!-- Event cards -->
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <NuxtLink
+                v-for="event in pm.events"
+                :key="event.event_id"
+                :to="eventHref(pm.persona, event)"
+                class="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <UCard
+                  class="h-full transition-colors group-hover:border-accented group-hover:bg-elevated/40"
+                  :ui="{ body: 'sm:p-4' }"
+                >
+                  <div class="flex items-start gap-3">
+                    <img
+                      v-if="event.image"
+                      :src="event.image"
+                      alt=""
+                      class="size-10 shrink-0 rounded-sm object-cover"
+                    >
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-start justify-between gap-2">
+                        <p class="text-sm font-medium leading-snug text-highlighted">{{ event.title }}</p>
+                        <UBadge
+                          v-if="event.status !== 'active'"
+                          color="neutral"
+                          variant="subtle"
+                          size="xs"
+                          class="shrink-0 capitalize"
+                        >
+                          {{ event.status }}
+                        </UBadge>
+                      </div>
+
+                      <p class="type-caption mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-dimmed">
+                        <span v-if="event.strike_date || event.end_date" class="type-figure">
+                          {{ formatDate(event.strike_date || event.end_date) }}
+                        </span>
+                        <span v-if="(event.strike_date || event.end_date) && event.market_count" aria-hidden="true">&middot;</span>
+                        <span v-if="event.market_count">
+                          <span class="type-figure">{{ event.market_count }}</span>
+                          {{ event.market_count === 1 ? 'market' : 'markets' }}
+                        </span>
+                        <template v-if="eventMentions(event) > 0">
+                          <span aria-hidden="true">&middot;</span>
+                          <span class="text-mark-600 dark:text-mark-400">
+                            <span class="type-figure">{{ eventMentions(event) }}</span>
+                            {{ eventMentions(event) === 1 ? 'mention' : 'mentions' }}
+                          </span>
+                        </template>
+                      </p>
+
+                      <div v-if="event.top_terms.length > 0" class="mt-3 flex flex-wrap items-center gap-1.5">
+                        <UiTermChip
+                          v-for="term in event.top_terms"
+                          :key="term.term"
+                          :term="term.term"
+                          :price="term.price"
+                          :mentions="term.mentions"
+                          size="sm"
+                        />
+                        <span
+                          v-if="event.market_count > event.top_terms.length"
+                          class="type-caption text-dimmed"
+                        >
+                          +<span class="type-figure">{{ event.market_count - event.top_terms.length }}</span> more
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </UCard>
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
+
+    <!-- Paywall prompt (non-subscribers only) -->
+    <UiUpsellBanner
+      v-if="!isSubscribed"
+      class="mt-10"
+      title="Mention counts and trends are part of the subscription"
+      description="Subscribe to see how often each term was said, how many briefings it appeared in, and which way the count is moving."
+    />
   </div>
 </template>

@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # Supabase
     supabase_url: str
     supabase_service_key: str
+    # Only needed on projects still using the legacy symmetric JWT secret
+    # (Settings > API > JWT Secret). Projects on asymmetric signing keys verify
+    # against the public JWKS endpoint and need nothing here.
+    supabase_jwt_secret: str = ""
 
     # Gemini API
     gemini_api_key: str = ""

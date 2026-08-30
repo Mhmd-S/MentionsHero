@@ -2,7 +2,7 @@
 const route = useRoute()
 const slug = route.params.slug as string
 const { publicFetch } = usePublicApi()
-const { isSubscribed, fetchSubscription } = useSubscription()
+const { fetchSubscription } = useSubscription()
 const { session } = useAuth()
 
 interface MarketEntry {
@@ -44,29 +44,56 @@ interface PersonaMarketsDetail {
 }
 
 // SSR-compatible fetch for persona data (SEO)
-const { data: persona } = await useFetch<{ name: string; slug: string | null; image_url: string | null; description: string | null }>(
+const { data: persona, status: personaStatus, error: personaError } = await useFetch<{ name: string; slug: string | null; image_url: string | null; description: string | null }>(
   `/api/public/personas/${slug}`,
 )
 
+// The persona fetch has its own failure mode: without this the page would spin
+// forever whenever the persona 404s while the markets call succeeds.
+const personaLoading = computed(() => personaStatus.value === 'pending')
+const personaMissing = computed(() => !personaLoading.value && (!!personaError.value || !persona.value))
+
 const marketsData = ref<PersonaMarketsDetail | null>(null)
-const loading = ref(false)
+// Starts true: the markets fetch is client-only, so the server-rendered HTML must
+// show the skeleton, not a false "no markets" empty state.
+const loading = ref(true)
 const error = ref('')
 
-const sourceFilter = ref<'all' | 'kalshi' | 'polymarket'>('all')
-const statusFilter = ref<'all' | 'active' | 'closed'>('all')
+const sourceFilter = ref('all')
+const statusFilter = ref('all')
 const search = ref('')
+
+/**
+ * Event cards on /markets link here as #event-{event_id}. The markets load on the
+ * client, after the browser has already tried to resolve the hash, so bring the
+ * event into view once its markup exists.
+ */
+async function scrollToHash() {
+  if (!import.meta.client) return
+  const hash = route.hash
+  if (!hash) return
+  await nextTick()
+  document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 async function loadMarkets() {
   loading.value = true
   error.value = ''
   try {
     marketsData.value = await publicFetch<PersonaMarketsDetail>(`/api/public/markets/${slug}`)
-  } catch (err: any) {
-    error.value = err?.data?.detail || 'Failed to load markets'
+    scrollToHash()
+  } catch (err) {
+    error.value = (err as { data?: { detail?: string } })?.data?.detail || 'The markets service did not respond.'
   } finally {
     loading.value = false
   }
 }
+
+/** Both venues, one loop. */
+const SOURCES = [
+  { key: 'kalshi', label: 'Kalshi' },
+  { key: 'polymarket', label: 'Polymarket' },
+] as const
 
 const filteredEvents = computed(() => {
   if (!marketsData.value) return []
@@ -87,12 +114,46 @@ const filteredEvents = computed(() => {
     })
 })
 
-const kalshiEvents = computed(() => filteredEvents.value.filter((e) => e.source === 'kalshi'))
-const polymarketEvents = computed(() => filteredEvents.value.filter((e) => e.source === 'polymarket'))
+const sections = computed(() =>
+  SOURCES.map((source) => ({
+    ...source,
+    events: filteredEvents.value.filter((e) => e.source === source.key),
+  })).filter((section) => section.events.length > 0)
+)
+
+const allEvents = computed(() => marketsData.value?.events || [])
 
 const totalMarkets = computed(() =>
-  (marketsData.value?.events || []).reduce((sum, e) => sum + e.markets.length, 0)
+  allEvents.value.reduce((sum, e) => sum + e.markets.length, 0)
 )
+
+const sourceItems = computed(() => {
+  const count = (key: string) => allEvents.value.filter((e) => e.source === key).length
+  return [
+    { label: 'All', value: 'all', count: allEvents.value.length },
+    { label: 'Kalshi', value: 'kalshi', count: count('kalshi') },
+    { label: 'Polymarket', value: 'polymarket', count: count('polymarket') },
+  ]
+})
+
+const statusItems = computed(() => {
+  const count = (key: string) => allEvents.value.filter((e) => e.status === key).length
+  return [
+    { label: 'All', value: 'all', count: allEvents.value.length },
+    { label: 'Active', value: 'active', count: count('active') },
+    { label: 'Resolved', value: 'closed', count: count('closed') },
+  ]
+})
+
+const filtersApplied = computed(
+  () => !!search.value || sourceFilter.value !== 'all' || statusFilter.value !== 'all'
+)
+
+function clearFilters() {
+  search.value = ''
+  sourceFilter.value = 'all'
+  statusFilter.value = 'all'
+}
 
 function formatDate(dateString: string | null) {
   if (!dateString) return ''
@@ -103,16 +164,27 @@ function formatDate(dateString: string | null) {
   })
 }
 
+/** Unlocked payload is signalled by field-absence: the API omits it for free users. */
+function isUnlocked(market: MarketEntry) {
+  return market.total_mentions !== undefined
+}
+
+function trendLabel(trend?: string) {
+  if (trend === 'increasing') return 'Rising'
+  if (trend === 'decreasing') return 'Falling'
+  return 'Stable'
+}
+
 function trendIcon(trend?: string) {
   if (trend === 'increasing') return 'i-lucide-trending-up'
   if (trend === 'decreasing') return 'i-lucide-trending-down'
   return 'i-lucide-minus'
 }
 
-function trendColor(trend?: string) {
-  if (trend === 'increasing') return 'text-green-500'
-  if (trend === 'decreasing') return 'text-red-500'
-  return 'text-muted'
+function trendTone(trend?: string): 'yes' | 'no' | 'muted' {
+  if (trend === 'increasing') return 'yes'
+  if (trend === 'decreasing') return 'no'
+  return 'muted'
 }
 
 onMounted(async () => {
@@ -161,7 +233,7 @@ useSchemaOrg([
   }),
   defineBreadcrumb({
     itemListElement: [
-      { name: 'Home', item: '/' },
+      { name: 'Transcripts', item: '/' },
       { name: 'Markets', item: '/markets' },
       { name: () => persona.value?.name || '' },
     ],
@@ -171,189 +243,239 @@ useSchemaOrg([
 
 <template>
   <div>
-    <!-- Loading persona -->
-    <div v-if="!persona && !error" class="flex justify-center py-16">
-      <UIcon name="i-lucide-loader" class="size-6 animate-spin text-muted" />
-    </div>
+    <!-- Loading the persona shell -->
+    <UiLoadingBlock v-if="personaLoading" variant="spinner" label="Loading persona" />
 
-    <!-- Persona not found -->
-    <div v-else-if="!persona" class="py-16 text-center text-muted">
-      <UIcon name="i-lucide-alert-triangle" class="size-10 mx-auto mb-3 opacity-40" />
-      <p class="font-medium">Not found.</p>
-      <NuxtLink to="/markets">
-        <UButton variant="outline" size="sm" class="mt-4">Back to Markets</UButton>
-      </NuxtLink>
-    </div>
+    <!-- Persona does not resolve -->
+    <UiNotFoundState
+      v-else-if="personaMissing"
+      title="That persona is not on MentionsHero"
+      description="The name in the address does not match a tracked persona. It may have been renamed or removed."
+      back-label="Back to markets"
+      back-to="/markets"
+      icon="i-lucide-search-x"
+    />
 
-    <template v-else>
-      <!-- Header -->
-      <UPageHeader :title="persona.name">
-        <template #title>
-          <NuxtLink to="/markets" class="flex items-center gap-1 mb-3 text-sm text-muted hover:text-default transition-colors">
-            <UIcon name="i-lucide-arrow-left" class="size-4" />
-            All Markets
-          </NuxtLink>
-          <div class="flex items-center gap-4">
-            <UAvatar v-if="persona.image_url" :src="persona.image_url" :alt="persona.name" size="xl" />
-            <UAvatar v-else :text="persona.name[0]" size="xl" />
-            <div>
-              <span class="text-2xl font-bold">{{ persona.name }}</span>
-              <p v-if="totalMarkets > 0" class="text-sm text-muted mt-1">
-                {{ totalMarkets }} market{{ totalMarkets !== 1 ? 's' : '' }} tracked
-              </p>
-            </div>
+    <template v-else-if="persona">
+      <UBreadcrumb
+        class="mb-4"
+        :items="[
+          { label: 'Transcripts', to: '/' },
+          { label: 'Markets', to: '/markets' },
+          { label: persona.name },
+        ]"
+      />
+
+      <UPageHeader
+        :title="persona.name"
+        :ui="{
+          title: 'text-2xl sm:text-2xl text-highlighted',
+          description: 'mt-4 measure text-base text-muted',
+          headline: 'mb-3 type-label text-xs font-medium text-dimmed flex items-center gap-2',
+        }"
+      >
+        <template #headline>
+          <div class="flex items-center gap-3">
+            <UiPersonaAvatar :name="persona.name" :src="persona.image_url" size="md" decorative />
+            <span class="type-label text-dimmed">Prediction markets</span>
           </div>
+        </template>
+        <template #description>
+          <span class="text-base text-muted">
+            What the markets price against what
+            {{ persona.name }} actually said.
+            <template v-if="totalMarkets > 0">
+              <span class="type-figure text-default">{{ totalMarkets }}</span>
+              {{ totalMarkets === 1 ? 'market' : 'markets' }} tracked.
+            </template>
+          </span>
+        </template>
+        <template #links>
+          <UButton
+            :to="`/personas/${persona.slug || slug}`"
+            color="neutral"
+            variant="outline"
+            trailing-icon="i-lucide-arrow-right"
+          >
+            Transcripts
+          </UButton>
         </template>
       </UPageHeader>
 
       <!-- Filters -->
-      <div class="flex items-center gap-3 flex-wrap my-4">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search markets..." class="w-full sm:w-80" size="md" variant="outline" />
-        <div class="flex items-center gap-1">
-          <UButton size="xs" :variant="sourceFilter === 'all' ? 'solid' : 'ghost'" @click="sourceFilter = 'all'">All</UButton>
-          <UButton size="xs" :variant="sourceFilter === 'kalshi' ? 'solid' : 'ghost'" @click="sourceFilter = 'kalshi'">Kalshi</UButton>
-          <UButton size="xs" :variant="sourceFilter === 'polymarket' ? 'solid' : 'ghost'" @click="sourceFilter = 'polymarket'">Polymarket</UButton>
-        </div>
-        <div class="flex items-center gap-1">
-          <UButton size="xs" :variant="statusFilter === 'all' ? 'solid' : 'ghost'" @click="statusFilter = 'all'">All</UButton>
-          <UButton size="xs" :variant="statusFilter === 'active' ? 'solid' : 'ghost'" @click="statusFilter = 'active'">Active</UButton>
-          <UButton size="xs" :variant="statusFilter === 'closed' ? 'solid' : 'ghost'" @click="statusFilter = 'closed'">Resolved</UButton>
+      <div class="my-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <UInput
+          v-model="search"
+          type="search"
+          icon="i-lucide-search"
+          aria-label="Search this persona's markets by question or tracked term"
+          placeholder="Search questions or terms"
+          class="w-full lg:w-80"
+          size="md"
+          variant="outline"
+        />
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <UiFilterToggle v-model="sourceFilter" label="Venue" :items="sourceItems" />
+          <UiFilterToggle v-model="statusFilter" label="Status" :items="statusItems" />
         </div>
       </div>
 
       <!-- Loading markets -->
-      <div v-if="loading" class="flex justify-center py-12">
-        <UIcon name="i-lucide-loader" class="size-5 animate-spin text-muted" />
-      </div>
+      <UiLoadingBlock v-if="loading" variant="cards" :count="6" :columns="3" label="Loading markets" />
 
       <!-- Error -->
-      <div v-else-if="error" class="py-12 text-center text-red-500">
-        <UIcon name="i-lucide-alert-circle" class="size-8 mx-auto mb-2 opacity-60" />
-        <p class="text-sm">{{ error }}</p>
-      </div>
+      <UAlert
+        v-else-if="error"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="The markets did not load"
+        :description="error"
+        :actions="[{ label: 'Try again', color: 'neutral', variant: 'outline', onClick: () => loadMarkets() }]"
+      />
 
-      <!-- No events -->
-      <div v-else-if="filteredEvents.length === 0" class="py-12 text-center text-muted">
-        <UIcon name="i-lucide-bar-chart-3" class="size-10 mx-auto mb-3 opacity-40" />
-        <p class="text-sm">{{ search ? `No markets matching "${search}"` : 'No analyzed markets yet' }}</p>
-      </div>
-
-      <!-- Events -->
-      <div v-else class="space-y-8">
-        <!-- Kalshi section -->
-        <div v-if="kalshiEvents.length > 0">
-          <div class="flex items-center gap-2 mb-4">
-            <h2 class="text-lg font-semibold">Kalshi</h2>
-            <UBadge color="info" variant="subtle" size="xs">{{ kalshiEvents.length }}</UBadge>
-          </div>
-          <div class="space-y-6">
-            <div v-for="event in kalshiEvents" :key="event.event_id">
-              <div class="flex items-center gap-2 mb-3">
-                <img v-if="event.image" :src="event.image" :alt="event.title" class="size-8 rounded-md object-cover shrink-0" />
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <p class="font-semibold text-sm truncate">{{ event.title }}</p>
-                    <UBadge v-if="event.status !== 'active'" color="neutral" variant="subtle" size="xs">{{ event.status }}</UBadge>
-                  </div>
-                  <p v-if="event.strike_date || event.end_date" class="text-xs text-muted">{{ formatDate(event.strike_date || event.end_date) }}</p>
-                </div>
-              </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                <UCard v-for="market in event.markets" :key="`${market.market_id}-${market.search_term}`" :ui="{ body: 'sm:p-4' }">
-                  <p class="text-sm font-medium leading-snug mb-2">{{ market.question }}</p>
-                  <div class="flex items-center flex-wrap gap-1.5 mb-3">
-                    <UBadge variant="subtle" color="neutral" size="xs">{{ market.search_term }}</UBadge>
-                    <UBadge variant="outline" color="neutral" size="xs">{{ market.price }}&cent;</UBadge>
-                    <UBadge v-if="market.result === 'yes'" color="success" variant="subtle" size="xs">YES</UBadge>
-                    <UBadge v-else-if="market.result === 'no'" color="error" variant="subtle" size="xs">NO</UBadge>
-                  </div>
-                  <div v-if="market.total_mentions !== undefined" class="space-y-1">
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="text-muted"><span class="font-medium text-default">{{ market.total_mentions }}</span> mention{{ market.total_mentions !== 1 ? 's' : '' }}</span>
-                      <span class="text-muted">&middot;</span>
-                      <span class="text-muted">{{ market.briefings_with_term }}/{{ market.total_briefings }} briefings</span>
-                    </div>
-                    <div class="flex items-center gap-1.5 text-xs">
-                      <UIcon :name="trendIcon(market.trend)" :class="['size-3.5', trendColor(market.trend)]" />
-                      <span :class="trendColor(market.trend)" class="capitalize">{{ market.trend || 'stable' }}</span>
-                      <span v-if="market.percentage !== undefined" class="text-muted">&middot; {{ Math.round(market.percentage) }}% of briefings</span>
-                    </div>
-                  </div>
-                  <div v-else class="flex items-center gap-2 text-xs text-muted py-1">
-                    <UIcon name="i-lucide-lock" class="size-3.5" />
-                    <span>Subscribe to see analysis</span>
-                  </div>
-                </UCard>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Polymarket section -->
-        <div v-if="polymarketEvents.length > 0">
-          <div class="flex items-center gap-2 mb-4">
-            <h2 class="text-lg font-semibold">Polymarket</h2>
-            <UBadge color="primary" variant="subtle" size="xs">{{ polymarketEvents.length }}</UBadge>
-          </div>
-          <div class="space-y-6">
-            <div v-for="event in polymarketEvents" :key="event.event_id">
-              <div class="flex items-center gap-2 mb-3">
-                <img v-if="event.image" :src="event.image" :alt="event.title" class="size-8 rounded-md object-cover shrink-0" />
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <p class="font-semibold text-sm truncate">{{ event.title }}</p>
-                    <UBadge v-if="event.status !== 'active'" color="neutral" variant="subtle" size="xs">{{ event.status }}</UBadge>
-                  </div>
-                  <p v-if="event.strike_date || event.end_date" class="text-xs text-muted">{{ formatDate(event.strike_date || event.end_date) }}</p>
-                </div>
-              </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                <UCard v-for="market in event.markets" :key="`${market.market_id}-${market.search_term}`" :ui="{ body: 'sm:p-4' }">
-                  <p class="text-sm font-medium leading-snug mb-2">{{ market.question }}</p>
-                  <div class="flex items-center flex-wrap gap-1.5 mb-3">
-                    <UBadge variant="subtle" color="neutral" size="xs">{{ market.search_term }}</UBadge>
-                    <UBadge variant="outline" color="neutral" size="xs">{{ market.price }}&cent;</UBadge>
-                    <UBadge v-if="market.result === 'yes'" color="success" variant="subtle" size="xs">YES</UBadge>
-                    <UBadge v-else-if="market.result === 'no'" color="error" variant="subtle" size="xs">NO</UBadge>
-                  </div>
-                  <div v-if="market.total_mentions !== undefined" class="space-y-1">
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="text-muted"><span class="font-medium text-default">{{ market.total_mentions }}</span> mention{{ market.total_mentions !== 1 ? 's' : '' }}</span>
-                      <span class="text-muted">&middot;</span>
-                      <span class="text-muted">{{ market.briefings_with_term }}/{{ market.total_briefings }} briefings</span>
-                    </div>
-                    <div class="flex items-center gap-1.5 text-xs">
-                      <UIcon :name="trendIcon(market.trend)" :class="['size-3.5', trendColor(market.trend)]" />
-                      <span :class="trendColor(market.trend)" class="capitalize">{{ market.trend || 'stable' }}</span>
-                      <span v-if="market.percentage !== undefined" class="text-muted">&middot; {{ Math.round(market.percentage) }}% of briefings</span>
-                    </div>
-                  </div>
-                  <div v-else class="flex items-center gap-2 text-xs text-muted py-1">
-                    <UIcon name="i-lucide-lock" class="size-3.5" />
-                    <span>Subscribe to see analysis</span>
-                  </div>
-                </UCard>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Paywall CTA for free users -->
-      <div
-        v-if="marketsData?.is_limited"
-        class="mt-6 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+      <!-- Nothing to show -->
+      <UiEmptyState
+        v-else-if="sections.length === 0"
+        icon="i-lucide-chart-bar"
+        :title="filtersApplied ? 'No markets match those filters' : `No markets are tracked for ${persona.name} yet`"
+        :description="filtersApplied
+          ? 'Try a shorter word, or set the venue and status filters back to All.'
+          : 'When a Kalshi or Polymarket mentions event is linked to this persona, its terms and counts appear here.'"
       >
-        <div class="flex-1">
-          <p class="text-sm font-medium">Unlock full market analysis</p>
-          <p class="text-sm text-muted mt-0.5">
-            Subscribe to see mention counts, trends, and detailed analysis for {{ persona.name }}'s prediction markets.
-          </p>
-        </div>
-        <UButton to="/pricing" icon="i-lucide-crown" variant="soft" color="warning" size="sm">
-          View Pricing
+        <UButton
+          v-if="filtersApplied"
+          color="primary"
+          variant="solid"
+          icon="i-lucide-rotate-cw"
+          @click="clearFilters()"
+        >
+          Clear the filters
         </UButton>
+        <UButton v-else to="/markets" color="primary" variant="solid" trailing-icon="i-lucide-arrow-right">
+          Browse every market
+        </UButton>
+      </UiEmptyState>
+
+      <!-- Venue sections: one loop, both venues, equal treatment -->
+      <div v-else class="space-y-12">
+        <section v-for="section in sections" :key="section.key">
+          <div class="rule-dotted mb-5 flex items-baseline gap-3 pb-2">
+            <h2 class="type-heading text-highlighted">{{ section.label }}</h2>
+            <UBadge color="neutral" variant="subtle" size="sm" class="type-figure">
+              {{ section.events.length }}
+            </UBadge>
+            <span class="type-caption text-dimmed">{{ section.events.length === 1 ? 'event' : 'events' }}</span>
+          </div>
+
+          <div class="space-y-8">
+            <!-- Each event is addressable: /markets/{slug}#event-{event_id} -->
+            <div
+              v-for="event in section.events"
+              :id="`event-${event.event_id}`"
+              :key="event.event_id"
+              class="scroll-mt-24 rounded-sm target:ring-1 target:ring-default"
+            >
+              <div class="mb-3 flex items-start gap-3">
+                <img
+                  v-if="event.image"
+                  :src="event.image"
+                  alt=""
+                  class="size-8 shrink-0 rounded-sm object-cover"
+                >
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-start gap-x-2 gap-y-1">
+                    <h3 class="text-base font-semibold leading-snug text-highlighted">{{ event.title }}</h3>
+                    <UBadge
+                      v-if="event.status !== 'active'"
+                      color="neutral"
+                      variant="subtle"
+                      size="xs"
+                      class="mt-0.5 shrink-0 capitalize"
+                    >
+                      {{ event.status }}
+                    </UBadge>
+                  </div>
+                  <p class="type-caption mt-1 flex flex-wrap items-center gap-x-2 text-dimmed">
+                    <span v-if="event.event_ticker" class="type-figure break-all uppercase">{{ event.event_ticker }}</span>
+                    <span v-if="event.event_ticker && (event.strike_date || event.end_date)" aria-hidden="true">&middot;</span>
+                    <span v-if="event.strike_date || event.end_date" class="type-figure">
+                      {{ formatDate(event.strike_date || event.end_date) }}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <UCard
+                  v-for="market in event.markets"
+                  :key="`${market.market_id}-${market.search_term}`"
+                  class="h-full"
+                  :ui="{ body: 'sm:p-4' }"
+                >
+                  <div class="flex h-full flex-col gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <UiTermChip
+                        :term="market.search_term"
+                        :price="market.price"
+                        :result="market.result"
+                      />
+                      <UBadge v-if="market.result === 'yes'" color="success" variant="subtle" size="xs">
+                        Resolved YES
+                      </UBadge>
+                      <UBadge v-else-if="market.result === 'no'" color="error" variant="subtle" size="xs">
+                        Resolved NO
+                      </UBadge>
+                    </div>
+
+                    <p v-if="market.question" class="text-sm leading-snug text-muted">
+                      {{ market.question }}
+                    </p>
+
+                    <!-- Paywalled payload: the gate is field-absence -->
+                    <dl v-if="isUnlocked(market)" class="mt-auto space-y-2 pt-1">
+                      <UiStatRow semantic label="Mentions" tone="mark" size="sm" divided>
+                        <span class="inline-flex items-center gap-2">
+                          {{ market.total_mentions }}
+                          <UiTallyRail :count="market.total_mentions" :max="12" :height="10" />
+                        </span>
+                      </UiStatRow>
+                      <UiStatRow
+                        semantic
+                        label="Briefings"
+                        size="sm"
+                        divided
+                        :value="`${market.briefings_with_term ?? 0}/${market.total_briefings ?? 0}${market.percentage !== undefined ? ` · ${Math.round(market.percentage)}%` : ''}`"
+                      />
+                      <UiStatRow
+                        semantic
+                        label="Trend"
+                        size="sm"
+                        :tone="trendTone(market.trend)"
+                        :icon="trendIcon(market.trend)"
+                        :value="trendLabel(market.trend)"
+                      />
+                    </dl>
+
+                    <div v-else class="mt-auto flex items-center gap-2 pt-2">
+                      <UIcon name="i-lucide-lock" class="size-3.5 shrink-0 text-dimmed" aria-hidden="true" />
+                      <span class="type-caption text-dimmed">Mention count is part of the subscription</span>
+                    </div>
+                  </div>
+                </UCard>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
+
+      <!-- Paywall prompt for free users -->
+      <UiUpsellBanner
+        v-if="marketsData?.is_limited"
+        class="mt-10"
+        :title="`Mention counts for ${persona.name} are part of the subscription`"
+        description="Subscribe to see how often each term was said, how many briefings it appeared in, and which way the count is moving."
+      />
     </template>
   </div>
 </template>

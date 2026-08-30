@@ -57,7 +57,8 @@ function highlightMatch(text: string, query: string): string {
     pattern = `(${escaped}(?:'?e?s)?)`
   }
   const regex = new RegExp(pattern, 'gi')
-  return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>')
+  // Bare <mark> — styled once, unlayered, in app/assets/css/main.css.
+  return text.replace(regex, '<mark>$1</mark>')
 }
 </script>
 

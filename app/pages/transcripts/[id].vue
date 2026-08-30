@@ -2,6 +2,9 @@
 const route = useRoute()
 const transcriptId = route.params.id as string
 const { publicFetch } = usePublicApi()
+// Only offered to a signed-out reader — a signed-in non-subscriber has nothing
+// to sign in to. Matches the gate on the persona page's upsell.
+const { session } = useAuth()
 
 interface SpeakerFrequency {
   speaker: string
@@ -60,7 +63,7 @@ useSchemaOrg([
   }),
   defineBreadcrumb({
     itemListElement: [
-      { name: 'Home', item: '/' },
+      { name: 'Transcripts', item: '/' },
       {
         name: () => transcript.value?.persona?.name || 'Transcripts',
         item: () => transcript.value?.persona?.slug
@@ -113,8 +116,9 @@ async function refresh() {
     if (transcript.value?.persona?.slug) {
       loadNeighbors(transcript.value.persona.slug)
     }
-  } catch (e: any) {
-    error.value = e.data?.detail || 'Transcript not found'
+  } catch (e: unknown) {
+    const detail = (e as { data?: { detail?: string } })?.data?.detail
+    error.value = detail || 'We could not load that transcript'
   } finally {
     loading.value = false
   }
@@ -135,6 +139,11 @@ async function loadNeighbors(personaSlug: string) {
 watch(searchQuery, () => refresh())
 onMounted(() => refresh())
 
+/** First load: nothing on screen yet. Re-fetch: the transcript is still there. */
+const initialLoading = computed(() => loading.value && !transcript.value)
+/** A search round-trip while the previous result is still rendered. */
+const refreshing = computed(() => loading.value && !!transcript.value)
+
 const showTimestamps = ref(true)
 const inlineTimestampPattern = /\[\d{1,3}:\d{2}\]\s*/g
 function stripInlineTimestamps(text: string): string {
@@ -144,20 +153,26 @@ const hasHighlights = computed(() => transcript.value?.hasHighlights || false)
 const matchCount = computed(() => transcript.value?.matchCount ?? null)
 const speakerFrequencies = computed(() => transcript.value?.speakerFrequencies || [])
 const hasSearch = computed(() => searchInput.value.trim().length > 0)
-
-const maxFrequency = computed(() => {
-  if (speakerFrequencies.value.length === 0) return 0
-  return Math.max(...speakerFrequencies.value.map(f => f.count))
-})
+const noMatches = computed(() =>
+  !loading.value && debouncedSearch.value.trim().length > 0 && matchCount.value === 0
+)
 
 const totalSearchMatches = computed(() => {
   return speakerFrequencies.value.reduce((sum, f) => sum + f.count, 0)
 })
 
-// Parse transcript text into speaker segments (with optional [MM:SS] timestamps)
-const speakerPattern = /^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$/
+/**
+ * One parser, two dialects.
+ *
+ * Plain text arrives when no search is active. When the API highlights a term
+ * it returns HTML instead, and the speaker name comes back HTML-escaped — so
+ * the speaker class has to allow `&#;` and the name can run longer. Everything
+ * else about the two passes was identical, so only the pattern differs.
+ */
+const PLAIN_SPEAKER_PATTERN = /^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-'._()]{1,60}?):\s*(.*)$/
+const HTML_SPEAKER_PATTERN = /^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-&#;'._()]{1,80}?):\s*(.*)$/
 
-function parseSegments(text: string): Segment[] {
+function parseSegments(text: string, pattern: RegExp): Segment[] {
   const lines = text.split('\n')
   const result: Segment[] = []
   let currentSpeaker: string | null = null
@@ -167,7 +182,7 @@ function parseSegments(text: string): Segment[] {
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
-    const match = trimmed.match(speakerPattern)
+    const match = trimmed.match(pattern)
     if (match) {
       if (currentSpeaker && currentContent.length) {
         result.push({ speaker: currentSpeaker, content: currentContent.join(' '), timestamp: currentTimestamp })
@@ -185,47 +200,12 @@ function parseSegments(text: string): Segment[] {
   return result
 }
 
-const segments = computed(() => {
+const displaySegments = computed<Segment[]>(() => {
   if (!transcript.value) return []
-  return parseSegments(transcript.value.transcript)
-})
-
-// For highlighted mode, parse into segments preserving HTML
-const highlightedSegments = computed(() => {
-  if (!transcript.value || !hasHighlights.value) return []
-  const text = transcript.value.transcript
-  const lines = text.split('\n')
-  const result: Segment[] = []
-  let currentSpeaker: string | null = null
-  let currentTimestamp: string | undefined = undefined
-  let currentContent: string[] = []
-
-  // In highlighted mode, speaker names are HTML-escaped but follow the same pattern
-  const htmlSpeakerPattern = /^(?:\[(\d{1,3}:\d{2})\]\s+)?([A-Z0-9][\w\s\-&#;'._()]{1,80}?):\s*(.*)$/
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-    const match = trimmed.match(htmlSpeakerPattern)
-    if (match) {
-      if (currentSpeaker && currentContent.length) {
-        result.push({ speaker: currentSpeaker, content: currentContent.join(' '), timestamp: currentTimestamp })
-      }
-      currentTimestamp = match[1] || undefined
-      currentSpeaker = match[2] ?? null
-      currentContent = match[3] ? [match[3]] : []
-    } else if (currentSpeaker) {
-      currentContent.push(trimmed)
-    }
-  }
-  if (currentSpeaker && currentContent.length) {
-    result.push({ speaker: currentSpeaker, content: currentContent.join(' '), timestamp: currentTimestamp })
-  }
-  return result
-})
-
-const displaySegments = computed(() => {
-  return hasHighlights.value ? highlightedSegments.value : segments.value
+  return parseSegments(
+    transcript.value.transcript,
+    hasHighlights.value ? HTML_SPEAKER_PATTERN : PLAIN_SPEAKER_PATTERN
+  )
 })
 
 // Pagination
@@ -242,6 +222,11 @@ const paginatedSegments = computed(() => {
 // Reset to page 1 when search changes
 watch(debouncedSearch, () => {
   currentPage.value = 1
+})
+
+// A shorter result set must never strand the reader on a page that no longer exists.
+watch(totalPages, (pages) => {
+  if (currentPage.value > pages) currentPage.value = Math.max(1, pages)
 })
 
 function goToPage(p: number) {
@@ -273,229 +258,351 @@ function formatUploadDate(yyyymmdd: string | null | undefined): string | null {
     year: 'numeric',
   })
 }
+
+const breadcrumbItems = computed(() => {
+  const items: Array<{ label: string, to?: string }> = [{ label: 'Transcripts', to: '/' }]
+  const persona = transcript.value?.persona
+  if (persona) {
+    items.push(persona.slug
+      ? { label: persona.name, to: `/personas/${persona.slug}` }
+      : { label: persona.name })
+  }
+  items.push({ label: transcript.value?.name || 'Transcript' })
+  return items
+})
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto">
-    <!-- Loading -->
-    <div v-if="loading && !transcript" class="flex justify-center py-20">
-      <UIcon name="i-lucide-loader" class="size-6 animate-spin text-muted" />
-    </div>
+  <div class="pb-16">
+    <!-- Loading: this is a reading surface, so the skeleton is prose lines. -->
+    <UiLoadingBlock v-if="initialLoading" variant="text" :count="8" label="Loading transcript" class="pt-10" />
 
     <!-- Error -->
-    <div v-else-if="error && !transcript" class="py-16 text-center">
-      <UIcon name="i-lucide-alert-triangle" class="size-10 mx-auto mb-4 opacity-40 text-muted" />
-      <p class="text-muted font-medium">{{ error }}</p>
-      <NuxtLink to="/">
-        <UButton variant="outline" size="sm" class="mt-4">Back to Browse</UButton>
-      </NuxtLink>
-    </div>
+    <UiNotFoundState
+      v-else-if="error && !transcript"
+      :title="error"
+      description="The transcript may have been removed, or the address may be wrong. Every published briefing is listed on the transcripts page."
+      back-label="Back to transcripts"
+      back-to="/"
+    />
 
     <template v-if="transcript">
-      <!-- Header -->
-      <div class="py-6">
-        <!-- Breadcrumb navigation -->
-        <nav class="flex items-center gap-1.5 text-sm text-muted mb-3">
-          <NuxtLink to="/" class="hover:text-primary transition-colors">Browse</NuxtLink>
-          <template v-if="transcript.persona">
-            <UIcon name="i-lucide-chevron-right" class="size-3.5" />
-            <NuxtLink :to="`/personas/${transcript.persona.slug}`" class="hover:text-primary transition-colors">
-              {{ transcript.persona.name }}
-            </NuxtLink>
-          </template>
-          <UIcon name="i-lucide-chevron-right" class="size-3.5" />
-          <span class="text-default truncate max-w-64">{{ transcript.name || 'Transcript' }}</span>
-        </nav>
+      <!-- ── Header ─────────────────────────────────────────────────────── -->
+      <header class="pt-6 pb-8">
+        <UBreadcrumb
+          :items="breadcrumbItems"
+          class="mb-4"
+          :ui="{
+            list: 'flex-wrap gap-y-1',
+            link: 'min-w-0 text-sm',
+            linkLabel: 'truncate max-w-[14rem] sm:max-w-xs'
+          }"
+        />
 
-        <h1 class="text-xl font-semibold">{{ transcript.name || 'Transcript' }}</h1>
-        <div class="flex flex-wrap items-center gap-3 mt-2">
-          <span class="inline-flex items-center gap-1.5 text-sm text-muted">
-            <UIcon name="i-lucide-calendar" class="size-4" />
-            {{ formatUploadDate(transcript.upload_date) || formatDate(transcript.created_at) }}
+        <h1 class="type-title measure-wide text-highlighted">{{ transcript.name || 'Transcript' }}</h1>
+
+        <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span class="inline-flex items-center gap-2 text-dimmed">
+            <UIcon name="i-lucide-calendar" class="size-4 shrink-0" aria-hidden="true" />
+            <span class="type-figure text-sm text-toned">
+              {{ formatUploadDate(transcript.upload_date) || formatDate(transcript.created_at) }}
+            </span>
           </span>
-          <a
+
+          <ULink
+            v-if="transcript.persona?.slug"
+            :to="`/personas/${transcript.persona.slug}`"
+            class="inline-flex items-center gap-2 text-sm text-toned transition-colors hover:text-highlighted"
+          >
+            <UiPersonaAvatar
+              :name="transcript.persona.name"
+              :src="transcript.persona.image_url"
+              size="xs"
+              decorative
+            />
+            <span>{{ transcript.persona.name }}</span>
+          </ULink>
+
+          <ULink
             v-if="transcript.youtube_url"
-            :href="transcript.youtube_url"
+            :to="transcript.youtube_url"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors"
+            class="inline-flex items-center gap-1.5 text-sm text-toned transition-colors hover:text-highlighted"
           >
-            <UIcon name="i-lucide-play-circle" class="size-4" />
-            <span>YouTube</span>
-            <UIcon name="i-lucide-external-link" class="size-3" />
-          </a>
-          <UBadge v-if="transcript.is_premium" color="warning" variant="subtle" size="sm">Premium</UBadge>
-        </div>
-      </div>
+            <UIcon name="i-lucide-circle-play" class="size-4 shrink-0" aria-hidden="true" />
+            <span>Watch on YouTube</span>
+            <UIcon name="i-lucide-external-link" class="size-3 shrink-0" aria-hidden="true" />
+          </ULink>
 
-      <!-- Sticky Search Bar (hidden for locked transcripts) -->
-      <div v-if="!transcript.is_locked" class="sticky top-(--ui-header-height) z-10 bg-background/95 backdrop-blur-sm py-3">
-        <div class="flex items-center gap-3">
+          <!-- Premium reads as ink, never amber. -->
+          <UBadge v-if="transcript.is_premium" color="primary" variant="subtle" size="sm">
+            Premium
+          </UBadge>
+        </div>
+      </header>
+
+      <!-- ── Sticky search bar (hidden for locked transcripts) ──────────── -->
+      <div
+        v-if="!transcript.is_locked"
+        class="sticky top-(--ui-header-height) z-10 border-b border-default bg-default/95 py-3 backdrop-blur-sm"
+      >
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <UInput
             v-model="searchInput"
-            placeholder="Search transcript..."
+            aria-label="Search this transcript"
+            placeholder="Search this transcript…"
             icon="i-lucide-search"
             size="md"
-            class="flex-1"
+            :loading="refreshing"
+            class="w-full sm:flex-1"
+            :ui="{ base: 'font-mono' }"
           />
-          <UBadge
-            v-if="matchCount !== null && matchCount > 0"
-            color="primary"
-            variant="subtle"
-            class="whitespace-nowrap"
-          >
-            {{ matchCount }} match{{ matchCount !== 1 ? 'es' : '' }}
-          </UBadge>
-          <UButton
-            v-if="hasSearch"
-            variant="ghost"
-            color="neutral"
-            size="xs"
-            icon="i-lucide-x"
-            @click="clearSearch"
-          />
-          <USwitch v-model="showTimestamps" label="Timestamps" />
+
+          <div class="flex items-center justify-between gap-3 sm:justify-start">
+            <div class="flex min-w-0 items-center gap-2">
+              <UiLoadingBlock v-if="refreshing" variant="inline" label="Searching transcript" />
+              <UBadge
+                v-else-if="matchCount !== null && matchCount > 0"
+                color="secondary"
+                variant="subtle"
+                size="sm"
+                class="shrink-0 whitespace-nowrap"
+              >
+                <span class="type-figure">{{ matchCount }}</span>
+                <span class="ml-1">match{{ matchCount !== 1 ? 'es' : '' }}</span>
+              </UBadge>
+              <UButton
+                v-if="hasSearch"
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-x"
+                aria-label="Clear the search"
+                @click="clearSearch"
+              />
+            </div>
+
+            <USwitch v-model="showTimestamps" label="Timestamps" class="shrink-0" />
+          </div>
         </div>
       </div>
 
-      <!-- Content & Speaker Frequency -->
-      <div :class="speakerFrequencies.length > 0 ? 'grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8 mt-6' : 'mt-6'">
-        <!-- Transcript Body -->
-        <div class="relative">
-          <!-- Segmented display -->
-          <div v-if="displaySegments.length > 0" class="space-y-5">
-            <div
-              v-for="(seg, idx) in paginatedSegments"
-              :key="(currentPage - 1) * pageSize + idx"
-              class="border-l-2 border-primary/30 pl-4"
-            >
-              <div class="text-md underline font-semibold tracking-wide uppercase text-primary mb-1">
-                <span v-if="showTimestamps && seg.timestamp" class="text-muted font-normal text-xs mr-1.5 no-underline">[{{ seg.timestamp }}]</span>
-                {{ hasHighlights ? '' : seg.speaker }}
-                <span v-if="hasHighlights" v-html="seg.speaker" />
-              </div>
-              <p
-                v-if="hasHighlights"
-                class="text-[0.9375rem] leading-7 text-dimmed"
-                v-html="showTimestamps ? seg.content : stripInlineTimestamps(seg.content)"
-              />
-              <p
-                v-else
-                class="text-[0.9375rem] leading-7"
-              >{{ showTimestamps ? seg.content : stripInlineTimestamps(seg.content) }}</p>
-            </div>
+      <p v-if="noMatches && !transcript.is_locked" class="pt-3 text-sm text-muted">
+        Nothing in this briefing matches
+        <span class="type-figure text-toned">&ldquo;{{ debouncedSearch.trim() }}&rdquo;</span>.
+        Try a shorter word, or drop the plural.
+      </p>
 
-            <!-- Pagination controls (hidden for locked transcripts) -->
-            <div v-if="totalPages > 1 && !transcript.is_locked" class="flex items-center justify-between pt-6 border-t border-muted">
-              <span class="text-sm text-muted">
-                Page {{ currentPage }} of {{ totalPages }}
-              </span>
-              <div class="flex items-center gap-1">
-                <UButton
-                  variant="outline"
-                  size="sm"
-                  icon="i-lucide-chevron-left"
-                  :disabled="currentPage === 1"
-                  @click="goToPage(currentPage - 1)"
-                />
-                <template v-for="p in totalPages" :key="p">
-                  <UButton
-                    v-if="p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)"
-                    :variant="p === currentPage ? 'solid' : 'outline'"
-                    size="sm"
-                    @click="goToPage(p)"
-                  >
-                    {{ p }}
-                  </UButton>
+      <!-- ── Body + speaker rail ────────────────────────────────────────── -->
+      <div
+        :class="speakerFrequencies.length > 0
+          ? 'mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_16rem]'
+          : 'mt-8'"
+      >
+        <!-- Transcript -->
+        <div class="relative min-w-0" :aria-busy="refreshing">
+          <div
+            class="transcript-body transition-opacity duration-200"
+            :class="refreshing ? 'opacity-50' : 'opacity-100'"
+          >
+            <!-- Segments. Speaker and timestamp hang in the margin at sm+. -->
+            <div v-if="displaySegments.length > 0" class="divide-y divide-dotted divide-default">
+              <article
+                v-for="(seg, idx) in paginatedSegments"
+                :key="(currentPage - 1) * pageSize + idx"
+                class="grid gap-x-6 gap-y-1.5 py-5 first:pt-0 sm:grid-cols-[8.5rem_minmax(0,1fr)]"
+              >
+                <div
+                  class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:flex-col sm:items-end sm:text-right"
+                >
                   <span
-                    v-else-if="p === currentPage - 2 || p === currentPage + 2"
-                    class="text-muted px-1"
-                  >...</span>
-                </template>
-                <UButton
-                  variant="outline"
-                  size="sm"
-                  icon="i-lucide-chevron-right"
-                  :disabled="currentPage === totalPages"
-                  @click="goToPage(currentPage + 1)"
+                    v-if="showTimestamps && seg.timestamp"
+                    class="type-figure text-xs text-dimmed"
+                  >{{ seg.timestamp }}</span>
+                  <span class="type-label wrap-break-word text-toned">
+                    <span v-if="hasHighlights" v-html="seg.speaker" />
+                    <template v-else>{{ seg.speaker }}</template>
+                  </span>
+                </div>
+
+                <p
+                  v-if="hasHighlights"
+                  class="measure text-base leading-[1.75] text-default"
+                  v-html="showTimestamps ? seg.content : stripInlineTimestamps(seg.content)"
                 />
-              </div>
+                <p
+                  v-else
+                  class="measure text-base leading-[1.75] text-default"
+                >{{ showTimestamps ? seg.content : stripInlineTimestamps(seg.content) }}</p>
+              </article>
+            </div>
+
+            <!-- Fallback: raw text when the speaker pattern matched nothing. -->
+            <div
+              v-else
+              class="measure-wide wrap-break-word text-base leading-[1.75] whitespace-pre-wrap text-default"
+            >
+              <div v-if="hasHighlights" v-html="transcript.transcript" />
+              <div v-else>{{ transcript.transcript }}</div>
             </div>
           </div>
 
-          <!-- Fallback: raw text if parsing yielded no segments -->
-          <div v-else class="whitespace-pre-wrap wrap-break-word text-[0.9375rem] leading-7 text-dimmed">
-            <div v-if="hasHighlights" v-html="transcript.transcript" />
-            <div v-else>{{ transcript.transcript }}</div>
-          </div>
-
-          <!-- Locked transcript fade-out and CTA -->
-          <div v-if="transcript.is_locked" class="relative mt-0">
-            <div class="absolute -top-32 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent pointer-events-none" />
-            <div class="pt-10 pb-6 flex flex-col items-center justify-center gap-4 text-center">
-              <div class="flex items-center justify-center size-14 rounded-full bg-elevated mb-4">
-                <UIcon name="i-lucide-lock" class="size-7 text-muted" />
-              </div>
-              <p class="font-semibold text-lg mb-1">Full transcript requires a subscription</p>
-              <p class="text-sm text-muted mb-5">Get unlimited access to all premium transcripts</p>
-              <NuxtLink to="/pricing">
-                <UButton color="primary" size="lg">Subscribe to Read</UButton>
-              </NuxtLink>
+          <!-- Pagination (hidden for locked transcripts) -->
+          <nav
+            v-if="displaySegments.length > 0 && totalPages > 1 && !transcript.is_locked"
+            class="mt-8 flex flex-col gap-3 border-t border-default pt-6 sm:flex-row sm:items-center sm:justify-between"
+            aria-label="Transcript pages"
+          >
+            <span class="type-label text-dimmed">
+              Page {{ currentPage }} of {{ totalPages }}
+            </span>
+            <div class="flex flex-wrap items-center justify-start gap-1 sm:justify-end">
+              <UButton
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-lucide-chevron-left"
+                aria-label="Previous page"
+                :disabled="currentPage === 1"
+                @click="goToPage(currentPage - 1)"
+              />
+              <template v-for="p in totalPages" :key="p">
+                <UButton
+                  v-if="p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)"
+                  :variant="p === currentPage ? 'solid' : 'outline'"
+                  :color="p === currentPage ? 'primary' : 'neutral'"
+                  size="sm"
+                  :aria-label="`Page ${p}`"
+                  :aria-current="p === currentPage ? 'page' : undefined"
+                  class="type-figure"
+                  @click="goToPage(p)"
+                >
+                  {{ p }}
+                </UButton>
+                <span
+                  v-else-if="p === currentPage - 2 || p === currentPage + 2"
+                  class="px-1 text-dimmed"
+                  aria-hidden="true"
+                >…</span>
+              </template>
+              <UButton
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-lucide-chevron-right"
+                aria-label="Next page"
+                :disabled="currentPage === totalPages"
+                @click="goToPage(currentPage + 1)"
+              />
             </div>
+          </nav>
+
+          <!-- Locked: the text fades out under the paywall, then the ink panel. -->
+          <div v-if="transcript.is_locked" class="relative">
+            <div
+              class="pointer-events-none absolute -top-40 right-0 left-0 h-40 bg-linear-to-t from-default to-transparent"
+              aria-hidden="true"
+            />
+            <UiUpsellBanner
+              variant="panel"
+              class="relative mt-6"
+              title="The rest of this briefing is part of the subscription"
+              description="Subscribe to read the full transcript, search it for any word, and see how often each speaker said it."
+              cta-label="See pricing"
+              cta-to="/pricing"
+              :secondary-label="session ? null : 'Already subscribed? Sign in'"
+              :secondary-to="session ? null : '/login'"
+            />
           </div>
 
-          <!-- Next/Prev Navigation -->
-          <div v-if="(prevTranscript || nextTranscript) && !transcript.is_locked" class="flex items-center justify-between pt-6 mt-6 border-t border-muted">
-            <NuxtLink
+          <!-- Prev / next briefing -->
+          <nav
+            v-if="(prevTranscript || nextTranscript) && !transcript.is_locked"
+            class="mt-10 grid gap-3 border-t border-default pt-6 sm:grid-cols-2"
+            aria-label="Nearby briefings"
+          >
+            <ULink
               v-if="prevTranscript"
               :to="`/transcripts/${prevTranscript.id}`"
-              class="flex items-center gap-2 text-sm text-muted hover:text-primary transition-colors max-w-[45%]"
+              class="flex min-w-0 items-center gap-2 text-toned transition-colors hover:text-highlighted"
             >
-              <UIcon name="i-lucide-arrow-left" class="size-4 shrink-0" />
-              <span class="truncate">{{ prevTranscript.name || 'Previous' }}</span>
-            </NuxtLink>
-            <div v-else />
-            <NuxtLink
+              <UIcon name="i-lucide-arrow-left" class="size-4 shrink-0" aria-hidden="true" />
+              <span class="min-w-0">
+                <span class="type-label block text-dimmed">Earlier</span>
+                <span class="block truncate text-sm">{{ prevTranscript.name || 'Previous briefing' }}</span>
+              </span>
+            </ULink>
+            <div v-else class="hidden sm:block" />
+            <ULink
               v-if="nextTranscript"
               :to="`/transcripts/${nextTranscript.id}`"
-              class="flex items-center gap-2 text-sm text-muted hover:text-primary transition-colors max-w-[45%] ml-auto text-right"
+              class="flex min-w-0 items-center justify-start gap-2 text-toned transition-colors hover:text-highlighted sm:justify-end sm:text-right"
             >
-              <span class="truncate">{{ nextTranscript.name || 'Next' }}</span>
-              <UIcon name="i-lucide-arrow-right" class="size-4 shrink-0" />
-            </NuxtLink>
-          </div>
+              <span class="min-w-0">
+                <span class="type-label block text-dimmed">Later</span>
+                <span class="block truncate text-sm">{{ nextTranscript.name || 'Next briefing' }}</span>
+              </span>
+              <UIcon name="i-lucide-arrow-right" class="size-4 shrink-0" aria-hidden="true" />
+            </ULink>
+          </nav>
         </div>
 
-        <!-- Speaker Frequency Sidebar -->
-        <div v-if="speakerFrequencies.length > 0" class="h-fit lg:sticky lg:top-30">
+        <!-- Speaker frequency: one tally rail per speaker. -->
+        <aside
+          v-if="speakerFrequencies.length > 0"
+          class="h-fit lg:sticky lg:top-[calc(var(--ui-header-height)+4.5rem)]"
+          aria-label="Mentions by speaker"
+        >
           <UCard :ui="{ body: 'p-4 sm:p-4' }">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-bar-chart-2" class="size-4 text-primary" />
-                <h3 class="font-semibold text-sm">Frequency by Speaker</h3>
-              </div>
-              <span class="text-xs text-muted tabular-nums">{{ totalSearchMatches }} total</span>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-tally-5" class="size-4 shrink-0 text-mark-600 dark:text-mark-400" aria-hidden="true" />
+              <h2 class="type-label text-dimmed">Who said it</h2>
             </div>
-            <div class="space-y-3">
-              <div
-                v-for="freq in speakerFrequencies"
-                :key="freq.speaker"
-              >
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-sm font-medium truncate mr-2">{{ freq.speaker }}</span>
-                  <span class="text-xs tabular-nums font-medium text-muted">{{ freq.count }}</span>
+
+            <UiStatRow
+              label="Total"
+              :value="totalSearchMatches"
+              tone="mark"
+              size="sm"
+              divided
+              class="mt-3"
+            />
+
+            <ul class="mt-4 space-y-3.5">
+              <li v-for="freq in speakerFrequencies" :key="freq.speaker" class="space-y-1.5">
+                <div class="flex items-baseline justify-between gap-2">
+                  <span class="type-label min-w-0 truncate text-toned">{{ freq.speaker }}</span>
+                  <span class="type-figure shrink-0 text-sm text-mark-600 dark:text-mark-400">{{ freq.count }}</span>
                 </div>
-                <div class="h-1.5 bg-elevated rounded-full overflow-hidden">
-                  <div
-                    class="h-full bg-primary rounded-full transition-all duration-300"
-                    :style="{ width: `${maxFrequency > 0 ? (freq.count / maxFrequency) * 100 : 0}%` }"
-                  />
-                </div>
-              </div>
-            </div>
+                <UiTallyRail :count="freq.count" :max="22" :height="12" :label="`${freq.speaker}: ${freq.count} mentions`" />
+              </li>
+            </ul>
           </UCard>
-        </div>
+        </aside>
       </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+/*
+ * The API hands back highlight markup carrying a legacy yellow utility class on
+ * every <mark>. Tailwind does not emit that utility for this build (the class
+ * string lives only in the Python source it is generated from), so the global
+ * `mark` rule already paints the amber wash. But the moment any source file in
+ * this repo makes Tailwind emit that legacy utility, it would outrank the base
+ * layer and every search hit here would turn lemon. This unlayered rule pins the
+ * mark to the brand amber whatever else ends up in the stylesheet.
+ * (The class names are deliberately not written out here: Tailwind scans this
+ * file, and naming them would generate the very utility we are guarding against.)
+ */
+.transcript-body :deep(mark) {
+  background-color: color-mix(in oklab, var(--color-mark-500) 32%, transparent);
+  color: inherit;
+  border-radius: 0.125rem;
+  padding-inline: 0.15em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+</style>
