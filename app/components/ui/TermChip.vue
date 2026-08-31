@@ -71,7 +71,7 @@ const shell = computed(() => {
     <span class="font-mono text-highlighted truncate">
       <span aria-hidden="true" class="text-dimmed">&ldquo;</span>{{ term }}<span aria-hidden="true" class="text-dimmed">&rdquo;</span>
     </span>
-    <UiTallyRail v-if="mentions" :count="mentions" :max="12" :height="10" />
+    <span v-if="mentions" class="type-figure whitespace-nowrap text-muted">{{ mentions }}×</span>
     <span v-if="cents !== null" class="type-figure whitespace-nowrap" :class="priceClass">
       {{ cents }}<span class="text-dimmed">¢</span>
     </span>
@@ -81,7 +81,7 @@ const shell = computed(() => {
     <span class="font-mono text-highlighted truncate">
       <span aria-hidden="true" class="text-dimmed">&ldquo;</span>{{ term }}<span aria-hidden="true" class="text-dimmed">&rdquo;</span>
     </span>
-    <UiTallyRail v-if="mentions" :count="mentions" :max="12" :height="10" />
+    <span v-if="mentions" class="type-figure whitespace-nowrap text-muted">{{ mentions }}×</span>
     <span v-if="cents !== null" class="type-figure whitespace-nowrap" :class="priceClass">
       {{ cents }}<span class="text-dimmed">¢</span>
     </span>

@@ -371,7 +371,6 @@ onMounted(async () => {
         :ui="{
           root: 'relative border-b border-default pb-8',
           wrapper: 'flex flex-row items-center justify-between gap-5',
-          headline: 'mb-3 type-label text-xs font-medium text-dimmed flex items-center gap-2',
           title: 'text-2xl sm:text-2xl text-highlighted',
           description: 'mt-4 measure text-base text-muted',
         }"
@@ -540,11 +539,6 @@ onMounted(async () => {
                           </span>
                         </div>
                         <div v-if="matchesComplete" class="flex items-center gap-2">
-                          <UiTallyRail
-                            :count="group.mentions"
-                            :height="12"
-                            :label="`${group.mentions} mentions in ${group.name}`"
-                          />
                           <span class="type-figure text-sm text-highlighted">{{ group.mentions }}</span>
                           <span class="type-caption text-dimmed">
                             mention{{ group.mentions === 1 ? '' : 's' }}

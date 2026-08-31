@@ -82,7 +82,6 @@ useSchemaOrg([
       :ui="{
         title: 'text-2xl sm:text-2xl text-highlighted',
         description: 'mt-4 measure text-base text-muted',
-        headline: 'mb-3 type-label text-xs font-medium text-dimmed flex items-center gap-2',
       }"
     />
 
@@ -128,9 +127,6 @@ useSchemaOrg([
           class="group grid items-start gap-8 lg:grid-cols-12 lg:gap-10"
         >
           <div :class="lead.image ? 'lg:col-span-7' : 'lg:col-span-9'">
-            <p class="type-label text-dimmed">
-              Latest post
-            </p>
 
             <h2 class="type-title mt-3 text-highlighted decoration-mark-500 decoration-2 underline-offset-4 group-hover:underline">
               {{ lead.title }}

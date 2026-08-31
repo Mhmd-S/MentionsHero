@@ -213,7 +213,6 @@ useSchemaOrg([
       :ui="{
         title: 'text-2xl sm:text-2xl text-highlighted',
         description: 'mt-4 measure text-base text-muted',
-        headline: 'mb-3 type-label text-xs font-medium text-dimmed flex items-center gap-2',
       }"
     >
       <template #description>

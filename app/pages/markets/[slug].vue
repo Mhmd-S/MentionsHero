@@ -271,13 +271,11 @@ useSchemaOrg([
         :ui="{
           title: 'text-2xl sm:text-2xl text-highlighted',
           description: 'mt-4 measure text-base text-muted',
-          headline: 'mb-3 type-label text-xs font-medium text-dimmed flex items-center gap-2',
         }"
       >
         <template #headline>
           <div class="flex items-center gap-3">
             <UiPersonaAvatar :name="persona.name" :src="persona.image_url" size="md" decorative />
-            <span class="type-label text-dimmed">Prediction markets</span>
           </div>
         </template>
         <template #description>
@@ -437,7 +435,6 @@ useSchemaOrg([
                       <UiStatRow semantic label="Mentions" tone="mark" size="sm" divided>
                         <span class="inline-flex items-center gap-2">
                           {{ market.total_mentions }}
-                          <UiTallyRail :count="market.total_mentions" :max="12" :height="10" />
                         </span>
                       </UiStatRow>
                       <UiStatRow

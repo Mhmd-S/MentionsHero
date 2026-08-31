@@ -55,48 +55,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-default lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+  <div class="min-h-screen bg-default">
     <!-- The night side. Same panel as sign-in: one identity across the flow. -->
-    <aside class="hidden flex-col justify-between bg-ink-950 px-12 py-12 lg:flex lg:border-r lg:border-ink-800">
-      <NuxtLink
-        to="/"
-        class="inline-flex w-fit items-center gap-2 text-paper-50 transition-opacity hover:opacity-80"
-      >
-        <UiBrandMark :size="20" />
-        <span class="text-base font-bold tracking-[-0.02em]">MentionsHero</span>
-      </NuxtLink>
-
-      <div class="max-w-md">
-        <p class="type-display text-paper-50">
-          We count what they <mark>say</mark>.
-        </p>
-        <p class="mt-5 text-base text-ink-200">
-          Every briefing transcribed, every tracked word marked, and the market
-          price for that word sitting right next to the count.
-        </p>
-
-        <ul class="mt-9 space-y-4 border-t border-ink-800 pt-7">
-          <li class="flex items-start gap-3 text-sm text-ink-200">
-            <UIcon name="i-lucide-file-text" class="mt-0.5 size-4 shrink-0 text-mark-500" aria-hidden="true" />
-            <span>Full transcripts of press briefings, with speakers separated.</span>
-          </li>
-          <li class="flex items-start gap-3 text-sm text-ink-200">
-            <UIcon name="i-lucide-hash" class="mt-0.5 size-4 shrink-0 text-mark-500" aria-hidden="true" />
-            <span>Mention counts for any term, across a speaker's whole archive.</span>
-          </li>
-          <li class="flex items-start gap-3 text-sm text-ink-200">
-            <UIcon name="i-lucide-chart-bar" class="mt-0.5 size-4 shrink-0 text-mark-500" aria-hidden="true" />
-            <span>The Kalshi and Polymarket price for the word, beside the count.</span>
-          </li>
-        </ul>
-      </div>
-
-      <p class="type-label text-ink-300">
-        Market data — Kalshi &amp; Polymarket
-      </p>
-    </aside>
-
-    <main class="flex min-h-screen flex-col justify-center px-5 py-12 sm:px-10">
+    <main class="flex min-h-screen flex-col justify-center px-5 py-12">
       <div class="mx-auto w-full max-w-sm">
         <NuxtLink
           to="/"
@@ -117,20 +78,6 @@ onMounted(() => {
           <p class="mt-3 text-base text-muted">We sent a confirmation link to</p>
           <p class="type-figure mt-1 break-all text-base text-highlighted">{{ state.email }}</p>
 
-          <ol class="mt-8 border-t border-default">
-            <li class="flex items-baseline gap-3 rule-dotted py-3">
-              <span class="type-figure text-sm text-dimmed">1</span>
-              <span class="type-meta text-toned">Open the message from MentionsHero.</span>
-            </li>
-            <li class="flex items-baseline gap-3 rule-dotted py-3">
-              <span class="type-figure text-sm text-dimmed">2</span>
-              <span class="type-meta text-toned">Follow the confirmation link.</span>
-            </li>
-            <li class="flex items-baseline gap-3 py-3">
-              <span class="type-figure text-sm text-dimmed">3</span>
-              <span class="type-meta text-toned">You land back here signed in. Nothing else to fill in.</span>
-            </li>
-          </ol>
 
           <UAlert
             v-if="resent"
@@ -173,8 +120,7 @@ onMounted(() => {
         <!-- Signup form -->
         <template v-else>
           <div class="mb-8">
-            <p class="type-label text-dimmed">Create account</p>
-            <h1 class="type-title mt-2">Start tracking mentions</h1>
+            <h1 class="type-title">Create your account</h1>
             <p class="type-meta mt-2 text-muted">
               An email and a password. That is the whole form — free, no card.
             </p>

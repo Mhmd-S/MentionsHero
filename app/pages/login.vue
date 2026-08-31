@@ -79,49 +79,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-default lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+  <div class="min-h-screen bg-default">
     <!-- The night side. Says what the product does before asking for anything. -->
-    <aside class="hidden flex-col justify-between bg-ink-950 px-12 py-12 lg:flex lg:border-r lg:border-ink-800">
-      <NuxtLink
-        to="/"
-        class="inline-flex w-fit items-center gap-2 text-paper-50 transition-opacity hover:opacity-80"
-      >
-        <UiBrandMark :size="20" />
-        <span class="text-base font-bold tracking-[-0.02em]">MentionsHero</span>
-      </NuxtLink>
 
-      <div class="max-w-md">
-        <p class="type-display text-paper-50">
-          We count what they <mark>say</mark>.
-        </p>
-        <p class="mt-5 text-base text-ink-200">
-          Every briefing transcribed, every tracked word marked, and the market
-          price for that word sitting right next to the count.
-        </p>
-
-        <ul class="mt-9 space-y-4 border-t border-ink-800 pt-7">
-          <li class="flex items-start gap-3 text-sm text-ink-200">
-            <UIcon name="i-lucide-file-text" class="mt-0.5 size-4 shrink-0 text-mark-500" aria-hidden="true" />
-            <span>Full transcripts of press briefings, with speakers separated.</span>
-          </li>
-          <li class="flex items-start gap-3 text-sm text-ink-200">
-            <UIcon name="i-lucide-hash" class="mt-0.5 size-4 shrink-0 text-mark-500" aria-hidden="true" />
-            <span>Mention counts for any term, across a speaker's whole archive.</span>
-          </li>
-          <li class="flex items-start gap-3 text-sm text-ink-200">
-            <UIcon name="i-lucide-chart-bar" class="mt-0.5 size-4 shrink-0 text-mark-500" aria-hidden="true" />
-            <span>The Kalshi and Polymarket price for the word, beside the count.</span>
-          </li>
-        </ul>
-      </div>
-
-      <p class="type-label text-ink-300">
-        Market data — Kalshi &amp; Polymarket
-      </p>
-    </aside>
 
     <!-- The form side. -->
-    <main class="flex min-h-screen flex-col justify-center px-5 py-12 sm:px-10">
+    <main class="flex min-h-screen flex-col justify-center px-5 py-12">
       <div class="mx-auto w-full max-w-sm">
         <NuxtLink
           to="/"
@@ -132,8 +95,7 @@ onMounted(() => {
         </NuxtLink>
 
         <div class="mb-8">
-          <p class="type-label text-dimmed">Sign in</p>
-          <h1 class="type-title mt-2">Welcome back</h1>
+          <h1 class="type-title">Welcome back</h1>
           <p class="type-meta mt-2 text-muted">
             Sign in to read the transcripts and see the counts behind every market.
           </p>

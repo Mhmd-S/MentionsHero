@@ -143,7 +143,6 @@ onMounted(() => {
       :ui="{
         title: 'text-2xl sm:text-2xl text-highlighted',
         description: 'mt-4 measure text-base text-muted',
-        headline: 'mb-3 type-label text-xs font-medium text-dimmed flex items-center gap-2',
       }"
     />
 
@@ -162,7 +161,7 @@ onMounted(() => {
       <!-- Profile. Section label hangs in the margin on wide screens. -->
       <section class="lg:grid lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-10">
         <div class="mb-4 lg:mb-0">
-          <h2 class="type-label text-dimmed">Profile</h2>
+          <h2 class="text-sm font-medium text-highlighted">Profile</h2>
           <p class="type-meta mt-2 hidden text-muted lg:block">
             How we address you, and how we reach you about the account.
           </p>
@@ -239,7 +238,7 @@ onMounted(() => {
       <!-- Password -->
       <section class="lg:grid lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-10">
         <div class="mb-4 lg:mb-0">
-          <h2 class="type-label text-dimmed">Password</h2>
+          <h2 class="text-sm font-medium text-highlighted">Password</h2>
           <p class="type-meta mt-2 hidden text-muted lg:block">
             Used with your email to sign in.
           </p>
@@ -319,7 +318,7 @@ onMounted(() => {
       <!-- Subscription -->
       <section class="lg:grid lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-10">
         <div class="mb-4 lg:mb-0">
-          <h2 class="type-label text-dimmed">Subscription</h2>
+          <h2 class="text-sm font-medium text-highlighted">Subscription</h2>
           <p class="type-meta mt-2 hidden text-muted lg:block">
             Billing runs through Stripe. Cancel or change your card there at any time.
           </p>

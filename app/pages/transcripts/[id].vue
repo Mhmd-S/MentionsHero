@@ -575,7 +575,6 @@ const breadcrumbItems = computed(() => {
                   <span class="type-label min-w-0 truncate text-toned">{{ freq.speaker }}</span>
                   <span class="type-figure shrink-0 text-sm text-mark-600 dark:text-mark-400">{{ freq.count }}</span>
                 </div>
-                <UiTallyRail :count="freq.count" :max="22" :height="12" :label="`${freq.speaker}: ${freq.count} mentions`" />
               </li>
             </ul>
           </UCard>
