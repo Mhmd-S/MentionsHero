@@ -57,20 +57,11 @@ useSchemaOrg([
 
         <!-- There are no visitor accounts: the whole archive is free and
              anonymous, so a signed-out header offers nothing to sign in to.
-             The only session that exists is an admin's, and this strip is how
-             they get back to the dashboard. Client-only, because the session is
-             hydrated in the browser. -->
+             The only session that exists is an admin's, and all the public
+             header owes them is a way out — /admin is reached by typing it.
+             Client-only, because the session is hydrated in the browser. -->
         <ClientOnly>
           <template v-if="session">
-            <UButton
-              to="/admin"
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              icon="i-lucide-layout-dashboard"
-              label="Admin"
-              class="hidden lg:inline-flex"
-            />
             <UButton
               variant="ghost"
               color="neutral"
@@ -92,15 +83,6 @@ useSchemaOrg([
             <USeparator type="dashed" class="my-4" />
 
             <div class="flex flex-col gap-1">
-              <UButton
-                to="/admin"
-                variant="ghost"
-                color="neutral"
-                block
-                class="justify-start"
-                icon="i-lucide-layout-dashboard"
-                label="Admin"
-              />
               <UButton
                 variant="ghost"
                 color="neutral"

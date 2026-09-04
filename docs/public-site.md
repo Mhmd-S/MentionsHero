@@ -106,9 +106,10 @@ any user promote themselves to admin.
 
 - `layouts/default.vue` — Public layout, no sidebar. `UHeader` (a `<UiBrandMark>` + wordmark title,
   a `UNavigationMenu variant="pill"` with **Transcripts / Blog**, and a right cluster of
-  `UColorModeButton` plus — only when a session exists — **Admin** and **Sign out**), `UMain >
-  UContainer`, then a `UFooter` that does **not** repeat the nav. It also owns the site-wide
-  `Organization` + `WebSite` schema
+  `UColorModeButton` plus — only when a session exists — **Sign out**), `UMain > UContainer`,
+  then a `UFooter` that does **not** repeat the nav. It also owns the site-wide
+  `Organization` + `WebSite` schema. There is deliberately **no Admin link** in the public
+  header: `/admin` is reached by typing it
 - `layouts/admin.vue` — Admin layout with sidebar (FileTree, nav)
 - **No layout**: `/login` sets `definePageMeta({ layout: false })` and renders its own shell
 - `app/error.vue` — the branded 404/500. Nuxt renders it outside the page tree, so it mounts
@@ -301,7 +302,7 @@ personas.image_url        -- Feeds the OgImagePersona template and UiPersonaAvat
 ### Frontend
 | File | Purpose |
 |------|---------|
-| `app/layouts/default.vue` | Public layout (top nav, admin/sign-out cluster when signed in) |
+| `app/layouts/default.vue` | Public layout (top nav, sign-out button when signed in) |
 | `app/layouts/admin.vue` | Admin layout (sidebar) |
 | `app/middleware/auth.global.ts` | Route protection — `/admin` only |
 | `app/composables/useAuth.ts` | Auth facade over @nuxtjs/supabase (login/logout/role) |
