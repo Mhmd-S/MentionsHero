@@ -6,6 +6,7 @@ interface Persona {
   slug: string | null
   image_url: string | null
   aliases: string[]
+  transcript_count: number
 }
 
 // SSR-compatible fetch (so Google sees the speaker list). Data contract unchanged.
@@ -121,6 +122,10 @@ useSchemaOrg([
               <span v-if="persona.description" class="block truncate text-sm text-muted">
                 {{ persona.description }}
               </span>
+            </span>
+            <span class="type-caption shrink-0 text-dimmed">
+              <span class="type-figure">{{ persona.transcript_count }}</span>
+              transcript{{ persona.transcript_count === 1 ? '' : 's' }}
             </span>
             <UIcon
               name="i-lucide-chevron-right"

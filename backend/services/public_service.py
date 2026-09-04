@@ -13,7 +13,17 @@ from backend.utils.nlp import parse_transcript_segments
 
 
 async def get_public_personas() -> list[dict[str, Any]]:
-    """Fetch all personas for public listing."""
+    """Personas that actually have public transcripts, with their counts.
+
+    A persona with nothing to read is not listed. Most of the 55 rows in
+    `personas` are aspirational — seeded ahead of any transcription — and listing
+    them sent visitors to a page whose only content was "no transcripts yet".
+    The sitemap is built from this same function, so empty personas stop being
+    submitted to search engines too.
+
+    Counted in one pass rather than per persona: resolving 55 personas through
+    aliases → speakers → links individually is ~165 round trips.
+    """
     supabase = get_supabase()
 
     personas_response = (
@@ -28,16 +38,47 @@ async def get_public_personas() -> list[dict[str, Any]]:
         return []
 
     # Get aliases grouped by persona
-    aliases_response = supabase.table("persona_aliases").select("persona_id, alias").execute()
     aliases_by_persona: dict[str, list[str]] = {}
-    for alias in aliases_response.data or []:
+    for alias in _select_all("persona_aliases", "persona_id, alias"):
         pid = alias["persona_id"]
         aliases_by_persona.setdefault(pid, []).append(alias["alias"])
 
-    for persona in personas:
-        persona["aliases"] = aliases_by_persona.get(persona["id"], [])
+    # speaker name (lowercased) -> speaker id. Alias matching is case-insensitive
+    # equality, the same rule `_find_transcript_ids_by_aliases` applies.
+    speaker_ids_by_name: dict[str, list[str]] = {}
+    for row in _select_all("speakers", "id, name"):
+        speaker_ids_by_name.setdefault((row["name"] or "").lower(), []).append(row["id"])
 
-    return personas
+    # speaker id -> the transcripts they speak in
+    transcripts_by_speaker: dict[str, set[str]] = {}
+    for row in _select_all("transcript_speakers", "speaker_id, transcript_id"):
+        transcripts_by_speaker.setdefault(row["speaker_id"], set()).add(row["transcript_id"])
+
+    public_ids = {
+        row["id"]
+        for row in _select_all(
+            "transcripts", "id", lambda q: q.eq("is_public", True)
+        )
+    }
+
+    listed: list[dict[str, Any]] = []
+    for persona in personas:
+        aliases = aliases_by_persona.get(persona["id"], [])
+        persona["aliases"] = aliases
+
+        transcript_ids: set[str] = set()
+        for alias in aliases:
+            for speaker_id in speaker_ids_by_name.get(alias.lower(), []):
+                transcript_ids |= transcripts_by_speaker.get(speaker_id, set())
+
+        count = len(transcript_ids & public_ids)
+        if not count:
+            continue
+
+        persona["transcript_count"] = count
+        listed.append(persona)
+
+    return listed
 
 
 async def get_persona_by_slug(slug: str) -> dict[str, Any] | None:
@@ -78,6 +119,30 @@ async def get_persona_by_slug(slug: str) -> dict[str, Any] | None:
     return persona
 
 
+#: PostgREST caps an unbounded select at 1000 rows and reports no error — the
+#: response simply stops. Anything that must read a whole table goes through
+#: `_select_all`, or it will silently lose data the moment the archive outgrows
+#: the cap. This is not hypothetical: an unpaged read of `transcript_speakers`
+#: (1073 rows) returned 1000 and made 12 perfectly good transcripts look broken.
+_PAGE = 1000
+
+
+def _select_all(table: str, columns: str, apply_filters=None) -> list[dict[str, Any]]:
+    """Read every row of a query, paging past the PostgREST row cap."""
+    supabase = get_supabase()
+    rows: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        query = supabase.table(table).select(columns)
+        if apply_filters is not None:
+            query = apply_filters(query)
+        page = query.range(offset, offset + _PAGE - 1).execute().data or []
+        rows.extend(page)
+        if len(page) < _PAGE:
+            return rows
+        offset += _PAGE
+
+
 async def _find_transcript_ids_by_aliases(aliases: list[str]) -> set[str]:
     """Find transcript IDs where a speaker name matches any alias (case-insensitive)."""
     supabase = get_supabase()
@@ -104,13 +169,12 @@ async def _find_transcript_ids_by_aliases(aliases: list[str]) -> set[str]:
     unique_speaker_ids = list(set(speaker_ids))
     for i in range(0, len(unique_speaker_ids), batch_size):
         batch = unique_speaker_ids[i:i + batch_size]
-        ts_resp = (
-            supabase.table("transcript_speakers")
-            .select("transcript_id")
-            .in_("speaker_id", batch)
-            .execute()
+        rows = _select_all(
+            "transcript_speakers",
+            "transcript_id",
+            lambda q, b=batch: q.in_("speaker_id", b),
         )
-        transcript_ids.update(r["transcript_id"] for r in (ts_resp.data or []))
+        transcript_ids.update(r["transcript_id"] for r in rows)
 
     return transcript_ids
 
@@ -139,24 +203,28 @@ async def get_public_transcripts_for_persona(
         }
 
     # Query public transcripts limited to those IDs
-    query = supabase.table("transcripts").select(
-        "id, name, created_at, upload_date, folder_id, transcript"
-    ).eq("is_public", True).in_("id", list(matching_ids))
-
+    tree_ids = None
     if folder_id:
         folders_response = supabase.table("folders").select("*").execute()
         folders = folders_response.data or []
         tree_ids = get_folder_ids_in_tree(folder_id, folders)
-        query = query.in_("folder_id", tree_ids)
 
-    # Sort by upload_date (YouTube date) when sorting by date, fall back to created_at
-    if sort_by == "date":
-        query = query.order("upload_date", desc=(sort_order == "desc"), nullsfirst=False)
-    else:
-        query = query.order("name", desc=(sort_order == "desc"))
+    def _filters(query):
+        query = query.eq("is_public", True).in_("id", list(matching_ids))
+        if tree_ids is not None:
+            query = query.in_("folder_id", tree_ids)
+        # Sort by upload_date (YouTube date) when sorting by date, fall back to created_at
+        if sort_by == "date":
+            return query.order("upload_date", desc=(sort_order == "desc"), nullsfirst=False)
+        return query.order("name", desc=(sort_order == "desc"))
 
-    response = query.execute()
-    all_transcripts = response.data or []
+    # Paged: this is the listing query, so truncation here would quietly hide
+    # transcripts from a persona once the archive passes the row cap.
+    all_transcripts = _select_all(
+        "transcripts",
+        "id, name, created_at, upload_date, folder_id, transcript",
+        _filters,
+    )
 
     if search:
         search_lower = search.lower()
@@ -299,13 +367,8 @@ async def _find_personas_for_transcript(transcript_id: str) -> list[dict[str, An
         return []
 
     # Find personas whose aliases match any speaker name
-    aliases_resp = (
-        supabase.table("persona_aliases")
-        .select("persona_id, alias")
-        .execute()
-    )
     matching_persona_ids = set()
-    for alias_row in aliases_resp.data or []:
+    for alias_row in _select_all("persona_aliases", "persona_id, alias"):
         if alias_row["alias"].lower() in [s.lower() for s in speaker_names]:
             matching_persona_ids.add(alias_row["persona_id"])
 
@@ -323,7 +386,15 @@ async def _find_personas_for_transcript(transcript_id: str) -> list[dict[str, An
 
 
 async def get_public_transcript(transcript_id: str) -> dict[str, Any] | None:
-    """Get a public transcript in full."""
+    """Get a public transcript in full, or None if it should not be shown.
+
+    `is_public` is necessary but not sufficient. A transcript with no rows in
+    `transcript_speakers` is already absent from every persona listing and every
+    keyword search, because both reach transcripts *through* speakers. Serving it
+    at /transcripts/{id} anyway produced an orphan: reachable only by guessing the
+    URL, with no breadcrumb persona, no speaker attribution and no prev/next.
+    No speaker links, no page.
+    """
     supabase = get_supabase()
 
     response = (
@@ -340,7 +411,18 @@ async def get_public_transcript(transcript_id: str) -> dict[str, Any] | None:
 
     transcript = response.data
 
-    # Attach persona info for navigation breadcrumbs
+    links = (
+        supabase.table("transcript_speakers")
+        .select("transcript_id")
+        .eq("transcript_id", transcript_id)
+        .limit(1)
+        .execute()
+    )
+    if not links.data:
+        return None
+
+    # Attach persona info for navigation breadcrumbs. Absent when the speakers are
+    # all unattributed ("Reporter", "Announcer"); the page still reads fine.
     personas = await _find_personas_for_transcript(transcript_id)
     if personas:
         # Use the first persona as primary (most transcripts belong to one persona)

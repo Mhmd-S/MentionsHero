@@ -36,7 +36,7 @@ Create persona with aliases
 |-------|------|---------|
 | Page (admin) | `app/pages/admin/personas/index.vue` | Persona listing, create/edit/delete modals |
 | Page (admin) | `app/pages/admin/personas/[id].vue` | Persona detail, alias management, per-transcript Public/Premium toggles (`is_premium` is legacy — the public site ignores it) |
-| Page (public) | `app/pages/personas/[slug].vue` | Public speaker page — keyword search + transcript list (see below) |
+| Page (public) | `app/pages/personas/[slug].vue` | Public speaker page — keyword search + transcript list (see below). Reachable by direct URL even when unlisted |
 | Composable | `app/composables/usePersonas.ts` | Admin persona API calls |
 | Router | `backend/routers/personas.py` | Persona endpoints |
 | Service | `backend/services/persona_service.py` | Persona DB operations, alias management, transcript matching |
@@ -118,3 +118,14 @@ SEO for this page (canonical override, page-scoped `definePerson`, OG image) is 
 
 **persona_aliases**
 - `id` (uuid PK), `persona_id` (uuid FK → personas CASCADE), `alias` (text UNIQUE), `created_at`
+
+## Listing visibility
+
+`GET /api/public/personas` — and therefore the homepage and the sitemap — lists **only personas
+that have at least one public transcript**, each with a `transcript_count`. A persona with no
+transcripts is omitted; its page still resolves by direct URL and renders the empty state.
+
+A persona is matched to transcripts through `persona_aliases` → `speakers` (case-insensitive
+equality, no wildcards) → `transcript_speakers`. **A persona with no aliases can never match
+anything** — that is not a subtle failure, it is a persona that will never appear. Donald Trump
+sat with zero aliases and zero listed transcripts for exactly this reason.

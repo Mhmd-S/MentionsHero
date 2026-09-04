@@ -90,7 +90,7 @@ any user promote themselves to admin.
 **Public pages** (no auth, no account, nothing gated):
 | Route | Page File | Purpose |
 |-------|-----------|---------|
-| `/` | `pages/index.vue` | Speaker list with a client-side filter |
+| `/` | `pages/index.vue` | Speaker list — only personas with transcripts, each showing its count — with a client-side filter |
 | `/personas/[slug]` | `pages/personas/[slug].vue` | Persona detail: keyword search + paginated transcript list |
 | `/transcripts/[id]` | `pages/transcripts/[id].vue` | Transcript viewer with search |
 | `/blog` | `pages/blog/index.vue` | Blog listing (lead post + hanging-margin rows) |
@@ -174,8 +174,8 @@ Prefix: `/api/public`. **Every endpoint is unauthenticated.** No route on this r
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /sitemap-urls` | Sitemap-formatted persona URLs (loc, lastmod, changefreq, priority) |
-| `GET /personas` | List all personas |
+| `GET /sitemap-urls` | Sitemap URLs for the personas that have transcripts (built from `get_public_personas()`, so empty ones are never submitted) |
+| `GET /personas` | Personas that **have public transcripts**, each with a `transcript_count`. Empty personas are omitted |
 | `GET /personas/{slug}` | Get persona by slug (falls back to id) |
 | `GET /personas/{slug}/transcripts` | List public transcripts for persona |
 | `GET /personas/{slug}/keyword-search` | Search keywords across persona's transcripts |
@@ -202,8 +202,29 @@ Prefix: `/api/public`. **Every endpoint is unauthenticated.** No route on this r
 - `search` — highlight search term, returns per-speaker frequency breakdown in `speakerFrequencies`
 
 ### Access Control
-- Public transcripts: `is_public = true`. That is the entire access model
-- Nothing is truncated, faded, locked or counted against a quota
+- A transcript is shown when `is_public = true` **and** it has rows in
+  `transcript_speakers`. Nothing is truncated, faded, locked or counted against a quota
+- **No speaker links, no page.** Persona listings and keyword search both reach transcripts
+  *through* speakers, so an unlinked transcript is already absent from them; serving it at
+  `/transcripts/{id}` anyway produced an orphan reachable only by guessing the URL, with no
+  breadcrumb persona and no prev/next. `get_public_transcript()` now returns `None` (→ 404)
+- A transcript that *has* speaker links but matches no persona alias still renders — it simply
+  has no persona breadcrumb
+
+**Personas follow the same principle.** `get_public_personas()` returns only personas with at
+least one public transcript (28 of 55 today), counted in one pass: aliases → speakers →
+`transcript_speakers` → public transcript ids, all read through `_select_all`. Most `personas`
+rows are seeded ahead of any transcription, and listing them sent visitors to a page whose only
+content was "no transcripts yet". An unlisted persona **still resolves by direct URL** and shows
+that empty state — it is only dropped from the listing and the sitemap.
+
+### The 1000-row cap
+
+PostgREST truncates an unbounded select at 1000 rows **and reports no error**. Every whole-table
+read in `public_service.py` goes through `_select_all()`, which pages. This is not theoretical:
+an unpaged read of `transcript_speakers` (1073 rows) returned 1000 and made 12 healthy
+transcripts look like they had no speakers at all. If you add a query here that could exceed
+1000 rows, page it.
 
 ## Public Transcript Reader (`app/pages/transcripts/[id].vue`)
 
@@ -264,7 +285,7 @@ tags are rendered during SSR. Without it Google sees an empty `<title>` and `<me
 
 | Page | SSR fetch | Client-side |
 |------|-----------|-------------|
-| `index.vue` | `/api/public/personas` (the list is also indexable content) | — |
+| `index.vue` | `/api/public/personas` (the list is also indexable content; already filtered to personas with transcripts) | — |
 | `personas/[slug].vue` | `/api/public/personas/{slug}` | transcript list, keyword search |
 | `transcripts/[id].vue` | — (page is `noindex, nofollow`) | everything |
 
