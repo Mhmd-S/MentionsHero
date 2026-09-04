@@ -22,7 +22,6 @@ from backend.routers import (
     polymarket,
     profile,
     public,
-    stripe_router,
     transcripts,
     video,
 )
@@ -76,9 +75,10 @@ app.include_router(polymarket.router, dependencies=[Depends(require_admin)])
 app.include_router(personas.router, dependencies=[Depends(require_admin)])
 app.include_router(auto_transcription.router, dependencies=[Depends(require_admin)])
 
-# Public routers (no global auth — per-endpoint auth where needed)
+# Public router — fully anonymous, no auth of any kind.
 app.include_router(public.router)
-app.include_router(stripe_router.router)
+# Profile router — user-level auth. Its only consumer is the admin UI, which
+# reads `profiles.role` from it to decide whether to render the admin shell.
 app.include_router(profile.router)
 
 

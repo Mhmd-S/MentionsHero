@@ -118,4 +118,4 @@ MentionsHero gives you the data foundation that powers these strategies:
 - **Trend analysis**: Track mention frequency over time to spot emerging patterns
 - **Market integration**: Persona pages link directly to active Kalshi mentions markets
 
-Browse our [personas page](/) to start analyzing speaker patterns, or check out [pricing](/pricing) to unlock the full transcript archive.
+Browse our [personas page](/) to start analyzing speaker patterns. The full transcript archive is free to read — no account needed.

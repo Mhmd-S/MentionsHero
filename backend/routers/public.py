@@ -1,11 +1,14 @@
-"""Public-facing API routes (no admin auth required)."""
+"""Public-facing API routes.
+
+Everything here is anonymous. There are no accounts, no subscription and no
+paywall on the public site, so no route on this router takes a user.
+"""
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from typing import Any
 
-from backend.core.auth import optional_auth
 from backend.services import public_service
 from backend.utils.transcript_filter import (
     highlight_transcript,
@@ -19,7 +22,7 @@ router = APIRouter(prefix="/api/public", tags=["public"])
 
 @router.get("/sitemap-urls")
 async def sitemap_urls() -> list[dict[str, Any]]:
-    """Return sitemap-formatted URLs for all persona pages and markets pages."""
+    """Return sitemap-formatted URLs for all persona pages."""
     personas = await public_service.get_public_personas()
     urls: list[dict[str, Any]] = []
 
@@ -33,27 +36,6 @@ async def sitemap_urls() -> list[dict[str, Any]]:
                 "lastmod": p.get("updated_at"),
                 "changefreq": "weekly",
                 "priority": 0.8,
-            })
-
-    # Markets pages — personas that have analyzed markets (same slug/id fallback).
-    # Degrade gracefully: the markets tables are optional for a deployment, and a
-    # failure here must not take the persona URLs down with it.
-    try:
-        markets_listing = await public_service.get_public_markets_listing()
-    except Exception:
-        logger.exception("sitemap: skipping markets URLs, markets listing failed")
-        markets_listing = []
-
-    seen: set[str] = set()
-    for pm in markets_listing:
-        ident = pm["persona"].get("slug") or pm["persona"].get("id")
-        if ident and ident not in seen:
-            seen.add(ident)
-            urls.append({
-                "loc": f"/markets/{ident}",
-                "lastmod": None,
-                "changefreq": "weekly",
-                "priority": 0.7,
             })
 
     return urls
@@ -83,7 +65,6 @@ async def get_persona_transcripts(
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    user: dict | None = Depends(optional_auth),
 ) -> dict[str, Any]:
     """List public transcripts for a persona (alias-based matching)."""
     persona = await public_service.get_persona_by_slug(slug)
@@ -99,9 +80,6 @@ async def get_persona_transcripts(
             "total_pages": 0,
         }
 
-    user_id = user["sub"] if user else None
-    is_subscribed = await public_service.check_user_subscription(user_id) if user_id else False
-
     return await public_service.get_public_transcripts_for_persona(
         aliases=persona["aliases"],
         folder_id=folder_id,
@@ -110,7 +88,6 @@ async def get_persona_transcripts(
         sort_order=sort_order,
         page=page,
         page_size=page_size,
-        is_subscribed=is_subscribed,
     )
 
 
@@ -118,14 +95,8 @@ async def get_persona_transcripts(
 async def persona_keyword_search(
     slug: str,
     q: str = Query(..., min_length=1, max_length=100),
-    user: dict | None = Depends(optional_auth),
 ) -> dict[str, Any]:
-    """
-    Search for a keyword across all of a persona's transcripts.
-
-    Free users: limited to 3 matching transcripts and 1 context snippet each.
-    Subscribed users: full results (up to 100 matches).
-    """
+    """Search for a keyword across all of a persona's transcripts."""
     persona = await public_service.get_persona_by_slug(slug)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -136,59 +107,25 @@ async def persona_keyword_search(
             "total_matches": 0,
             "transcripts_with_matches": 0,
             "matches": [],
-            "is_limited": False,
         }
 
-    user_id = user["sub"] if user else None
-    is_subscribed = await public_service.check_user_subscription(user_id) if user_id else False
-
-    result = await public_service.keyword_search_for_persona(
+    return await public_service.keyword_search_for_persona(
         aliases=persona["aliases"],
         query=q,
-        is_subscribed=is_subscribed,
     )
-    return result
-
-
-@router.get("/markets")
-async def list_public_markets() -> list[dict[str, Any]]:
-    """List all market events grouped by persona for public browsing."""
-    return await public_service.get_public_markets_listing()
-
-
-@router.get("/markets/{slug}")
-async def get_persona_markets(
-    slug: str,
-    user: dict | None = Depends(optional_auth),
-) -> dict[str, Any]:
-    """Get all market events and analysis for a persona.
-
-    Free users see market questions and prices.
-    Subscribers see full analysis (mentions, trends, percentages).
-    """
-    user_id = user["sub"] if user else None
-    result = await public_service.get_public_persona_markets(slug, user_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Persona not found")
-    return result
 
 
 @router.get("/transcripts/{transcript_id}")
 async def get_transcript(
     transcript_id: str,
     search: str | None = Query(None),
-    user: dict | None = Depends(optional_auth),
 ) -> dict[str, Any]:
     """
-    Get a public transcript by ID.
-
-    If the transcript is premium and the user is not subscribed,
-    returns a truncated preview with is_locked=True.
+    Get a public transcript by ID, in full.
 
     Supports search highlighting with per-speaker frequency breakdown.
     """
-    user_id = user["sub"] if user else None
-    transcript = await public_service.get_public_transcript(transcript_id, user_id)
+    transcript = await public_service.get_public_transcript(transcript_id)
 
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")

@@ -160,20 +160,6 @@ async def require_auth(
     )
 
 
-async def optional_auth(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-) -> dict | None:
-    """Return user dict if token is present and valid, None otherwise."""
-    token = _extract_token(request, credentials)
-    if not token:
-        return None
-    try:
-        return _validate_session(token)
-    except HTTPException:
-        return None
-
-
 async def require_user_auth(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),

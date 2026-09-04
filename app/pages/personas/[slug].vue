@@ -2,8 +2,6 @@
 const route = useRoute()
 const slug = route.params.slug as string
 const { publicFetch } = usePublicApi()
-const { isSubscribed, fetchSubscription } = useSubscription()
-const { session } = useAuth()
 
 interface Persona {
   id: string
@@ -21,7 +19,6 @@ interface TranscriptSummary {
   name: string | null
   created_at: string
   upload_date: string | null
-  is_premium: boolean
   folder_id: string | null
   folder_name: string | null
   preview: string
@@ -117,11 +114,8 @@ function clearTranscriptSearch() {
   page.value = 1
 }
 
-const filterEmptyHint = computed(() =>
-  isSubscribed.value
-    ? 'This filter matches the words inside a transcript, not just its title. Try a different word, or clear it.'
-    : 'This filter matches the words inside a transcript. Premium transcripts are not searched on a free account.'
-)
+const filterEmptyHint =
+  'This filter matches the words inside a transcript, not just its title. Try a different word, or clear it.'
 
 function sortLabel(field: 'date' | 'name') {
   const name = field === 'date' ? 'date' : 'name'
@@ -169,7 +163,6 @@ interface KeywordSearchResult {
   total_matches: number
   transcripts_with_matches: number
   matches: KeywordMatch[]
-  is_limited: boolean
 }
 
 const keywordQuery = ref('')
@@ -245,7 +238,7 @@ const countedMentions = computed(() => matchGroups.value.reduce((sum, g) => sum 
 const matchesComplete = computed(() => {
   const res = keywordResults.value
   if (!res) return false
-  return !res.is_limited && countedMentions.value === res.total_matches
+  return countedMentions.value === res.total_matches
 })
 
 // Series mode: one tick per briefing that mentioned the term, oldest first.
@@ -340,8 +333,7 @@ useSchemaOrg([
   }),
 ])
 
-onMounted(async () => {
-  if (session.value) await fetchSubscription()
+onMounted(() => {
   loadTranscripts()
 })
 </script>
@@ -397,33 +389,9 @@ onMounted(async () => {
                   Every mention across the transcripts below, quoted in context.
                 </p>
               </div>
-              <UBadge
-                v-if="!isSubscribed"
-                color="primary"
-                variant="subtle"
-                size="sm"
-                icon="i-lucide-lock"
-                label="Subscribers"
-              />
             </div>
 
-            <!-- Gated: the panel stands in for the search itself -->
-            <UiUpsellBanner
-              v-if="!isSubscribed"
-              class="mt-5"
-              variant="panel"
-              icon="i-lucide-text-search"
-              :title="`Keyword search across ${persona.name}'s transcripts is part of the subscription`"
-              description="Type any word and see every time it was said, which briefing it came from, and the sentence around it."
-              cta-label="See pricing"
-              cta-to="/pricing"
-              :secondary-label="session ? null : 'Sign in'"
-              :secondary-to="session ? null : '/login'"
-            />
-
-            <!-- Unlocked -->
-            <template v-else>
-              <div class="mt-5">
+            <div class="mt-5">
                 <UFormField
                   label="Keyword"
                   :ui="{ label: 'type-label text-dimmed' }"
@@ -581,11 +549,10 @@ onMounted(async () => {
                 </template>
               </div>
 
-              <!-- Nothing typed yet -->
-              <p v-else-if="!keywordQuery.trim()" class="mt-4 type-caption text-dimmed">
-                Type a word to count it across every briefing on this page.
-              </p>
-            </template>
+            <!-- Nothing typed yet -->
+            <p v-else-if="!keywordQuery.trim()" class="mt-4 type-caption text-dimmed">
+              Type a word to count it across every briefing on this page.
+            </p>
           </section>
 
           <!-- Transcripts -->
@@ -707,14 +674,6 @@ onMounted(async () => {
                       >
                         {{ t.name || 'Untitled' }}
                       </span>
-                      <UBadge
-                        v-if="t.is_premium"
-                        color="primary"
-                        variant="subtle"
-                        size="xs"
-                        icon="i-lucide-lock"
-                        label="Premium"
-                      />
                     </div>
                     <p v-if="t.preview" class="mt-1 line-clamp-2 text-sm text-muted">
                       {{ t.preview }}

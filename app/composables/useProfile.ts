@@ -9,11 +9,11 @@ export interface Profile {
 }
 
 /**
- * The user's `profiles` row, loaded once per session from the FastAPI backend.
+ * The signed-in admin's `profiles` row, loaded from the FastAPI backend.
  *
  * The role lives in Postgres, not in the Supabase JWT, so it cannot be read from
- * `useSupabaseUser()` claims. It is fetched lazily — anonymous visitors, who are
- * most of the traffic, never pay for the request.
+ * `useSupabaseUser()` claims. It is fetched lazily by the /admin guard — the
+ * public site is anonymous and never makes this request.
  *
  * GET /api/profile creates the row if it is somehow missing, so this call also
  * repairs accounts that predate the on_auth_user_created trigger.
@@ -78,21 +78,12 @@ export function useProfile() {
     return fetchProfile()
   }
 
-  async function saveProfile(fields: Partial<Pick<Profile, 'first_name' | 'last_name' | 'phone'>>) {
-    profile.value = await $fetch<Profile>('/api/profile', {
-      method: 'PUT',
-      headers: authHeaders(),
-      body: fields,
-    })
-    return profile.value
-  }
-
   function clear() {
     profile.value = null
     loadedFor.value = null
   }
 
-  return { profile, role, isAdmin, displayName, loading, fetchProfile, ensureLoaded, saveProfile, clear }
+  return { profile, role, isAdmin, displayName, loading, fetchProfile, ensureLoaded, clear }
 }
 
 /** Resolve once a boolean ref goes false. */

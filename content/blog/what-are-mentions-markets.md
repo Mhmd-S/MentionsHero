@@ -32,4 +32,4 @@ MentionsHero bridges the gap between raw transcripts and actionable analysis:
 
 ## Getting Started
 
-Browse our [personas page](/) to explore available speakers, or check out [pricing](/pricing) to unlock premium transcripts and full analysis tools.
+Browse our [personas page](/) to explore available speakers. Every transcript is free to read and search — no account needed.

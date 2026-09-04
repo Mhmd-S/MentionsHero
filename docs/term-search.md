@@ -88,8 +88,8 @@ drifted from the palette and rendered light-on-light in dark mode. See `docs/des
 
 ## Public Term Search Surfaces
 
-The admin Term Search page is not the only search UI. The public site has two, both premium-gated
-and both documented elsewhere:
+The admin Term Search page is not the only search UI. The public site has two, both free and
+anonymous, and both documented elsewhere:
 
 - `GET /api/public/personas/{slug}/keyword-search` → the search panel on `app/pages/personas/[slug].vue`
   (see `docs/personas.md`)

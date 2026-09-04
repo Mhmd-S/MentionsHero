@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   site: {
     url: 'https://mentionshero.com',
     name: 'MentionsHero',
-    description: 'Search and analyze press briefing transcripts. Track what public figures say, linked to Kalshi mentions prediction markets.',
+    description: 'Free, searchable transcripts of press briefings, interviews and podcasts. Read what public figures actually said — no account needed.',
     defaultLocale: 'en',
   },
 
@@ -78,20 +78,18 @@ export default defineNuxtConfig({
   },
 
   sitemap: {
-    exclude: ['/admin/**', '/login', '/signup', '/account'],
+    exclude: ['/admin/**', '/login'],
     sources: [
       `${process.env.BACKEND_URL || 'http://localhost:8001'}/api/public/sitemap-urls`,
     ],
     urls: [
       { loc: '/', changefreq: 'daily', priority: 1.0 },
-      { loc: '/pricing', changefreq: 'monthly', priority: 0.6 },
       { loc: '/blog', changefreq: 'weekly', priority: 0.7 },
-      { loc: '/markets', changefreq: 'daily', priority: 0.9 },
     ],
   },
 
   robots: {
-    disallow: ['/admin/', '/account'],
+    disallow: ['/admin/', '/login'],
   },
 
   runtimeConfig: {

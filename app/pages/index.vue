@@ -14,8 +14,6 @@ const { data: personas, status, error, refresh } = await useFetch<Persona[]>('/a
 const loading = computed(() => status.value === 'pending')
 const failed = computed(() => status.value === 'error' || !!error.value)
 
-const { isSubscribed } = useSubscription()
-
 const search = ref('')
 const total = computed(() => personas.value?.length ?? 0)
 
@@ -33,19 +31,19 @@ const filtered = computed(() => {
 })
 
 useSeoMeta({
-  title: 'Transcripts & Mentions Analysis',
-  description: 'Browse transcripts of interviews, press briefings, podcasts, and more by speaker. Track what public figures say with full transcript search to help with Kalshi & Polymarket mentions prediction markets.',
-  ogTitle: 'MentionsHero — Video Transcripts & Mentions Analysis',
-  ogDescription: 'Browse transcripts of interviews, press briefings, podcasts, and more by speaker. Track mentions with full transcript search and analysis.',
+  title: 'Free Transcripts by Speaker',
+  description: 'Browse free transcripts of interviews, press briefings, podcasts and more, by speaker. Full-text search across everything a public figure has said. No account needed.',
+  ogTitle: 'MentionsHero — Free Video Transcripts by Speaker',
+  ogDescription: 'Browse free transcripts of interviews, press briefings and podcasts by speaker, with full-text search. No account needed.',
   twitterCard: 'summary_large_image',
-  twitterTitle: 'MentionsHero — Video Transcripts & Mentions Analysis',
-  twitterDescription: 'Browse transcripts of interviews, press briefings, podcasts, and more by speaker. Track mentions with full transcript search and analysis.',
+  twitterTitle: 'MentionsHero — Free Video Transcripts by Speaker',
+  twitterDescription: 'Browse free transcripts of interviews, press briefings and podcasts by speaker, with full-text search. No account needed.',
 })
 
-defineOgImage({ component: 'OgImageDefault', alt: 'MentionsHero — Video Transcripts & Mentions Analysis' })
+defineOgImage({ component: 'OgImageDefault', alt: 'MentionsHero — Free Video Transcripts by Speaker' })
 
 useSchemaOrg([
-  defineWebPage({ name: 'Press Briefing Transcripts & Mentions Analysis' }),
+  defineWebPage({ name: 'Free Transcripts by Speaker' }),
 ])
 </script>
 
@@ -58,8 +56,8 @@ useSchemaOrg([
         What public figures actually said
       </h1>
       <p class="mt-4 text-base text-muted">
-        Full transcripts of briefings, interviews and podcasts, searchable word by word —
-        next to the Kalshi and Polymarket contracts written on those same words.
+        Full transcripts of briefings, interviews and podcasts, searchable word by word.
+        Free, complete, and no account required.
       </p>
     </header>
 
@@ -134,13 +132,7 @@ useSchemaOrg([
       </ul>
     </section>
 
-    <!-- Quiet, and only for people who aren't already paying. -->
-    <p v-if="!isSubscribed" class="mt-12 pt-6 border-t border-default text-sm text-muted">
-      Mention counts and term search across a speaker's archive are part of the
-      subscription. <NuxtLink to="/pricing" class="text-highlighted underline underline-offset-4">See pricing</NuxtLink>.
-    </p>
-
-    <p class="mt-4 text-sm text-muted">
+    <p class="mt-12 pt-6 border-t border-default text-sm text-muted">
       Missing someone? Email
       <a href="mailto:support@mentionshero.com?subject=Transcript%20Request" class="text-highlighted underline underline-offset-4">support@mentionshero.com</a>.
     </p>

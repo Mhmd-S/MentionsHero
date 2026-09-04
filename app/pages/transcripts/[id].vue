@@ -2,9 +2,6 @@
 const route = useRoute()
 const transcriptId = route.params.id as string
 const { publicFetch } = usePublicApi()
-// Only offered to a signed-out reader — a signed-in non-subscriber has nothing
-// to sign in to. Matches the gate on the persona page's upsell.
-const { session } = useAuth()
 
 interface SpeakerFrequency {
   speaker: string
@@ -29,8 +26,6 @@ interface TranscriptDetail {
   transcript: string
   name: string | null
   created_at: string
-  is_premium: boolean
-  is_locked: boolean
   hasHighlights?: boolean
   matchCount?: number
   speakerFrequencies?: SpeakerFrequency[]
@@ -334,17 +329,11 @@ const breadcrumbItems = computed(() => {
             <span>Watch on YouTube</span>
             <UIcon name="i-lucide-external-link" class="size-3 shrink-0" aria-hidden="true" />
           </ULink>
-
-          <!-- Premium reads as ink, never amber. -->
-          <UBadge v-if="transcript.is_premium" color="primary" variant="subtle" size="sm">
-            Premium
-          </UBadge>
         </div>
       </header>
 
-      <!-- ── Sticky search bar (hidden for locked transcripts) ──────────── -->
+      <!-- ── Sticky search bar ──────────────────────────────────────────── -->
       <div
-        v-if="!transcript.is_locked"
         class="sticky top-(--ui-header-height) z-10 border-b border-default bg-default/95 py-3 backdrop-blur-sm"
       >
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
@@ -388,7 +377,7 @@ const breadcrumbItems = computed(() => {
         </div>
       </div>
 
-      <p v-if="noMatches && !transcript.is_locked" class="pt-3 text-sm text-muted">
+      <p v-if="noMatches" class="pt-3 text-sm text-muted">
         Nothing in this briefing matches
         <span class="type-figure text-toned">&ldquo;{{ debouncedSearch.trim() }}&rdquo;</span>.
         Try a shorter word, or drop the plural.
@@ -448,9 +437,9 @@ const breadcrumbItems = computed(() => {
             </div>
           </div>
 
-          <!-- Pagination (hidden for locked transcripts) -->
+          <!-- Pagination -->
           <nav
-            v-if="displaySegments.length > 0 && totalPages > 1 && !transcript.is_locked"
+            v-if="displaySegments.length > 0 && totalPages > 1"
             class="mt-8 flex flex-col gap-3 border-t border-default pt-6 sm:flex-row sm:items-center sm:justify-between"
             aria-label="Transcript pages"
           >
@@ -498,27 +487,9 @@ const breadcrumbItems = computed(() => {
             </div>
           </nav>
 
-          <!-- Locked: the text fades out under the paywall, then the ink panel. -->
-          <div v-if="transcript.is_locked" class="relative">
-            <div
-              class="pointer-events-none absolute -top-40 right-0 left-0 h-40 bg-linear-to-t from-default to-transparent"
-              aria-hidden="true"
-            />
-            <UiUpsellBanner
-              variant="panel"
-              class="relative mt-6"
-              title="The rest of this briefing is part of the subscription"
-              description="Subscribe to read the full transcript, search it for any word, and see how often each speaker said it."
-              cta-label="See pricing"
-              cta-to="/pricing"
-              :secondary-label="session ? null : 'Already subscribed? Sign in'"
-              :secondary-to="session ? null : '/login'"
-            />
-          </div>
-
           <!-- Prev / next briefing -->
           <nav
-            v-if="(prevTranscript || nextTranscript) && !transcript.is_locked"
+            v-if="prevTranscript || nextTranscript"
             class="mt-10 grid gap-3 border-t border-default pt-6 sm:grid-cols-2"
             aria-label="Nearby briefings"
           >

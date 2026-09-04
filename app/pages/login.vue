@@ -5,22 +5,22 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 definePageMeta({ layout: false })
 
 useSeoMeta({
-  title: 'Sign In',
-  description: 'Sign in to your MentionsHero account.',
+  title: 'Admin Sign In',
+  description: 'Sign in to the MentionsHero admin.',
   robots: 'noindex, nofollow',
 })
 
+// The site has no visitor accounts — the archive is free and anonymous. This page
+// exists only to unlock /admin, and accounts are created in the Supabase
+// dashboard, so there is no sign-up and no password-reset flow here.
 const route = useRoute()
-const { login, error: authError, loading, sendPasswordReset, ensureProfileLoaded, role } = useAuth()
+const { login, error: authError, loading, ensureProfileLoaded, role } = useAuth()
 const session = useSupabaseSession()
 
-// A failed email link redirects here with ?error=
 const externalError = ref<string | null>(
   typeof route.query.error === 'string' ? route.query.error.replace(/\+/g, ' ') : null,
 )
 const error = computed(() => externalError.value || authError.value)
-const notice = ref<string | null>(null)
-const resetting = ref(false)
 
 // Presentation only: name what failed, so the alert body can carry the detail.
 const errorTitle = computed(() =>
@@ -38,7 +38,6 @@ const state = reactive({ email: '', password: '' })
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   externalError.value = null
-  notice.value = null
 
   const success = await login(event.data.email, event.data.password)
   if (!success) return
@@ -51,25 +50,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
   await ensureProfileLoaded()
   return navigateTo(role.value === 'admin' ? '/admin' : '/')
-}
-
-async function onForgotPassword() {
-  externalError.value = null
-  notice.value = null
-
-  if (!state.email.trim()) {
-    externalError.value = 'Type your email address in the field above, then choose Forgot password.'
-    return
-  }
-
-  resetting.value = true
-  try {
-    if (await sendPasswordReset(state.email.trim())) {
-      notice.value = `We sent a reset link to ${state.email.trim()}. Open it to choose a new password.`
-    }
-  } finally {
-    resetting.value = false
-  }
 }
 
 // Already signed in — no reason to show a login form.
@@ -95,9 +75,10 @@ onMounted(() => {
         </NuxtLink>
 
         <div class="mb-8">
-          <h1 class="type-title">Welcome back</h1>
+          <h1 class="type-title">Admin sign in</h1>
           <p class="type-meta mt-2 text-muted">
-            Sign in to read the transcripts and see the counts behind every market.
+            The transcripts are free and need no account. This is the way into the
+            dashboard.
           </p>
         </div>
 
@@ -108,15 +89,6 @@ onMounted(() => {
           icon="i-lucide-circle-alert"
           :title="errorTitle"
           :description="error"
-          class="mb-6"
-        />
-        <UAlert
-          v-else-if="notice"
-          color="primary"
-          variant="subtle"
-          icon="i-lucide-mail-check"
-          title="Check your inbox"
-          :description="notice"
           class="mb-6"
         />
 
@@ -133,18 +105,6 @@ onMounted(() => {
           </UFormField>
 
           <UFormField label="Password" name="password">
-            <template #hint>
-              <UButton
-                variant="link"
-                color="neutral"
-                size="xs"
-                class="p-0"
-                :loading="resetting"
-                @click="onForgotPassword"
-              >
-                Forgot password?
-              </UButton>
-            </template>
             <UInput
               v-model="state.password"
               type="password"
@@ -160,13 +120,7 @@ onMounted(() => {
 
         <USeparator class="my-8" />
 
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="type-meta text-muted">
-            No account yet?
-            <ULink to="/signup" class="font-medium text-default underline underline-offset-4">
-              Create one
-            </ULink>
-          </p>
+        <div class="flex flex-wrap items-center justify-end gap-3">
           <ULink
             to="/"
             class="inline-flex items-center gap-1 type-meta text-muted transition-colors hover:text-default"

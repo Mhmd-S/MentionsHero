@@ -1,9 +1,15 @@
-"""Public-facing service for unauthenticated/user-level access."""
+"""Public-facing service.
+
+Everything here is anonymous and free. There is no subscription check and no
+premium tier: if a transcript is `is_public`, it is served in full to whoever
+asks. `is_premium` still exists as a column but the public API ignores it.
+"""
 
 import math
 from typing import Any
 
 from backend.core.database import get_supabase, get_folder_ids_in_tree
+from backend.utils.nlp import parse_transcript_segments
 
 
 async def get_public_personas() -> list[dict[str, Any]]:
@@ -117,7 +123,6 @@ async def get_public_transcripts_for_persona(
     sort_order: str = "desc",
     page: int = 1,
     page_size: int = 20,
-    is_subscribed: bool = False,
 ) -> dict[str, Any]:
     """Find public transcripts where the persona is an actual speaker."""
     supabase = get_supabase()
@@ -135,7 +140,7 @@ async def get_public_transcripts_for_persona(
 
     # Query public transcripts limited to those IDs
     query = supabase.table("transcripts").select(
-        "id, name, created_at, upload_date, folder_id, is_premium, transcript"
+        "id, name, created_at, upload_date, folder_id, transcript"
     ).eq("is_public", True).in_("id", list(matching_ids))
 
     if folder_id:
@@ -153,14 +158,11 @@ async def get_public_transcripts_for_persona(
     response = query.execute()
     all_transcripts = response.data or []
 
-    # Apply search filter if provided — only search non-premium transcripts
-    # for non-subscribers to prevent probing premium content via search
     if search:
         search_lower = search.lower()
         all_transcripts = [
             t for t in all_transcripts
             if search_lower in (t.get("transcript") or "").lower()
-            and (is_subscribed or not t.get("is_premium", False))
         ]
 
     total = len(all_transcripts)
@@ -185,12 +187,19 @@ async def get_public_transcripts_for_persona(
     # Build summaries (strip full transcript text, add preview)
     items = []
     for t in page_items:
-        is_premium = t.get("is_premium", False)
         transcript_text = t.get("transcript", "")
 
-        # Don't leak premium transcript text as preview to non-subscribers
+        # First line of what was actually said. Taking the literal first line
+        # gave every card the same useless "[00:01] Donald Trump:" — the speaker
+        # label — because that is how the transcripts are formatted.
         preview = ""
-        if not is_premium or is_subscribed:
+        for segment in parse_transcript_segments(transcript_text):
+            content = (segment.get("content") or "").strip()
+            if content:
+                preview = content[:200]
+                break
+        if not preview:
+            # No speaker labels matched; fall back to the first non-empty line.
             for line in transcript_text.split("\n"):
                 stripped = line.strip()
                 if stripped:
@@ -202,7 +211,6 @@ async def get_public_transcripts_for_persona(
             "name": t.get("name"),
             "created_at": t["created_at"],
             "upload_date": t.get("upload_date"),
-            "is_premium": is_premium,
             "folder_id": t.get("folder_id"),
             "folder_name": folder_names.get(t.get("folder_id", ""), None),
             "preview": preview,
@@ -220,12 +228,10 @@ async def get_public_transcripts_for_persona(
 async def keyword_search_for_persona(
     aliases: list[str],
     query: str,
-    is_subscribed: bool = False,
 ) -> dict[str, Any]:
     """Search for a keyword across all of a persona's public transcripts.
 
-    Free users: only non-premium transcripts are searched, limited to 3 matches with 1 snippet each.
-    Subscribed: all public transcripts (including premium), full results up to 100 matches.
+    Every match is returned, to everyone.
     """
     from backend.utils.nlp import search_term_in_context
 
@@ -239,24 +245,20 @@ async def keyword_search_for_persona(
             "total_matches": 0,
             "transcripts_with_matches": 0,
             "matches": [],
-            "is_limited": False,
         }
 
-    # Fetch public transcripts — exclude premium for non-subscribers
     id_list = list(matching_ids)
     batch_size = 200
     all_transcripts: list[dict[str, Any]] = []
     for i in range(0, len(id_list), batch_size):
         batch = id_list[i:i + batch_size]
-        q = (
+        resp = (
             supabase.table("transcripts")
             .select("id, name, upload_date, transcript")
             .eq("is_public", True)
             .in_("id", batch)
+            .execute()
         )
-        if not is_subscribed:
-            q = q.eq("is_premium", False)
-        resp = q.execute()
         all_transcripts.extend(resp.data or [])
 
     if not all_transcripts:
@@ -265,47 +267,15 @@ async def keyword_search_for_persona(
             "total_matches": 0,
             "transcripts_with_matches": 0,
             "matches": [],
-            "is_limited": False,
         }
 
     result = search_term_in_context(all_transcripts, query, context_chars=150)
 
-    total_matches = result["total_matches"]
-    transcripts_with_matches = result["transcripts_with_matches"]
-    matches = result["matches"]
-
-    # Apply snippet limits for free users
-    is_limited = False
-    if not is_subscribed:
-        FREE_TRANSCRIPT_LIMIT = 3
-        FREE_SNIPPET_LIMIT = 1
-
-        # Limit transcripts shown and snippets per transcript
-        seen_transcripts: dict[str, int] = {}
-        limited_matches: list[dict[str, Any]] = []
-        for m in matches:
-            tid = m["transcript_id"]
-            if tid not in seen_transcripts:
-                if len(seen_transcripts) >= FREE_TRANSCRIPT_LIMIT:
-                    is_limited = True
-                    continue
-                seen_transcripts[tid] = 0
-            if seen_transcripts[tid] >= FREE_SNIPPET_LIMIT:
-                is_limited = True
-                continue
-            seen_transcripts[tid] += 1
-            limited_matches.append(m)
-
-        if len(seen_transcripts) < transcripts_with_matches or total_matches > len(limited_matches):
-            is_limited = True
-        matches = limited_matches
-
     return {
         "query": query,
-        "total_matches": total_matches,
-        "transcripts_with_matches": transcripts_with_matches,
-        "matches": matches,
-        "is_limited": is_limited,
+        "total_matches": result["total_matches"],
+        "transcripts_with_matches": result["transcripts_with_matches"],
+        "matches": result["matches"],
     }
 
 
@@ -352,11 +322,8 @@ async def _find_personas_for_transcript(transcript_id: str) -> list[dict[str, An
     return personas_resp.data or []
 
 
-async def get_public_transcript(
-    transcript_id: str,
-    user_id: str | None = None,
-) -> dict[str, Any] | None:
-    """Get a public transcript with access control."""
+async def get_public_transcript(transcript_id: str) -> dict[str, Any] | None:
+    """Get a public transcript in full."""
     supabase = get_supabase()
 
     response = (
@@ -372,30 +339,6 @@ async def get_public_transcript(
         return None
 
     transcript = response.data
-    is_premium = transcript.get("is_premium", False)
-    is_locked = False
-
-    if is_premium and user_id:
-        # Check subscription
-        has_sub = await check_user_subscription(user_id)
-        if not has_sub:
-            is_locked = True
-    elif is_premium:
-        is_locked = True
-
-    if is_locked:
-        # Truncate transcript for preview (100-word limit, break at last newline)
-        full_text = transcript.get("transcript", "")
-        words = full_text.split()
-        if len(words) > 125:
-            cut = " ".join(words[:125])
-            # Try to break at last newline for clean cut
-            last_nl = cut.rfind("\n")
-            if last_nl > 0:
-                cut = cut[:last_nl]
-            transcript["transcript"] = cut
-
-    transcript["is_locked"] = is_locked
 
     # Attach persona info for navigation breadcrumbs
     personas = await _find_personas_for_transcript(transcript_id)
@@ -477,535 +420,4 @@ async def get_transcript_neighbors(
     return {
         "prev": {"id": prev_t["id"], "name": prev_t.get("name")} if prev_t else None,
         "next": {"id": next_t["id"], "name": next_t.get("name")} if next_t else None,
-    }
-
-
-async def check_user_subscription(user_id: str) -> bool:
-    """Check if user has an active subscription.
-
-    Delegates to stripe_service.get_subscription_status() which includes
-    a Stripe API fallback when the DB is out of sync.
-    """
-    from backend.services.stripe_service import get_subscription_status
-
-    sub = await get_subscription_status(user_id)
-    return sub is not None and sub.get("status") == "active"
-
-
-def _is_event_active_kalshi(event: dict, markets_by_event: dict[str, list[dict]]) -> bool:
-    """Check if a Kalshi event is still active (has at least one non-finalized market)."""
-    event_markets = markets_by_event.get(event["id"], [])
-    return any(m.get("status") == "active" for m in event_markets)
-
-
-def _is_event_active_poly(event: dict) -> bool:
-    """Check if a Polymarket event is still active (not closed and end_date in the future)."""
-    from datetime import datetime, timezone
-    if event.get("closed"):
-        return False
-    end_date = event.get("end_date")
-    if end_date:
-        try:
-            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-            if end_dt < datetime.now(timezone.utc):
-                return False
-        except (ValueError, TypeError):
-            pass
-    return True
-
-
-_COMMON_WORDS = {
-    "the", "and", "for", "say", "will", "what", "press", "next",
-    "this", "that", "with", "from", "during", "event", "week",
-    "conference", "confrence", "transcripts", "transcript",
-    "market", "markets", "mentions", "mention", "briefing",
-}
-
-
-def _build_persona_name_variants(name: str, aliases: list[str]) -> list[str]:
-    """Build name variants for matching: full names, aliases, and surname parts.
-
-    Only adds individual words as variants if they are 4+ chars and not common words.
-    """
-    variants = set()
-    for n in [name] + aliases:
-        n_lower = n.lower().strip()
-        if n_lower:
-            variants.add(n_lower)
-            # Add individual words that are distinctive (4+ chars, not common)
-            for part in n_lower.split():
-                if len(part) >= 4 and part not in _COMMON_WORDS:
-                    variants.add(part)
-    return list(variants)
-
-
-def _persona_excluded_from_event(
-    persona_id: str,
-    event_title: str,
-    all_personas: dict[str, dict],
-    all_aliases: dict[str, list[str]],
-) -> bool:
-    """Check if the event title names a DIFFERENT persona — if so, exclude this persona.
-
-    If the event title contains another persona's name/alias but NOT this persona's,
-    it means the event belongs to someone else and this persona was just cross-analyzed.
-    """
-    title_lower = (event_title or "").lower()
-    if not title_lower:
-        return False
-
-    this_persona = all_personas.get(persona_id)
-    if not this_persona:
-        return False
-
-    this_variants = _build_persona_name_variants(
-        this_persona["name"], all_aliases.get(persona_id, [])
-    )
-    this_matches = any(v in title_lower for v in this_variants)
-
-    # Check if any OTHER persona's name variants are in the title
-    other_matches = False
-    for pid, p in all_personas.items():
-        if pid == persona_id:
-            continue
-        other_variants = _build_persona_name_variants(p["name"], all_aliases.get(pid, []))
-        if any(v in title_lower for v in other_variants):
-            other_matches = True
-            break
-
-    # Exclude only if another persona matches but this one doesn't
-    return other_matches and not this_matches
-
-
-async def get_public_markets_listing() -> list[dict[str, Any]]:
-    """Get all market events grouped by persona for the public markets listing.
-
-    Returns personas that have analyzed markets, with event summaries and top terms.
-    Only shows active events where the persona is the subject of the event.
-    """
-    supabase = get_supabase()
-
-    # Get Kalshi term results — only those with actual mentions
-    kalshi_results = (
-        supabase.table("market_term_results")
-        .select("persona_id, market_id, search_term, total_mentions")
-        .gt("total_mentions", 0)
-        .execute()
-    ).data or []
-
-    # Get Polymarket term results — only those with actual mentions
-    poly_results = (
-        supabase.table("poly_market_term_results")
-        .select("persona_id, market_id, search_term, total_mentions")
-        .gt("total_mentions", 0)
-        .execute()
-    ).data or []
-
-    # Collect all persona IDs
-    persona_ids = list({r["persona_id"] for r in kalshi_results} | {r["persona_id"] for r in poly_results})
-    if not persona_ids:
-        return []
-
-    # Fetch persona info + aliases for ownership matching
-    personas_resp = (
-        supabase.table("personas")
-        .select("id, name, slug, image_url")
-        .in_("id", persona_ids)
-        .order("name")
-        .execute()
-    )
-    personas = {p["id"]: p for p in (personas_resp.data or [])}
-
-    # --- Kalshi: get market + event info ---
-    kalshi_market_ids = list({r["market_id"] for r in kalshi_results})
-    kalshi_markets: dict[str, dict] = {}
-    if kalshi_market_ids:
-        for i in range(0, len(kalshi_market_ids), 200):
-            batch = kalshi_market_ids[i:i + 200]
-            resp = (
-                supabase.table("kalshi_markets")
-                .select("id, event_id, question, last_price, result, status")
-                .in_("id", batch)
-                .execute()
-            )
-            for m in (resp.data or []):
-                kalshi_markets[m["id"]] = m
-
-    kalshi_event_ids = list({m["event_id"] for m in kalshi_markets.values()})
-    kalshi_events: dict[str, dict] = {}
-    if kalshi_event_ids:
-        for i in range(0, len(kalshi_event_ids), 200):
-            batch = kalshi_event_ids[i:i + 200]
-            resp = (
-                supabase.table("kalshi_events")
-                .select("id, event_ticker, title, strike_date, status")
-                .eq("show_public", True)
-                .in_("id", batch)
-                .execute()
-            )
-            for e in (resp.data or []):
-                kalshi_events[e["id"]] = e
-
-    # --- Polymarket: get market + event info ---
-    poly_market_ids = list({r["market_id"] for r in poly_results})
-    poly_markets: dict[str, dict] = {}
-    if poly_market_ids:
-        for i in range(0, len(poly_market_ids), 200):
-            batch = poly_market_ids[i:i + 200]
-            resp = (
-                supabase.table("poly_markets")
-                .select("id, event_id, question, last_trade_price, result, active, closed")
-                .in_("id", batch)
-                .execute()
-            )
-            for m in (resp.data or []):
-                poly_markets[m["id"]] = m
-
-    poly_event_ids = list({m["event_id"] for m in poly_markets.values()})
-    poly_events: dict[str, dict] = {}
-    if poly_event_ids:
-        for i in range(0, len(poly_event_ids), 200):
-            batch = poly_event_ids[i:i + 200]
-            resp = (
-                supabase.table("poly_events")
-                .select("id, title, end_date, image, active, closed")
-                .eq("show_public", True)
-                .in_("id", batch)
-                .execute()
-            )
-            for e in (resp.data or []):
-                poly_events[e["id"]] = e
-
-    # --- Group by persona → events ---
-    persona_events: dict[str, dict[str, dict]] = {}
-
-    # Process Kalshi results
-    for r in kalshi_results:
-        pid = r["persona_id"]
-        persona = personas.get(pid)
-        if not persona:
-            continue
-        market = kalshi_markets.get(r["market_id"])
-        if not market:
-            continue
-        event = kalshi_events.get(market["event_id"])
-        if not event:
-            continue
-
-        eid = event["id"]
-        pe = persona_events.setdefault(pid, {})
-        if eid not in pe:
-            pe[eid] = {
-                "source": "kalshi",
-                "event_id": eid,
-                "event_ticker": event.get("event_ticker"),
-                "title": event.get("title", ""),
-                "strike_date": event.get("strike_date"),
-                "end_date": None,
-                "status": "active",
-                "image": None,
-                "market_ids": set(),
-                "terms": [],
-            }
-        pe[eid]["market_ids"].add(r["market_id"])
-        pe[eid]["terms"].append({
-            "term": r["search_term"],
-            "mentions": r["total_mentions"],
-            "price": int(round((market.get("last_price") or 0) * 100)),
-        })
-
-    # Process Polymarket results
-    for r in poly_results:
-        pid = r["persona_id"]
-        persona = personas.get(pid)
-        if not persona:
-            continue
-        market = poly_markets.get(r["market_id"])
-        if not market:
-            continue
-        event = poly_events.get(market["event_id"])
-        if not event:
-            continue
-
-        eid = event["id"]
-        pe = persona_events.setdefault(pid, {})
-        if eid not in pe:
-            pe[eid] = {
-                "source": "polymarket",
-                "event_id": eid,
-                "event_ticker": None,
-                "title": event.get("title", ""),
-                "strike_date": None,
-                "end_date": event.get("end_date"),
-                "status": "active",
-                "image": event.get("image"),
-                "market_ids": set(),
-                "terms": [],
-            }
-        pe[eid]["market_ids"].add(r["market_id"])
-        pe[eid]["terms"].append({
-            "term": r["search_term"],
-            "mentions": r["total_mentions"],
-            "price": int(round((market.get("last_trade_price") or 0) * 100)),
-        })
-
-    # Build final response
-    result = []
-    for pid in persona_ids:
-        persona = personas.get(pid)
-        if not persona or pid not in persona_events:
-            continue
-
-        events = []
-        for ev_data in persona_events[pid].values():
-            # Deduplicate and sort terms by mentions desc, take top 3
-            seen_terms: dict[str, dict] = {}
-            for t in ev_data["terms"]:
-                key = t["term"]
-                if key not in seen_terms or t["mentions"] > seen_terms[key]["mentions"]:
-                    seen_terms[key] = t
-            top_terms = sorted(seen_terms.values(), key=lambda x: x["mentions"], reverse=True)[:3]
-
-            events.append({
-                "source": ev_data["source"],
-                "event_id": ev_data["event_id"],
-                "event_ticker": ev_data["event_ticker"],
-                "title": ev_data["title"],
-                "strike_date": ev_data["strike_date"],
-                "end_date": ev_data["end_date"],
-                "status": ev_data["status"],
-                "image": ev_data["image"],
-                "market_count": len(ev_data["market_ids"]),
-                "top_terms": top_terms,
-            })
-
-        if not events:
-            continue
-
-        events.sort(key=lambda e: (e["title"] or ""))
-
-        result.append({
-            "persona": {
-                "id": persona["id"],
-                "name": persona["name"],
-                "slug": persona.get("slug"),
-                "image_url": persona.get("image_url"),
-            },
-            "events": events,
-        })
-
-    return result
-
-
-async def get_public_persona_markets(
-    slug: str,
-    user_id: str | None = None,
-) -> dict[str, Any] | None:
-    """Get all market events and analysis for a persona (subscription-gated).
-
-    Free users see market questions and prices but not analysis data.
-    Subscribers see full mention counts, trends, and percentages.
-    Only shows active events where the persona is the subject.
-    """
-    supabase = get_supabase()
-
-    # Get persona + aliases
-    persona = await get_persona_by_slug(slug)
-    if not persona:
-        return None
-
-    pid = persona["id"]
-    is_subscribed = False
-    if user_id:
-        is_subscribed = await check_user_subscription(user_id)
-
-    # --- Kalshi term results for this persona (only with mentions) ---
-    kalshi_results = (
-        supabase.table("market_term_results")
-        .select("market_id, search_term, total_mentions, briefings_with_term, total_briefings, percentage, trend")
-        .eq("persona_id", pid)
-        .gt("total_mentions", 0)
-        .execute()
-    ).data or []
-
-    # Get Kalshi markets
-    kalshi_market_ids = list({r["market_id"] for r in kalshi_results})
-    kalshi_markets: dict[str, dict] = {}
-    if kalshi_market_ids:
-        for i in range(0, len(kalshi_market_ids), 200):
-            batch = kalshi_market_ids[i:i + 200]
-            resp = (
-                supabase.table("kalshi_markets")
-                .select("id, event_id, question, last_price, result, status, close_time")
-                .in_("id", batch)
-                .execute()
-            )
-            for m in (resp.data or []):
-                kalshi_markets[m["id"]] = m
-
-    # Get Kalshi events (only show_public)
-    kalshi_event_ids = list({m["event_id"] for m in kalshi_markets.values()})
-    kalshi_events: dict[str, dict] = {}
-    if kalshi_event_ids:
-        for i in range(0, len(kalshi_event_ids), 200):
-            batch = kalshi_event_ids[i:i + 200]
-            resp = (
-                supabase.table("kalshi_events")
-                .select("id, event_ticker, title, strike_date, status")
-                .eq("show_public", True)
-                .in_("id", batch)
-                .execute()
-            )
-            for e in (resp.data or []):
-                kalshi_events[e["id"]] = e
-
-    # --- Polymarket term results for this persona (only with mentions) ---
-    poly_results = (
-        supabase.table("poly_market_term_results")
-        .select("market_id, search_term, total_mentions, briefings_with_term, total_briefings, percentage, trend")
-        .eq("persona_id", pid)
-        .gt("total_mentions", 0)
-        .execute()
-    ).data or []
-
-    # Get Poly markets
-    poly_market_ids = list({r["market_id"] for r in poly_results})
-    poly_markets: dict[str, dict] = {}
-    if poly_market_ids:
-        for i in range(0, len(poly_market_ids), 200):
-            batch = poly_market_ids[i:i + 200]
-            resp = (
-                supabase.table("poly_markets")
-                .select("id, event_id, question, last_trade_price, result, active, closed, closed_time")
-                .in_("id", batch)
-                .execute()
-            )
-            for m in (resp.data or []):
-                poly_markets[m["id"]] = m
-
-    # Get Poly events (only show_public)
-    poly_event_ids = list({m["event_id"] for m in poly_markets.values()})
-    poly_events: dict[str, dict] = {}
-    if poly_event_ids:
-        for i in range(0, len(poly_event_ids), 200):
-            batch = poly_event_ids[i:i + 200]
-            resp = (
-                supabase.table("poly_events")
-                .select("id, title, end_date, image, active, closed")
-                .eq("show_public", True)
-                .in_("id", batch)
-                .execute()
-            )
-            for e in (resp.data or []):
-                poly_events[e["id"]] = e
-
-    # --- Group into events with markets ---
-    events_map: dict[str, dict] = {}
-
-    # Kalshi
-    for r in kalshi_results:
-        market = kalshi_markets.get(r["market_id"])
-        if not market:
-            continue
-        event = kalshi_events.get(market["event_id"])
-        if not event:
-            continue
-
-        eid = event["id"]
-        if eid not in events_map:
-            events_map[eid] = {
-                "source": "kalshi",
-                "event_id": eid,
-                "event_ticker": event.get("event_ticker"),
-                "title": event.get("title", ""),
-                "strike_date": event.get("strike_date"),
-                "end_date": None,
-                "status": "active",
-                "image": None,
-                "markets": [],
-            }
-
-        market_entry: dict[str, Any] = {
-            "market_id": market["id"],
-            "question": market.get("question"),
-            "search_term": r["search_term"],
-            "price": int(round((market.get("last_price") or 0) * 100)),
-            "result": market.get("result"),
-            "status": market.get("status"),
-        }
-
-        if is_subscribed:
-            market_entry.update({
-                "total_mentions": r["total_mentions"],
-                "briefings_with_term": r["briefings_with_term"],
-                "total_briefings": r["total_briefings"],
-                "percentage": r["percentage"],
-                "trend": r["trend"],
-            })
-
-        events_map[eid]["markets"].append(market_entry)
-
-    # Polymarket
-    for r in poly_results:
-        market = poly_markets.get(r["market_id"])
-        if not market:
-            continue
-        event = poly_events.get(market["event_id"])
-        if not event:
-            continue
-
-        eid = event["id"]
-        if eid not in events_map:
-            events_map[eid] = {
-                "source": "polymarket",
-                "event_id": eid,
-                "event_ticker": None,
-                "title": event.get("title", ""),
-                "strike_date": None,
-                "end_date": event.get("end_date"),
-                "status": "active",
-                "image": event.get("image"),
-                "markets": [],
-            }
-
-        market_entry = {
-            "market_id": market["id"],
-            "question": market.get("question"),
-            "search_term": r["search_term"],
-            "price": int(round((market.get("last_trade_price") or 0) * 100)),
-            "result": market.get("result"),
-            "status": "closed" if market.get("closed") else "active",
-        }
-
-        if is_subscribed:
-            market_entry.update({
-                "total_mentions": r["total_mentions"],
-                "briefings_with_term": r["briefings_with_term"],
-                "total_briefings": r["total_briefings"],
-                "percentage": r["percentage"],
-                "trend": r["trend"],
-            })
-
-        events_map[eid]["markets"].append(market_entry)
-
-    # Sort events by title
-    events = sorted(events_map.values(), key=lambda e: (e["title"] or ""))
-
-    # Sort markets within each event by mentions (desc) if subscribed, else by price
-    for event in events:
-        if is_subscribed:
-            event["markets"].sort(key=lambda m: m.get("total_mentions", 0), reverse=True)
-        else:
-            event["markets"].sort(key=lambda m: m.get("price", 0), reverse=True)
-
-    return {
-        "persona": {
-            "id": persona["id"],
-            "name": persona["name"],
-            "slug": persona.get("slug"),
-            "image_url": persona.get("image_url"),
-            "description": persona.get("description"),
-        },
-        "events": events,
-        "is_limited": not is_subscribed,
     }

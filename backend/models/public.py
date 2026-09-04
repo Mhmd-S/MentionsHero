@@ -1,4 +1,8 @@
-"""Public-facing Pydantic models."""
+"""Public-facing Pydantic models.
+
+The public API is anonymous and free — there is no premium tier and nothing is
+ever locked, so no model here carries a gate flag.
+"""
 
 from datetime import datetime
 from typing import Any
@@ -22,7 +26,6 @@ class PublicTranscriptSummary(BaseModel):
     id: str
     name: str | None = None
     created_at: datetime
-    is_premium: bool = False
     folder_id: str | None = None
     folder_name: str | None = None
     preview: str = ""
@@ -35,8 +38,6 @@ class PublicTranscriptDetail(BaseModel):
     youtube_url: str | None = None
     transcript: str
     created_at: datetime
-    is_premium: bool = False
-    is_locked: bool = False
     available_speakers: list[str] = Field(default_factory=list, alias="availableSpeakers")
     match_count: int | None = Field(None, alias="matchCount")
     speaker_frequencies: list[dict[str, Any]] | None = Field(None, alias="speakerFrequencies")

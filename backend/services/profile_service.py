@@ -8,7 +8,7 @@ row is created on first read instead of 500ing.
 
 Every caller that needs a profile should go through `ensure_profile`. Reaching for
 `.single()` on the profiles table directly is what made a missing row fatal to
-checkout, the portal and the admin role check.
+the admin role check.
 """
 
 import logging
@@ -18,7 +18,7 @@ from backend.core.database import get_supabase
 
 logger = logging.getLogger(__name__)
 
-PROFILE_COLUMNS = "id, role, first_name, last_name, phone, stripe_customer_id"
+PROFILE_COLUMNS = "id, role, first_name, last_name, phone"
 
 
 def _is_duplicate_key(exc: Exception) -> bool:
@@ -80,44 +80,3 @@ def get_role(user_id: str) -> str | None:
     except Exception:
         logger.exception("Role lookup failed for %s", user_id)
         return None
-
-
-def update_profile(user_id: str, fields: dict[str, Any]) -> dict[str, Any]:
-    """Update editable profile fields, creating the row first if needed.
-
-    `role` and `stripe_customer_id` are stripped: neither is user-editable, and
-    letting `role` through would be a privilege-escalation hole.
-    """
-    editable = {
-        key: value
-        for key, value in fields.items()
-        if key in {"first_name", "last_name", "phone"}
-    }
-
-    ensure_profile(user_id)
-
-    if not editable:
-        return ensure_profile(user_id)
-
-    supabase = get_supabase()
-    result = (
-        supabase.table("profiles")
-        .update(editable)
-        .eq("id", user_id)
-        .execute()
-    )
-    rows = result.data or []
-    return rows[0] if rows else ensure_profile(user_id)
-
-
-def get_stripe_customer_id(user_id: str) -> str | None:
-    """Return the user's Stripe customer id, or None if they have no customer yet."""
-    return ensure_profile(user_id).get("stripe_customer_id")
-
-
-def set_stripe_customer_id(user_id: str, customer_id: str) -> None:
-    """Persist a newly created Stripe customer id onto the profile."""
-    ensure_profile(user_id)
-    get_supabase().table("profiles").update(
-        {"stripe_customer_id": customer_id}
-    ).eq("id", user_id).execute()

@@ -14,18 +14,6 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     active: route.path === '/'
   },
   {
-    label: 'Markets',
-    icon: 'i-lucide-chart-bar',
-    to: '/markets',
-    active: route.path.startsWith('/markets')
-  },
-  {
-    label: 'Pricing',
-    icon: 'i-lucide-credit-card',
-    to: '/pricing',
-    active: route.path === '/pricing'
-  },
-  {
     label: 'Blog',
     icon: 'i-lucide-notebook-pen',
     to: '/blog',
@@ -40,12 +28,12 @@ useSchemaOrg([
     name: 'MentionsHero',
     url: 'https://mentionshero.com',
     logo: 'https://mentionshero.com/favicon.svg',
-    description: 'Search and analyze press briefing transcripts. Track what public figures say, linked to Kalshi mentions prediction markets.',
+    description: 'Free, searchable transcripts of press briefings, interviews and podcasts. Read what public figures actually said.',
   }),
   defineWebSite({
     name: 'MentionsHero',
     url: 'https://mentionshero.com',
-    description: 'Search and analyze press briefing transcripts linked to Kalshi mentions prediction markets.',
+    description: 'Free, searchable transcripts of press briefings, interviews and podcasts.',
   }),
 ])
 </script>
@@ -67,22 +55,20 @@ useSchemaOrg([
              breakpoint, so the drawer and the footer no longer carry their own. -->
         <UColorModeButton />
 
-        <!-- The auth cluster depends on the client session, so it must be
-             client-only. The fallback reserves the exact strip it will occupy,
-             otherwise the header's right edge jumps on every page load. -->
+        <!-- There are no visitor accounts: the whole archive is free and
+             anonymous, so a signed-out header offers nothing to sign in to.
+             The only session that exists is an admin's, and this strip is how
+             they get back to the dashboard. Client-only, because the session is
+             hydrated in the browser. -->
         <ClientOnly>
-          <template #fallback>
-            <div class="hidden h-8 w-[184px] lg:block" aria-hidden="true" />
-          </template>
-
           <template v-if="session">
             <UButton
-              to="/account"
+              to="/admin"
               variant="ghost"
               color="neutral"
               size="sm"
-              icon="i-lucide-circle-user"
-              label="Account"
+              icon="i-lucide-layout-dashboard"
+              label="Admin"
               class="hidden lg:inline-flex"
             />
             <UButton
@@ -95,45 +81,25 @@ useSchemaOrg([
               @click="logout"
             />
           </template>
-          <template v-else>
-            <UButton
-              to="/login"
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              label="Sign in"
-              class="hidden lg:inline-flex"
-            />
-            <UButton
-              to="/signup"
-              size="sm"
-              label="Start tracking"
-              class="hidden lg:inline-flex"
-            />
-          </template>
         </ClientOnly>
       </template>
 
       <template #body>
         <UNavigationMenu :items="navItems" orientation="vertical" class="-mx-2.5" />
 
-        <USeparator type="dashed" class="my-4" />
+        <ClientOnly>
+          <template v-if="session">
+            <USeparator type="dashed" class="my-4" />
 
-        <div class="flex flex-col gap-1">
-          <ClientOnly>
-            <template #fallback>
-              <div class="h-20" aria-hidden="true" />
-            </template>
-
-            <template v-if="session">
+            <div class="flex flex-col gap-1">
               <UButton
-                to="/account"
+                to="/admin"
                 variant="ghost"
                 color="neutral"
                 block
                 class="justify-start"
-                icon="i-lucide-circle-user"
-                label="Account"
+                icon="i-lucide-layout-dashboard"
+                label="Admin"
               />
               <UButton
                 variant="ghost"
@@ -144,27 +110,9 @@ useSchemaOrg([
                 label="Sign out"
                 @click="logout"
               />
-            </template>
-            <template v-else>
-              <UButton
-                to="/login"
-                variant="ghost"
-                color="neutral"
-                block
-                class="justify-start"
-                icon="i-lucide-log-in"
-                label="Sign in"
-              />
-              <UButton
-                to="/signup"
-                block
-                class="justify-start"
-                icon="i-lucide-user-plus"
-                label="Start tracking"
-              />
-            </template>
-          </ClientOnly>
-        </div>
+            </div>
+          </template>
+        </ClientOnly>
       </template>
     </UHeader>
 
@@ -174,8 +122,8 @@ useSchemaOrg([
       </UContainer>
     </UMain>
 
-    <!-- The footer does not repeat the nav. It says what the site counts, where
-         the numbers come from, and how to subscribe to them. -->
+    <!-- The footer does not repeat the nav. It says what the site holds and how
+         to follow it. -->
     <UFooter>
       <template #left>
         <div class="flex flex-col gap-1.5">
@@ -184,16 +132,13 @@ useSchemaOrg([
             <span class="text-sm font-bold tracking-[-0.02em] text-highlighted">MentionsHero</span>
           </span>
           <p class="max-w-xs text-sm text-muted">
-            We transcribe what public figures say, count the words that markets price, and show both side by side.
+            We transcribe what public figures say and make every word searchable. Free, for everyone.
           </p>
         </div>
       </template>
 
       <template #right>
         <div class="flex flex-col items-start gap-2 sm:items-end">
-          <p class="type-label text-dimmed">
-            Market data — Kalshi &amp; Polymarket
-          </p>
           <div class="flex items-center gap-4">
             <ULink
               to="/rss.xml"

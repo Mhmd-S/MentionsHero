@@ -22,7 +22,7 @@ The markets listing page fetches ALL open Mentions events directly from the Kals
 
 ### Data Flow
 1. **Listing page** calls `GET /api/kalshi/series/browse` → backend calls Kalshi v1 search API (`/v1/search/series?category=Mentions&tag={tag}`) for each tag, returns events grouped by tag with nested market previews
-2. **Detail page** uses event_ticker routing (`/markets/{event_ticker}`). Calls `GET /api/kalshi/events/by-ticker/{event_ticker}` which lazily upserts the series + event + markets into DB via `ensure_event(event_ticker)` on first access
+2. **Detail page** uses event_ticker routing (`/admin/markets/{event_ticker}`). Calls `GET /api/kalshi/events/by-ticker/{event_ticker}` which lazily upserts the series + event + markets into DB via `ensure_event(event_ticker)` on first access
 3. **Persona selection** happens on market detail pages — select a persona from the dropdown to view analysis
 
 ### Key Functions (kalshi_service.py)
@@ -108,80 +108,21 @@ When a persona is selected, term sections can be sorted and filtered via a toolb
 | `POST` | `/api/kalshi/series/{id}/events/{eid}/refresh` | Refresh single event |
 | `POST` | `/api/kalshi/analyze` | Analyze market opportunity |
 
-## Public Markets Pages
+## Markets are admin-only
 
-The public site exposes analyzed market data at `/markets` for all users, with analysis details gated behind premium subscription.
+There is **no public markets UI.** `/markets`, `/markets/[slug]`, `GET /api/public/markets`,
+`GET /api/public/markets/{slug}`, `app/composables/usePublicMarkets.ts` and the
+`get_public_markets_listing()` / `get_public_persona_markets()` service functions were all removed
+when the site became a free transcript archive. The public site is transcripts and the blog, and
+nothing else.
 
-### Visibility Control
-Events are only shown publicly when an admin explicitly enables them. Each event (Kalshi and Polymarket) has a `show_public` boolean column (default `false`). Admins toggle visibility from the event detail pages using the eye/hidden button in the event header. The public service filters events by `show_public = true` — no automatic logic based on mentions or activity.
+Everything described in this document is the **admin** tooling at `/admin/markets`, which is
+unchanged and fully intact: browsing, upserting, term extraction, analysis, Kalshi and Polymarket
+alike.
 
-### Pages
-
-Both public pages follow the design system in `docs/design-system.md` — venue sections are driven
-from one `SOURCES` array so Kalshi and Polymarket get identical treatment, never twin blocks of
-markup.
-
-**`/markets` (`app/pages/markets/index.vue`)** — SSR `useFetch('/api/public/markets')`.
-
-- `UPageHeader` with a `#description` slot carrying the tracked-event count as a `type-figure`
-- Filter bar: a `UInput type="search"` (matches event title **or** any top term) plus a
-  `<UiFilterToggle label="Venue">` with All / Kalshi / Polymarket and per-venue counts
-- One `<section>` per venue that still has results, each headed by a `rule-dotted` bar with the
-  venue name and an event-count `UBadge`; within a venue, events are grouped by persona
-- Each persona group has an avatar row (`UiPersonaAvatar`, name link to `/personas/{slug || id}`,
-  an "All markets" button to `/markets/{slug || id}`) above a 2-column card grid
-- Each event card links to **`/markets/{persona}#event-{event_id}`** — there is no public
-  per-event route, so the card addresses its event as an anchor on the persona page. It shows the
-  event image, title, a non-active status badge, a `type-caption` meta line (date · market count ·
-  total mentions in `text-mark-600 dark:text-mark-400`), and its top terms as `<UiTermChip>`s with
-  a `+N more` overflow
-- States: `UiLoadingBlock variant="cards"` → `UAlert` with a retry action on failure →
-  `UiEmptyState` (copy and action differ depending on whether filters are applied)
-- `<UiUpsellBanner>` at the foot for non-subscribers
-
-**`/markets/[slug]` (`app/pages/markets/[slug].vue`)** — persona fetched SSR for meta tags; the
-markets payload loads client-side.
-
-- `UBreadcrumb` (Transcripts → Markets → persona) and a `UPageHeader` whose `#headline` carries the
-  persona avatar and a `type-label`, with a "Transcripts" link in `#links`
-- Filter bar: search (matches event title, market question or search term) plus two
-  `<UiFilterToggle>`s — **Venue** (All/Kalshi/Polymarket) and **Status** (All/Active/Resolved)
-- Venue sections again, each event rendered with `id="event-{event_id}"` and `scroll-mt-24` so the
-  anchor from the listing page resolves; `scrollToHash()` re-scrolls after the client fetch lands,
-  because the browser tried to resolve the hash before the markup existed
-- Event header shows image, title, status badge, and a `type-figure` meta line with the
-  `event_ticker` and strike/end date
-- Each market is a `UCard`: a `<UiTermChip>` (term + price, coloured by `result`), a
-  "Resolved YES"/"Resolved NO" badge, the question, then the analysis `<dl>`
-
-### Paywall
-
-The gate on a market card is **field-absence**: the API omits `total_mentions` for free users, and
-`isUnlocked(market)` tests `market.total_mentions !== undefined`.
-
-- **Free users** see the term, the price, the result badge and the question. In place of the
-  analysis `<dl>` they get a lock icon and "Mention count is part of the subscription"
-- **Subscribers** get a `<dl>` of three `<UiStatRow semantic>` rows: **Mentions** (`tone="mark"`,
-  with a `<UiTallyRail>` beside the number), **Briefings** (`n/total · pct%`), and **Trend**
-  (`Rising` → `tone="yes"` + `i-lucide-trending-up`, `Falling` → `tone="no"` +
-  `i-lucide-trending-down`, otherwise `Stable` → `tone="muted"` + `i-lucide-minus`)
-- The response's `is_limited: true` drives the page-level `<UiUpsellBanner>`
-
-### Public API Endpoints
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/public/markets` | None | List events grouped by persona with top terms preview |
-| `GET` | `/api/public/markets/{slug}` | `optional_auth` | Persona markets with subscription-gated analysis |
-
-### Key Files (Public)
-| File | Purpose |
-|------|---------|
-| `app/pages/markets/index.vue` | Public markets listing. Fetches `/api/public/markets` with `useFetch` (SSR) |
-| `app/pages/markets/[slug].vue` | Persona markets detail. Persona via `useFetch` (SSR), markets via `usePublicApi().publicFetch` on mount |
-| `app/components/ui/TermChip.vue`, `TallyRail.vue`, `StatRow.vue`, `FilterToggle.vue`, `UpsellBanner.vue`, `EmptyState.vue`, `LoadingBlock.vue`, `NotFoundState.vue`, `PersonaAvatar.vue` | Shared UI — see `docs/design-system.md` |
-| `app/composables/usePublicMarkets.ts` | **Unused.** Neither public markets page imports it; both call the API directly |
-| `backend/services/public_service.py` | `get_public_markets_listing()`, `get_public_persona_markets()` |
-| `backend/routers/public.py` | Public market endpoints |
+The `show_public` column still exists on `kalshi_events` and `poly_events`, and the admin event
+header still toggles it. **It no longer has a consumer** — nothing reads it. Leave it alone unless
+a public markets surface is ever rebuilt.
 
 ## File Map (Admin)
 
@@ -262,7 +203,7 @@ Identical pipeline to Kalshi — same NLP functions (`calculate_term_frequency`,
 
 The **admin** markets page uses **tabs** (Kalshi | Polymarket) at the top. Tab state is persisted via `?tab=polymarket` query param. Detail pages are at `/admin/markets/poly/{event_id}`.
 
-The **public** pages do not use tabs — `/markets` and `/markets/[slug]` render one `<section>` per venue, generated from a single `SOURCES` loop, with a `<UiFilterToggle label="Venue">` to narrow to one. See "Public Markets Pages" above.
+(There are no public markets pages. This paragraph describes the admin surface only.) The venue sections in the admin detail pages render one `<section>` per venue, generated from a single `SOURCES` loop, with a `<UiFilterToggle label="Venue">` to narrow to one. See "Public Markets Pages" above.
 
 ### API Endpoints
 

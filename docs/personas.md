@@ -35,7 +35,7 @@ Create persona with aliases
 | Layer | File | Purpose |
 |-------|------|---------|
 | Page (admin) | `app/pages/admin/personas/index.vue` | Persona listing, create/edit/delete modals |
-| Page (admin) | `app/pages/admin/personas/[id].vue` | Persona detail, alias management, per-transcript Public/Premium toggles |
+| Page (admin) | `app/pages/admin/personas/[id].vue` | Persona detail, alias management, per-transcript Public/Premium toggles (`is_premium` is legacy — the public site ignores it) |
 | Page (public) | `app/pages/personas/[slug].vue` | Public speaker page — keyword search + transcript list (see below) |
 | Composable | `app/composables/usePersonas.ts` | Admin persona API calls |
 | Router | `backend/routers/personas.py` | Persona endpoints |
@@ -58,14 +58,12 @@ keyword search run client-side. Follows `docs/design-system.md`.
 - Below the header, a two-column grid at `lg`: the main column plus a sticky `<aside>` of margin
   metadata
 
-**Keyword search section** (premium)
+**Keyword search section**
 
-- A bordered `bg-elevated/40` panel headed "Search what {name} said", with a "Subscribers"
-  `UBadge color="primary"` for free users
-- **Free users**: the whole search is replaced by `<UiUpsellBanner variant="panel">`. There is no
-  disabled input — the panel stands in for the feature. A "Sign in" secondary link is offered only
-  when there is no session
-- **Subscribers**: a `UInput size="lg"`, debounced 500 ms, minimum two characters, hitting
+Free and open to everyone — no account, no gate, no badge.
+
+- A bordered `bg-elevated/40` panel headed "Search what {name} said"
+- A `UInput size="lg"`, debounced 500 ms, minimum two characters, hitting
   `GET /api/public/personas/{slug}/keyword-search`
 - Results open with a stat row: two `<UiStatRow layout="stack" size="lg">` blocks (Mentions with
   `tone="mark"`, Transcripts) and, when the data supports it, a per-briefing `<UiTallyRail>` in
@@ -76,21 +74,19 @@ keyword search run client-side. Follows `docs/design-system.md`.
   (escaped first — `v-html` is used for this field and no other). Overflow reads
   "+N more passages in this transcript"
 - Only the first five groups render; a "Show all N transcripts" toggle expands the rest
-- **Completeness guard**: the API caps matches at 100. When the cap bites (`is_limited`, or the
-  counted mentions do not equal `total_matches`), no tally rail is drawn at all and a caption says
+- **Completeness guard**: the API caps matches at 100. When the cap bites (the counted mentions do
+  not equal `total_matches`), no tally rail is drawn at all and a caption says
   "Showing the first N of M mentions" — a rail that under-counts is worse than no rail
 
 **Transcript list**
 
 - Heading with the total as a `type-figure`, a debounced (400 ms) filter input, and a two-button
   sort group (Date / Name) with `aria-pressed` and a chevron showing the direction
-- The list is a `<ul>` of `rule-dotted` rows: file icon, name, a "Premium" `UBadge color="primary"`
-  (premium is ink, never amber), a two-line preview, then date and folder in `type-caption`
+- The list is a `<ul>` of `rule-dotted` rows: file icon, name, a two-line preview, then date and
+  folder in `type-caption`
 - `UPagination` at 20 per page, with a "Showing 1–20 of N" line in mono
 - **A failed request is not an empty result.** A fetch error renders a `UAlert` with a "Load again"
-  action; the empty state only appears when the request succeeded and returned nothing. The
-  filter-empty copy differs for subscribers vs free users, because premium transcripts are not
-  searched on a free account
+  action; the empty state only appears when the request succeeded and returned nothing
 
 **Margin aside**
 
