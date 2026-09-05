@@ -29,3 +29,7 @@ logs
 
 # Downloads
 downloads/
+
+# Credential handoff docs (never commit)
+NEW_SUPABASE_HANDOFF.md
+*_HANDOFF.md
