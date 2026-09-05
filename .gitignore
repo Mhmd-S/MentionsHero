@@ -33,3 +33,13 @@ downloads/
 # Credential handoff docs (never commit)
 NEW_SUPABASE_HANDOFF.md
 *_HANDOFF.md
+
+# Credentials / cookie jars
+backend/cookies.txt
+cookies.txt
+*.cookies
+
+# Model artifacts (keep out of git)
+adapters/
+models/
+*.safetensors
