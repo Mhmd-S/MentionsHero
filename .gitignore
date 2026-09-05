@@ -43,3 +43,6 @@ cookies.txt
 adapters/
 models/
 *.safetensors
+
+# Claude Code local settings
+.claude/settings.local.json
